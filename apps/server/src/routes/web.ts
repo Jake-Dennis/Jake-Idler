@@ -218,11 +218,11 @@ const HTML = `<!DOCTYPE html>
     }
 
     .hero-row {
-      display: flex;
-      flex-direction: column;
+      display: flex !important;
+      flex-direction: column !important;
       align-items: stretch;
       justify-content: flex-start;
-      gap: 2px;
+      gap: 4px;
       padding: 10px 18px;
       background: #0d0d1f;
       border: 1px solid #1a1a3e;
