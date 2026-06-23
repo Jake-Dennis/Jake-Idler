@@ -88,40 +88,40 @@ Deferred to future release.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| ANIM-01 | | Pending |
-| ANIM-02 | | Pending |
-| ANIM-03 | | Pending |
-| ANIM-04 | | Pending |
-| COMBAT-01 | | Pending |
-| COMBAT-02 | | Pending |
-| COMBAT-03 | | Pending |
-| COMBAT-04 | | Pending |
-| COMBAT-05 | | Pending |
-| COMBAT-06 | | Pending |
-| COMBAT-07 | | Pending |
-| COMBAT-08 | | Pending |
-| COMBAT-09 | | Pending |
-| COMBAT-10 | | Pending |
-| COMBAT-11 | | Pending |
-| COMBAT-12 | | Pending |
-| COMBAT-13 | | Pending |
-| PART-01 | | Pending |
-| PART-02 | | Pending |
-| PART-03 | | Pending |
-| PART-04 | | Pending |
-| PART-05 | | Pending |
-| UI-01 | | Pending |
-| UI-02 | | Pending |
-| UI-03 | | Pending |
-| UI-04 | | Pending |
-| UI-05 | | Pending |
-| A11Y-01 | | Pending |
-| A11Y-02 | | Pending |
+| ANIM-01 | Phase 2 | Pending |
+| ANIM-02 | Phase 2 | Pending |
+| ANIM-03 | Phase 2 | Pending |
+| ANIM-04 | Phase 2 | Pending |
+| COMBAT-01 | Phase 4 | Pending |
+| COMBAT-02 | Phase 4 | Pending |
+| COMBAT-03 | Phase 4 | Pending |
+| COMBAT-04 | Phase 4 | Pending |
+| COMBAT-05 | Phase 4 | Pending |
+| COMBAT-06 | Phase 3 | Pending |
+| COMBAT-07 | Phase 5 | Pending |
+| COMBAT-08 | Phase 5 | Pending |
+| COMBAT-09 | Phase 5 | Pending |
+| COMBAT-10 | Phase 5 | Pending |
+| COMBAT-11 | Phase 3 | Pending |
+| COMBAT-12 | Phase 4 | Pending |
+| COMBAT-13 | Phase 3 | Pending |
+| PART-01 | Phase 6 | Pending |
+| PART-02 | Phase 6 | Pending |
+| PART-03 | Phase 6 | Pending |
+| PART-04 | Phase 6 | Pending |
+| PART-05 | Phase 6 | Pending |
+| UI-01 | Phase 7 | Pending |
+| UI-02 | Phase 7 | Pending |
+| UI-03 | Phase 7 | Pending |
+| UI-04 | Phase 7 | Pending |
+| UI-05 | Phase 7 | Pending |
+| A11Y-01 | Phase 8 | Pending |
+| A11Y-02 | Phase 8 | Pending |
 
 **Coverage:**
 - v1 requirements: 29 total
-- Mapped to phases: 0
-- Unmapped: 29 ⚠️
+- Mapped to phases: 29
+- Unmapped: 0 ✅
 
 ---
 *Requirements defined: 2026-06-24*
