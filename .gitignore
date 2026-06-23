@@ -11,3 +11,5 @@ token.txt
 hero-id.txt
 *.png
 *.jpg
+.omo/
+.playwright-mcp/
