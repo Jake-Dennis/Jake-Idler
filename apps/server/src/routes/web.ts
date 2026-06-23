@@ -219,9 +219,11 @@ const HTML = `<!DOCTYPE html>
 
     .hero-row {
       display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 14px 18px;
+      flex-direction: column;
+      align-items: stretch;
+      justify-content: flex-start;
+      gap: 2px;
+      padding: 10px 18px;
       background: #0d0d1f;
       border: 1px solid #1a1a3e;
       border-radius: 10px;
@@ -232,6 +234,40 @@ const HTML = `<!DOCTYPE html>
       border-color: #7c3aed;
       box-shadow: 0 0 0 1px rgba(124,58,237,0.15);
     }
+
+    .role-divider {
+      width: 100%;
+      text-align: center;
+      padding: 4px 0;
+      margin: 4px 0;
+      border-top: 1px solid #1a1a3e;
+    }
+    .role-label {
+      font-size: 0.7rem;
+      font-weight: 700;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+    }
+
+    .hero-card {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 10px;
+      background: #12122a;
+      border: 1px solid #1a1a3e;
+      border-radius: 8px;
+      flex: 1;
+      min-width: 120px;
+      max-width: 200px;
+    }
+    .hero-card.role-tank { border-color: #f97316; }
+    .hero-card.role-dps { border-color: #ef4444; }
+    .hero-card.role-healer { border-color: #22c55e; }
+    .hero-role-icon { font-size: 1.2rem; }
+    .hero-card-info { flex: 1; min-width: 0; }
+    .hero-card-name { font-size: 0.7rem; color: #8888aa; margin-bottom: 2px; }
+    .hero-hp { font-size: 0.65rem; color: #aaa; margin-top: 2px; }
 
     .hero-info {
       display: flex;
@@ -1057,16 +1093,33 @@ function renderPartyHeroes(partyHeroes) {
   var row = document.getElementById('hero-row');
   row.innerHTML = '';
   var icons = { tank: '\\uD83D\\uDEE1\\uFE0F', dps: '\\u2694\\uFE0F', healer: '\\uD83D\\uDC9A' };
-  partyHeroes.forEach(function(h) {
-    var card = document.createElement('div');
-    card.className = 'hero-card';
-    card.id = 'hero-' + h.heroId;
-    var pct = h.maxHp > 0 ? (h.hp / h.maxHp) * 100 : 0;
-    card.innerHTML = '<div class="hero-role-icon">' + (icons[h.role] || '\\u2694\\uFE0F') + '</div>' +
-      '<div class="hero-card-name">[' + h.role.toUpperCase() + ']</div>' +
-      '<div class="hp-bar-outer" style="width:100%"><div class="hp-bar-inner ' + hpColorClass(h.hp, h.maxHp) + '" style="width:' + pct + '%"></div></div>' +
-      '<div class="hero-hp">' + Math.round(h.hp) + '/' + Math.round(h.maxHp) + '</div>';
-    row.appendChild(card);
+  var roleOrder = ['tank', 'dps', 'healer'];
+  var roleLabels = { tank: 'TANK', dps: 'DPS', healer: 'HEALER' };
+
+  roleOrder.forEach(function(role) {
+    var heroes = partyHeroes.filter(function(h) { return h.role === role; });
+    if (heroes.length === 0) return;
+
+    // Role divider
+    var divider = document.createElement('div');
+    divider.className = 'role-divider';
+    divider.innerHTML = '<span class="role-label">' + icons[role] + ' ' + roleLabels[role] + '</span>';
+    row.appendChild(divider);
+
+    // Hero cards for this role
+    heroes.forEach(function(h) {
+      var card = document.createElement('div');
+      card.className = 'hero-card role-' + role;
+      card.id = 'hero-' + h.heroId;
+      var pct = h.maxHp > 0 ? (h.hp / h.maxHp) * 100 : 0;
+      card.innerHTML = '<div class="hero-role-icon">' + (icons[role] || '\\u2694\\uFE0F') + '</div>' +
+        '<div class="hero-card-info">' +
+        '<div class="hero-card-name">' + (h.heroId ? h.heroId.substring(0, 12) : role) + '</div>' +
+        '<div class="hp-bar-outer"><div class="hp-bar-inner ' + hpColorClass(h.hp, h.maxHp) + '" style="width:' + pct + '%"></div></div>' +
+        '<div class="hero-hp">' + Math.round(h.hp) + '/' + Math.round(h.maxHp) + '</div>' +
+        '</div>';
+      row.appendChild(card);
+    });
   });
 }
 
