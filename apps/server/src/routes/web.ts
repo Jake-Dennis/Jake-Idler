@@ -1023,7 +1023,7 @@ function addLog(type, msg) {
 function floatText(x, y, text, cls) {
   var el = document.createElement('div');
   el.className = 'float-text ' + (cls || '');
-  el.textContent = text;
+  el.textContent = (typeof text === 'number') ? Math.round(text) : text;
   el.style.left = x + 'px';
   el.style.top = y + 'px';
   document.body.appendChild(el);
@@ -1046,7 +1046,7 @@ function renderMonsters(monsters) {
     card.innerHTML = '<div class="monster-icon">' + icon + '</div>' +
       '<div class="monster-name">' + escHtml(m.name) + '</div>' +
       '<div class="hp-bar-outer" style="width:100%"><div class="hp-bar-inner ' + hpColorClass(m.hp, m.maxHp) + '" style="width:' + pct + '%"></div></div>' +
-      '<div class="monster-hp">' + m.hp + '/' + m.maxHp + '</div>';
+      '<div class="monster-hp">' + Math.round(m.hp) + '/' + Math.round(m.maxHp) + '</div>';
     if (m.isBoss) bossRow.appendChild(card);
     else monsterRow.appendChild(card);
   });
@@ -1065,7 +1065,7 @@ function renderPartyHeroes(partyHeroes) {
     card.innerHTML = '<div class="hero-role-icon">' + (icons[h.role] || '\\u2694\\uFE0F') + '</div>' +
       '<div class="hero-card-name">[' + h.role.toUpperCase() + ']</div>' +
       '<div class="hp-bar-outer" style="width:100%"><div class="hp-bar-inner ' + hpColorClass(h.hp, h.maxHp) + '" style="width:' + pct + '%"></div></div>' +
-      '<div class="hero-hp">' + h.hp + '/' + h.maxHp + '</div>';
+      '<div class="hero-hp">' + Math.round(h.hp) + '/' + Math.round(h.maxHp) + '</div>';
     row.appendChild(card);
   });
 }
@@ -1120,27 +1120,30 @@ function animateTransition(prev, next) {
 
       // Hero attacked
       if (h.damage > 0) {
+        var dmg = Math.round(h.damage);
         var wType = (h.heroId === hero.id) ? getWeaponType() : 'melee';
         playAttackAnimation(wType, h.heroId);
         var roleLabel = h.role.charAt(0).toUpperCase() + h.role.slice(1);
-        if (h.crit) addLog('crit', '[R' + round.round + '] ' + roleLabel + ' CRITS for ' + h.damage + '!');
-        else addLog('damage', '[R' + round.round + '] ' + roleLabel + ' hits for ' + h.damage);
+        if (h.crit) addLog('crit', '[R' + round.round + '] ' + roleLabel + ' CRITS for ' + dmg + '!');
+        else addLog('damage', '[R' + round.round + '] ' + roleLabel + ' hits for ' + dmg);
       }
 
       // Hero healed
       if (h.healingReceived > 0) {
-        playHealAnimation(h.heroId, h.healingReceived);
-        addLog('heal', '[R' + round.round + '] +' + h.healingReceived + ' HP healed');
+        var healAmt = Math.round(h.healingReceived);
+        playHealAnimation(h.heroId, healAmt);
+        addLog('heal', '[R' + round.round + '] +' + healAmt + ' HP healed');
       }
 
       // Hero took damage
       if (h.damageTaken > 0) {
-        playHitAnimation(h.heroId, h.damageTaken);
+        var dmgTaken = Math.round(h.damageTaken);
+        playHitAnimation(h.heroId, dmgTaken);
         if (h.role === 'tank') {
-          playBlockAnimation(h.heroId, h.damageTaken);
-          addLog('block', '[R' + round.round + '] Tank blocks ' + h.damageTaken + ' damage!');
+          playBlockAnimation(h.heroId, dmgTaken);
+          addLog('block', '[R' + round.round + '] Tank blocks ' + dmgTaken + ' damage!');
         } else {
-          addLog('damage', '[R' + round.round + '] ' + (h.role.charAt(0).toUpperCase() + h.role.slice(1)) + ' takes ' + h.damageTaken + (h.monsterCrit ? ' (CRIT!)' : ''));
+          addLog('damage', '[R' + round.round + '] ' + (h.role.charAt(0).toUpperCase() + h.role.slice(1)) + ' takes ' + dmgTaken + (h.monsterCrit ? ' (CRIT!)' : ''));
         }
       }
 
