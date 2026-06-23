@@ -249,6 +249,13 @@ const HTML = `<!DOCTYPE html>
       text-transform: uppercase;
     }
 
+    .role-heroes-row {
+      display: flex;
+      flex-direction: row;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
     .hero-card {
       display: flex;
       align-items: center;
@@ -1092,7 +1099,7 @@ function renderMonsters(monsters) {
 function renderPartyHeroes(partyHeroes) {
   var row = document.getElementById('hero-row');
   row.innerHTML = '';
-  var icons = { tank: '\\uD83D\\uDEE1\\uFE0F', dps: '\\u2694\\uFE0F', healer: '\\uD83D\\uDC9A' };
+  var icons = { tank: '\uD83D\uDEE1\uFE0F', dps: '\u2694\uFE0F', healer: '\uD83D\uDC9A' };
   var roleOrder = ['tank', 'dps', 'healer'];
   var roleLabels = { tank: 'TANK', dps: 'DPS', healer: 'HEALER' };
 
@@ -1103,23 +1110,27 @@ function renderPartyHeroes(partyHeroes) {
     // Role divider
     var divider = document.createElement('div');
     divider.className = 'role-divider';
-    divider.innerHTML = '<span class="role-label">' + icons[role] + ' ' + roleLabels[role] + '</span>';
+    divider.innerHTML = '<span class="role-label">' + (icons[role] || '\u2694\uFE0F') + ' ' + roleLabels[role] + '</span>';
     row.appendChild(divider);
 
-    // Hero cards for this role
+    // Horizontal row for this role's heroes
+    var heroRow = document.createElement('div');
+    heroRow.className = 'role-heroes-row';
+
     heroes.forEach(function(h) {
       var card = document.createElement('div');
       card.className = 'hero-card role-' + role;
       card.id = 'hero-' + h.heroId;
       var pct = h.maxHp > 0 ? (h.hp / h.maxHp) * 100 : 0;
-      card.innerHTML = '<div class="hero-role-icon">' + (icons[role] || '\\u2694\\uFE0F') + '</div>' +
+      card.innerHTML = '<div class="hero-role-icon">' + (icons[role] || '\u2694\uFE0F') + '</div>' +
         '<div class="hero-card-info">' +
         '<div class="hero-card-name">' + (h.heroId ? h.heroId.substring(0, 12) : role) + '</div>' +
         '<div class="hp-bar-outer"><div class="hp-bar-inner ' + hpColorClass(h.hp, h.maxHp) + '" style="width:' + pct + '%"></div></div>' +
         '<div class="hero-hp">' + Math.round(h.hp) + '/' + Math.round(h.maxHp) + '</div>' +
         '</div>';
-      row.appendChild(card);
+      heroRow.appendChild(card);
     });
+    row.appendChild(heroRow);
   });
 }
 
