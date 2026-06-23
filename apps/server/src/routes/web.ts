@@ -1376,6 +1376,11 @@ function enterDungeon() {
     document.getElementById('combat-log').innerHTML = '';
     prevState = null;
 
+    // Render heroes from the start response
+    if (data.heroes && data.heroes.length > 0) {
+      renderPartyHeroes(data.heroes);
+    }
+
     if (combatInterval) clearInterval(combatInterval);
     combatInterval = setInterval(pollCombat, 1500);
     return pollCombat();

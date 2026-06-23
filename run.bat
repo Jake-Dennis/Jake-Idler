@@ -7,8 +7,13 @@ echo   Jake Idler — Game Server
 echo ============================================
 echo.
 
+:: Kill any old server
+echo [1/3] Stopping old server...
+taskkill /f /im node.exe >nul 2>nul
+timeout /t 1 /nobreak >nul
+
 :: Build
-echo [1/2] Building...
+echo [2/3] Building...
 call npx turbo run build --filter=@jake-idler/server...
 if %errorlevel% neq 0 (
     echo Build failed!
@@ -17,7 +22,7 @@ if %errorlevel% neq 0 (
 )
 
 :: Start server directly (same window)
-echo [2/2] Starting server...
+echo [3/3] Starting server...
 echo.
 echo   Open http://localhost:3000 in your browser
 echo   Press Ctrl+C to stop the server
