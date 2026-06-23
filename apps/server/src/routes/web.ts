@@ -251,22 +251,21 @@ const HTML = `<!DOCTYPE html>
 
     .role-heroes-row {
       display: flex;
-      flex-direction: row;
-      gap: 8px;
+      justify-content: center;
+      gap: 12px;
       flex-wrap: wrap;
+      align-items: center;
     }
 
     .hero-card {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      padding: 6px 10px;
       background: #12122a;
       border: 1px solid #1a1a3e;
-      border-radius: 8px;
-      flex: 1;
-      min-width: 120px;
-      max-width: 200px;
+      border-radius: 10px;
+      padding: 10px 14px;
+      text-align: center;
+      min-width: 110px;
+      position: relative;
+      transition: transform .2s, box-shadow .2s;
     }
     .hero-card.role-tank { border-color: #f97316; }
     .hero-card.role-dps { border-color: #ef4444; }
@@ -1122,12 +1121,11 @@ function renderPartyHeroes(partyHeroes) {
       card.className = 'hero-card role-' + role;
       card.id = 'hero-' + h.heroId;
       var pct = h.maxHp > 0 ? (h.hp / h.maxHp) * 100 : 0;
+      var heroName = (h.heroId === hero.id) ? hero.name : (h.heroId.startsWith('bot_') ? h.heroId.substring(4, 12) + ' (Bot)' : h.heroId.substring(0, 10));
       card.innerHTML = '<div class="hero-role-icon">' + (icons[role] || '\u2694\uFE0F') + '</div>' +
-        '<div class="hero-card-info">' +
-        '<div class="hero-card-name">' + (h.heroId ? h.heroId.substring(0, 12) : role) + '</div>' +
+        '<div class="hero-card-name">' + heroName + '</div>' +
         '<div class="hp-bar-outer"><div class="hp-bar-inner ' + hpColorClass(h.hp, h.maxHp) + '" style="width:' + pct + '%"></div></div>' +
-        '<div class="hero-hp">' + Math.round(h.hp) + '/' + Math.round(h.maxHp) + '</div>' +
-        '</div>';
+        '<div class="hero-hp">' + Math.round(h.hp) + '/' + Math.round(h.maxHp) + '</div>';
       heroRow.appendChild(card);
     });
     row.appendChild(heroRow);
