@@ -879,7 +879,7 @@ body{font-family:system-ui,-apple-system,sans-serif;background:#0a0a14;color:#e0
       <div class="arena-row" id="boss-row"></div>
       <div class="arena-row" id="monster-row"></div>
       <div id="arena-divider" style="border-top:1px solid #1a1a3e;margin:4px 0"></div>
-      <div class="arena-row" id="hero-row"></div>
+      <div class="hero-row" id="hero-row"></div>
     </div>
 
     <div class="combat-log" id="combat-log"></div>
