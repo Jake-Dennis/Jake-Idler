@@ -257,21 +257,6 @@ const HTML = `<!DOCTYPE html>
       align-items: center;
     }
 
-    .hero-card {
-      background: #12122a;
-      border: 1px solid #1a1a3e;
-      border-radius: 10px;
-      padding: 10px 14px;
-      text-align: center;
-      min-width: 110px;
-      position: relative;
-      transition: transform .2s, box-shadow .2s;
-    }
-    .hero-card.role-tank { border-color: #f97316; }
-    .hero-card.role-dps { border-color: #ef4444; }
-    .hero-card.role-healer { border-color: #22c55e; }
-    .hero-role-icon { font-size: 1.2rem; }
-    .hero-card-info { flex: 1; min-width: 0; }
     .hero-card-name { font-size: 0.7rem; color: #8888aa; margin-bottom: 2px; }
     .hero-hp { font-size: 0.65rem; color: #aaa; margin-top: 2px; }
 
@@ -717,13 +702,17 @@ body{font-family:system-ui,-apple-system,sans-serif;background:#0a0a14;color:#e0
 .arena{display:grid;grid-template-rows:auto auto auto;gap:12px;padding:16px;background:#0d0d1f;border:1px solid #1a1a3e;border-radius:12px;min-height:320px;position:relative}
 .arena-row{display:flex;justify-content:center;gap:12px;flex-wrap:wrap;align-items:center}
 .monster-card,.hero-card{background:#12122a;border:1px solid #1a1a3e;border-radius:10px;padding:10px 14px;text-align:center;min-width:110px;position:relative;transition:transform .2s,box-shadow .2s}
-.monster-card.boss{min-width:180px;padding:16px 24px;border-color:#fbbf24}
-.monster-card.boss .monster-icon{font-size:2.5rem}
-.monster-card.is-focus{border-color:#a855f7;box-shadow:0 0 15px rgba(168,85,247,.3)}
-.monster-icon{font-size:1.8rem;margin-bottom:4px}
-.monster-name,.hero-card-name{font-size:.8rem;font-weight:600;color:#e0e0e0;margin-bottom:4px}
-.monster-hp,.hero-hp{font-size:.75rem;color:#8888aa;margin-top:2px}
-.hero-role-icon{font-size:1.3rem;margin-bottom:2px}
+    .monster-card.boss{min-width:180px;padding:16px 24px;border-color:#fbbf24}
+    .monster-card.boss .monster-icon{font-size:2.5rem}
+    .monster-card.is-focus{border-color:#a855f7;box-shadow:0 0 15px rgba(168,85,247,.3)}
+    .monster-icon{font-size:1.8rem;margin-bottom:4px}
+    .monster-name,.hero-card-name{font-size:.8rem;font-weight:600;color:#e0e0e0;margin-bottom:4px}
+    .monster-hp,.hero-hp{font-size:.75rem;color:#8888aa;margin-top:2px}
+    .hero-role-icon{font-size:1.3rem;margin-bottom:2px}
+    .hero-card{border:1px solid #1a1a3e;min-width:130px;max-width:170px}
+    .hero-card.role-tank{border-color:#f97316}
+    .hero-card.role-dps{border-color:#ef4444}
+    .hero-card.role-healer{border-color:#22c55e}
 
 /* ── Combat Log ── */
 .combat-log{max-height:180px;overflow-y:auto;background:#0d0d1f;border:1px solid #1a1a3e;border-radius:8px;padding:10px;margin-top:12px;font-size:.78rem;line-height:1.5}
