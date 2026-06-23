@@ -1,0 +1,13 @@
+node_modules/
+dist/
+*.tsbuildinfo
+*.log
+data/*.db
+data/*.db-journal
+upload/
+playwright-report/
+test-results/
+token.txt
+hero-id.txt
+*.png
+*.jpg
