@@ -934,12 +934,11 @@ body{font-family:system-ui,-apple-system,sans-serif;background:#0a0a14;color:#e0
 </div>
 
 <script>
-(function(){
 'use strict';
 
 var hero = JSON.parse(document.getElementById('hero-data').textContent);
 var token = localStorage.getItem('token');
-if (!token) { window.location.href = '/game'; return; }
+if (!token) { window.location.href = '/game'; throw new Error('No token'); }
 
 var combatInterval = null;
 var isLooping = false;
@@ -1808,7 +1807,7 @@ function showPartyInParty(party) {
       (m.isOnline ? '<span style="color:#22c55e">\\u25CF Online</span>' : '<span style="color:#555577">\\u25CB Offline</span>');
 
     if (m.isBot) {
-      html += '<button onclick="removeBot(\'' + m.playerId + '\')" style="color:red;border:1px solid red;border-radius:4px;padding:2px 8px;font-size:.75rem;background:transparent;cursor:pointer;margin-left:auto">\\u2716 Remove Bot</button>';
+      html += '<button onclick="removeBot(&apos;' + m.playerId + '&apos;)" style="color:red;border:1px solid red;border-radius:4px;padding:2px 8px;font-size:.75rem;background:transparent;cursor:pointer;margin-left:auto">\\u2716 Remove Bot</button>';
     }
 
     if (m.playerId === hero.playerId) {
@@ -1977,7 +1976,7 @@ function loadInvites() {
       var div = document.createElement('div');
       div.style.cssText = 'display:flex;justify-content:space-between;align-items:center;padding:8px 12px;background:#0d0d1f;border:1px solid #1a1a3e;border-radius:6px;margin:4px 0';
       div.innerHTML = '<span style="color:#e0e0e0;font-weight:600">' + escHtml(inv.partyName) + '</span>' +
-        '<button onclick="acceptInvite(\'' + inv.partyId + '\')" class="btn btn-primary btn-sm" style="width:auto">Accept</button>';
+        '<button onclick="acceptInvite(&apos;' + inv.partyId + '&apos;)" class="btn btn-primary btn-sm" style="width:auto">Accept</button>';
       container.appendChild(div);
     }
   })
@@ -1998,7 +1997,6 @@ function acceptInvite(partyId) {
   .catch(function(err) { alert(err.message); });
 }
 
-})();
 </script>
 </body>
 </html>`;

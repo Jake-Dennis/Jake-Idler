@@ -18,7 +18,7 @@ import { initDatabase } from "./db/connection.js";
 
 const app = express();
 const server = createServer(app);
-const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3001;
+const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 
 // Middleware
 app.use(cors({ origin: "*", credentials: true }));
@@ -28,6 +28,11 @@ app.use(express.json());
 app.use("/uploads", express.static(path.resolve(import.meta.dirname, "..", "uploads")));
 
 // Routes
+// Redirect root to game
+app.get("/", (_req, res) => {
+  res.redirect("/game");
+});
+
 app.get("/api/health", (_req, res) => {
   res.json({ status: "ok" });
 });

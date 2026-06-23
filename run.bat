@@ -7,8 +7,8 @@ echo   Jake Idler — Game Server
 echo ============================================
 echo.
 
-:: Build game package + server (turbo handles deps)
-echo Building...
+:: Build
+echo [1/2] Building...
 call npx turbo run build --filter=@jake-idler/server...
 if %errorlevel% neq 0 (
     echo Build failed!
@@ -16,11 +16,15 @@ if %errorlevel% neq 0 (
     exit /b %errorlevel%
 )
 
-:: Start the game server (port 3001)
-echo Starting server on http://localhost:3001
+:: Start server directly (same window)
+echo [2/2] Starting server...
 echo.
-start "Jake-Idler Server" cmd /c "cd /d apps\server && node dist\index.js"
-
-echo Server started. Close this window to stop the server.
+echo   Open http://localhost:3000 in your browser
+echo   Press Ctrl+C to stop the server
 echo.
-pause
+cd /d apps\server
+node dist\index.js
+if %errorlevel% neq 0 (
+    echo Server exited with error code %errorlevel%
+    pause
+)
