@@ -1532,6 +1532,13 @@ if (typeof io !== 'undefined' && token) {
   .catch(function() {});
 })();
 
+// ─── Re-check combat state when tab becomes visible again ──
+document.addEventListener('visibilitychange', function() {
+  if (!document.hidden && !combatInterval) {
+    checkPartyCombat();
+  }
+});
+
 // ─── Periodic tab refresh (keeps all tabs in sync with server state) ──
 setInterval(function() {
   var tab = document.querySelector('.tab-content.active');
