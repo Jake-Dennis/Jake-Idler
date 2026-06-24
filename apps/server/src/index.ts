@@ -15,6 +15,18 @@ import webRoutes from "./routes/web.js";
 import { initSocketIO } from "./socket/index.js";
 import { initDatabase } from "./db/connection.js";
 import { initCombatTick } from "./services/combat-service.js";
+import { config } from "./config/index.js";
+import { setUpPinoHttp } from "./observability/logger.js";
+import { authLimiter, combatStartLimiter, partyCreateLimiter, lootCraftLimiter } from "./middleware/rate-limit.js";
+
+// Boot-time safety checks
+if (process.env.NODE_ENV === "production") {
+  const secret = process.env.JWT_SECRET || "";
+  if (!secret || secret === "dev-secret-change-in-production") {
+    console.error("[FATAL] JWT_SECRET must be set to a non-default value in production");
+    process.exit(1);
+  }
+}
 
 const app = express();
 const server = createServer(app);
@@ -31,6 +43,15 @@ process.on('uncaughtException', (err) => {
 // Middleware
 app.use(cors({ origin: "*", credentials: true }));
 app.use(express.json());
+setUpPinoHttp(app);
+
+// Rate limiting on mutation endpoints
+app.use("/api/auth/login", authLimiter);
+app.use("/api/auth/guest", authLimiter);
+app.use("/api/auth/register", authLimiter);
+app.use("/api/heroes", combatStartLimiter);  // POST /:id/combat/start
+app.use("/api/party", partyCreateLimiter);    // POST /create
+app.use("/api/heroes", lootCraftLimiter);     // POST /:id/loot/craft
 
 // Serve uploaded hero photos statically
 app.use("/uploads", express.static(path.resolve(import.meta.dirname, "..", "uploads")));
@@ -68,11 +89,6 @@ initCombatTick();
 server.listen(PORT, () => {
   initDatabase();
   console.log(`Server running on http://localhost:${PORT}`);
-  // Periodic leaderboard refresh
-  setInterval(async () => {
-    const { leaderboardService } = await import("./services/leaderboard-service.js");
-    await leaderboardService.updateLeaderboard();
-  }, 10_000);
 });
 
 // Graceful shutdown
