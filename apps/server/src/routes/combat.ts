@@ -165,25 +165,7 @@ router.get("/:id/combat/status", requireAuth, async (req, res) => {
         isCurrentFocus: m === currentMonster,
       }));
 
-    // Broadcast combat state to party members via Socket.IO
-    if (isPartyCombat) {
-      try { getIO().to(`party:${runId}`).emit('party:combat-update', {
-        inCombat: true,
-        finished: false,
-        monsters,
-        round: lastRound ? {
-          round: lastRound.round,
-          heroDamage: lastRound.totalHeroDamage,
-          monsterDamage: lastRound.monsterDamage,
-          monsterHp: lastRound.monsterHp,
-          monsterMaxHp: lastRound.monsterMaxHp,
-          currentMonsterName: lastRound.currentMonsterName,
-          currentMonsterIsBoss: lastRound.currentMonsterIsBoss,
-          monsterJustKilled: lastRound.monsterJustKilled,
-          partyHeroes: lastRound.partyHeroes,
-        } : null,
-      }); } catch (_) {}
-    }
+    // State broadcast to party room is handled by onTick callback — not here
 
     res.json({
       inCombat: true,
