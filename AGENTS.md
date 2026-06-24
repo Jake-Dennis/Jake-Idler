@@ -1,145 +1,98 @@
-# Jake Idler — Agent Instructions
+# Jake-Idler — Project Knowledge Base
 
-## Repo Overview
+**Generated:** 2026-06-25 04:30 UTC
+**Commit:** d3f539d
+**Branch:** main
 
-Monorepo (Turborepo + npm workspaces) with two packages:
+## OVERVIEW
 
-| Package | Path | Role |
-|---------|------|------|
-| `@jake-idler/server` | `apps/server` | Express.js + SQLite (Drizzle ORM) + Socket.IO, serves SPA at `:3000` |
-| `@jake-idler/game` | `packages/game` | Pure TS game logic (combat, loot, hero stats) |
+Incremental/idle web game (TypeScript, Express, Drizzle/SQLite). Monorepo with Turborepo + npm workspaces: `apps/server` (Express backend + SPA) and `packages/game` (pure-TS game logic library).
 
-## Commands
+## STRUCTURE
 
-| Command | What it does |
-|---------|-------------|
-| `npm run dev` | `turbo dev` — runs `tsx watch src/index.ts` for server |
-| `npm run build` | `turbo build` — compiles both packages (order: game → server) |
-| `npm test --prefix packages/game` | 35 vitest tests in game package |
-| `npm run dev --prefix apps/server` | Dev mode for server only (hot reload via tsx watch) |
-| `node dist/index.js` | Run built server from `apps/server/` |
-| `run.bat` | Kill old node.exe, turbo build server, start production |
-
-## Architecture
-
-### Server entrypoint
-`apps/server/src/index.ts` — mounts routes, initializes DB, starts leaderboard refresh (10s interval). No game tick loop at startup; combat tick loop starts per-run via `combat-service.ts`.
-
-### Routes (10 files in `apps/server/src/routes/`)
-- `/game`, `/game/:heroId` → `web.ts` (vanilla JS SPA template, ~2300 lines)
-- `/api/auth/*` → `auth.ts`
-- `/api/heroes/*` → `heroes.ts`, `hero-photo.ts`
-- `/api/heroes/:id/combat/*` → `combat.ts`
-- `/api/heroes/:id/dungeon/*` → `dungeon.ts`
-- `/api/heroes/:id/loot/*` → `loot.ts`
-- `/api/party/*` → `party.ts`
-- `/api/friends/*` → `friends.ts`
-- `/api/leaderboard/*` → `leaderboard.ts`
-
-### Combat flow (server-authoritative)
 ```
-POST /combat/start → CombatService.startFloorRun() → tick loop
-  → every 1s: processRound() [combat-engine.ts] → finaliseRound() → broadcast via Socket.IO
-  → client: socket handler (animateTransition) + polling fallback (GET /status, 1s)
-  → status endpoint returns run.lastRound — does NOT process rounds
+./
+├── apps/server/          # Express :3000 — routes, services, auth, socket, DB
+│   └── src/
+│       ├── index.ts          # Entry point (Express boot, route wiring, socket init)
+│       ├── game/             # Multiplayer runtime: tick scheduler, event bus, session manager, serializers, validators, rate-limit
+│       ├── routes/           # 10 REST routers → /api/{auth,heroes,combat,…}
+│       ├── services/         # 7 singletons — combat, hero, party, loot, dungeon, friend, leaderboard
+│       ├── auth/             # JWT (7-day), bcrypt, middleware (requireAuth)
+│       ├── db/               # Drizzle ORM + better-sqlite3, schema
+│       ├── socket/           # Socket.IO + legacy Godot WebSocket (subscribes to gameEvents)
+│       ├── animation/        # Client-side CSS animation FSM (dead code — misplaced)
+│       ├── store/            # In-memory player cache (1 file)
+│       └── middleware/       # Rate-limit middleware
+├── packages/game/        # Pure-TS game engine (no I/O)
+│   └── src/
+│       ├── index.ts          # Barrel export: types, combat, dungeon, loot, hero-stats
+│       ├── combat-engine.ts  # Damage calc, crit, round processing
+│       ├── dungeon.ts        # Floor generation, bracket bosses
+│       ├── hero-stats.ts     # Stat computation, equipment stat assembly
+│       ├── loot.ts           # Drop tables, salvage, crafting
+│       └── types/            # Config, enums, equipment/hero/monster/floor/social
+├── docs/                 # GEAR-BALANCE.md
+├── data/                 # SQLite DB (orphan — live DB is in apps/server/data/)
+├── Jake-Assets/          # Game art (not yet wired into source)
+└── ARCHITECTURE.md       # Design doc (minor doc drift vs on-disk layout)
 ```
 
-### Web client (vanilla JS SPA)
-- Single file (`web.ts`) serves HTML template string + embedded `<script>` with all JS
-- Styles: `apps/server/static/css/game.css` (dark gothic) and `login.css`
-- Lucide icons loaded from CDN (`unpkg.com/lucide`)
-- Combat animations via `animateTransition()` with CSS classes + `animSleep()`
+## WHERE TO LOOK
 
-### Database
-- SQLite via `better-sqlite3` + Drizzle ORM
-- Schema: `apps/server/src/db/schema/schema.ts` — players, heroes, parties, etc.
-- Shards stored as JSON `{rarity}_{bracketLevel}` keys (e.g. `rare_10`)
+| Task | Location | Notes |
+|------|----------|-------|
+| Add a route | `apps/server/src/routes/` + register in `index.ts` | `export default Router()` |
+| Add business logic | `apps/server/src/services/` | Singleton pattern |
+| Change game balance | `packages/game/src/` | Tuning in `config.ts` constants |
+| Change DB schema | `apps/server/src/db/schema/` | Drizzle, SQLite, migration in `drizzle/` |
+| Fix auth | `apps/server/src/auth/` | JWT in `jwt.ts`, guard in `middleware.ts` |
+| Change UI | `apps/server/src/routes/web.ts` | 2.3K-line SPA — extract if large changes |
+| Edit CSS | `apps/server/static/css/` | `game.css` (26KB), `login.css` (8KB) |
+| Add game logic tests | `packages/game/tests/` | Vitest |
+| Deploy | No CI/CD exists | Manual; no Docker, no workflow files |
 
-### Game package (`packages/game`)
-- `combat-engine.ts` — pure math (damage, crit, processCombat, monster generation)
-- `loot.ts` — loot generation, crafting costs, salvage values
-- `hero-stats.ts` — stat formula: per-slot = BASE + level + rarityFlat
-- `dungeon.ts` — floor/monster generation, bracket equipment levels
-- Uses `break_infinity.js` (BigNumber) for stats; all UI values displayed as integers
+## CONVENTIONS
 
-## Conventions & Gotchas
+| Concern | Standard | Enforced? |
+|---------|----------|-----------|
+| TypeScript | Strict mode, ES2022, ESNext modules, bundler resolution | tsc --noEmit |
+| Imports | `.js` ext on relative paths, `import type` for types, external first | Convention |
+| File names | `kebab-case` (except `animation/` — PascalCase legacy) | Convention |
+| Classes/Types | `PascalCase`, functions `camelCase`, const tables `SCREAMING_SNAKE` | Convention |
+| Strings | Double quotes | Convention |
+| Indentation | 2 spaces | Convention |
+| Tests | Vitest, co-located `*.test.ts` in server; separate `tests/` in game | Framework |
+| Services | Singleton pattern: `export const xxxService = new XxxService()` | Convention |
+| No linter/formatter | Only `tsc --noEmit` for lint | Known gap |
 
-- **Dark gothic theme**: bg `#0a0a14`, card `#12122a`, border `#1a1a3e`, gold `#fbbf24`, purple `#7c3aed`, green `#22c55e`, red `#ef4444`
-- **Desktop-first** — no mobile responsive support; 4 breakpoints exist (1400/900/899/480)
-- **All numbers displayed as integers** — Math.round() all display values
-- **Equipment**: 12 slots (2 weapon, 5 armor, 5 accessory); formula: additive BASE + level + rarityFlat (tier × 10)
-- **Monster HP scaling**: 1500 × floor^0.3 × bossMultiplier; party HP multiplier: 1 + (sqrt(N)-1) × 0.5
-- **LOOP mode**: auto-repeats only on victory, stops on manual STOP or page close
-- **Gold penalty**: deducted once on wipe (guarded by `goldPenaltyApplied` flag)
-- **Hero photos**: uploaded via multer, served from `/uploads/`, square avatars
-- **Custom monster images**: `Jake-Assets/Trash-Mobs/` and `Jake-Assets/Boss/`, served at `/assets/`
-- **Socket.IO rooms**: solo → `hero:{heroId}`, party → `party:{partyId}`
+## ANTI-PATTERNS (THIS PROJECT)
 
-## Known Stale Facts (ARCHITECTURE.md is outdated)
+- **`as any` / `as any[]`** — 30+ casts across `hero-service`, `party-service`. Drizzle row types are `any`; define `HeroRow` etc. instead.
+- **Empty catch blocks** — `catch (_) {}` in `combat.ts`, `party.ts`. Socket.io emission failures are silently swallowed. **(Fixed in d3f539d — replaced with pino logging)** 
+- **No-op called on timer** — `leaderboardService.updateLeaderboard()` runs every 10s but does nothing. **(Removed in d3f539d)**
+- **Dead infrastructure** — `CombatRole`/`CombatPosition` enums (all heroes are DPS/Middle), `spd` field on equipment, half-finished animation reorg.
+- **Mutation of DB rows** — `toResponse()` mutates the Drizzle row object instead of copying.
+- **No Node engine pin** — `packageManager` set, but no `engines` block or `.nvmrc`.
+- **Socket rooms trust the client** — `party:join-room` had no membership check. **(Fixed in d3f539d — now validates via partyService)**
+- **Tick loop in route file** — `combatService.startTickLoop()` was called as a side-effect on route import. **(Fixed in d3f539d — moved to index.ts boot)**
+- **Duplicate combat state serialize** — `routes/combat.ts` inlined the same JSON shape in 2 places. **(Fixed in 1f8c3ac — centralized in combat-serializer)**
 
-- ARCHITECTURE.md says "No WebSocket for gameplay — REST polling only" — WRONG. Server uses Socket.IO for combat broadcasts + 1s polling fallback.
-- ARCHITECTURE.md says "1.5s interval" — WRONG. Current polling interval is 1000ms.
-- `apps/server/src/animation/` (EntityAnimFSM, AnimationQueue, CombatDiff) was deleted — dead code removed.
-- Gold penalty has `goldPenaltyApplied` guard — not an infinite drain.
+## COMMANDS
 
-## Known Issues
+```bash
+turbo dev          # Dev — tsx watch + turborepo
+turbo build        # Build — tsc all packages
+turbo lint         # Type-check only (tsc --noEmit)
+turbo clean        # Remove dist/ + *.tsbuildinfo
+npm test           # Only runs if in packages/game (vitest)
+cd apps/server && npm test  # Server tests (vitest)
+```
 
-- Socket.IO connections are inconsistent — client often falls back to polling only (animations drop, HP bars still sync)
-- Server crashes from unhandled rejections — global handlers added in `index.ts`
-- Tick loop processes runs every 1s regardless of activity — idle loops remain in memory
+## NOTES
 
-## GitNexus
-
-<!-- gitnexus:start -->
-# GitNexus — Code Intelligence
-
-This project is indexed by GitNexus as **Jake-Idler** (537 symbols, 1164 relationships, 23 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
-
-> Index stale? Run `node .gitnexus/run.cjs analyze` from the project root — it auto-selects an available runner. No `.gitnexus/run.cjs` yet? `npx gitnexus analyze` (npm 11 crash → `npm i -g gitnexus`; #1939).
-
-## Always Do
-
-- **MUST run impact analysis before editing any symbol.** Before modifying a function, class, or method, run `impact({target: "symbolName", direction: "upstream"})` and report the blast radius (direct callers, affected processes, risk level) to the user.
-- **MUST run `detect_changes()` before committing** to verify your changes only affect expected symbols and execution flows. For regression review, compare against the default branch: `detect_changes({scope: "compare", base_ref: "main"})`.
-- **MUST warn the user** if impact analysis returns HIGH or CRITICAL risk before proceeding with edits.
-- When exploring unfamiliar code, use `query({search_query: "concept"})` to find execution flows instead of grepping. It returns process-grouped results ranked by relevance.
-- When you need full context on a specific symbol — callers, callees, which execution flows it participates in — use `context({name: "symbolName"})`.
-- For security review, `explain({target: "fileOrSymbol"})` lists taint findings (source→sink flows; needs `analyze --pdg`).
-
-## Never Do
-
-- NEVER edit a function, class, or method without first running `impact` on it.
-- NEVER ignore HIGH or CRITICAL risk warnings from impact analysis.
-- NEVER rename symbols with find-and-replace — use `rename` which understands the call graph.
-- NEVER commit changes without running `detect_changes()` to check affected scope.
-
-## Resources
-
-| Resource | Use for |
-|----------|---------|
-| `gitnexus://repo/Jake-Idler/context` | Codebase overview, check index freshness |
-| `gitnexus://repo/Jake-Idler/clusters` | All functional areas |
-| `gitnexus://repo/Jake-Idler/processes` | All execution flows |
-| `gitnexus://repo/Jake-Idler/process/{name}` | Step-by-step execution trace |
-
-## CLI
-
-| Task | Read this skill file |
-|------|---------------------|
-| Understand architecture / "How does X work?" | `.claude/skills/gitnexus/gitnexus-exploring/SKILL.md` |
-| Blast radius / "What breaks if I change X?" | `.claude/skills/gitnexus/gitnexus-impact-analysis/SKILL.md` |
-| Trace bugs / "Why is X failing?" | `.claude/skills/gitnexus/gitnexus-debugging/SKILL.md` |
-| Rename / extract / split / refactor | `.claude/skills/gitnexus/gitnexus-refactoring/SKILL.md` |
-| Tools, resources, schema reference | `.claude/skills/gitnexus/gitnexus-guide/SKILL.md` |
-| Index, status, clean, wiki CLI commands | `.claude/skills/gitnexus/gitnexus-cli/SKILL.md` |
-| Work in the Services area (32 symbols) | `.claude/skills/generated/services/SKILL.md` |
-| Work in the Socket area (7 symbols) | `.claude/skills/generated/socket/SKILL.md` |
-| Work in the Cluster_62 area (6 symbols) | `.claude/skills/generated/cluster-62/SKILL.md` |
-| Work in the Cluster_60 area (4 symbols) | `.claude/skills/generated/cluster-60/SKILL.md` |
-| Work in the Cluster_61 area (4 symbols) | `.claude/skills/generated/cluster-61/SKILL.md` |
-| Work in the Cluster_67 area (4 symbols) | `.claude/skills/generated/cluster-67/SKILL.md` |
-| Work in the Cluster_68 area (4 symbols) | `.claude/skills/generated/cluster-68/SKILL.md` |
-
-<!-- gitnexus:end -->
-
-Note: skill files under `.claude/skills/generated/` are GitNexus-generated and may reference deleted code (e.g. Animation area, 14 symbols — code was removed). Re-run `node .gitnexus/run.cjs analyze` to refresh.
+- **DB drift:** `.env.example` documents PostgreSQL + Redis — it's SQLite. Ignore it.
+- **Two DB files:** `data/jake_idler.db` (root, orphan) and `apps/server/data/jake_idler.db` (live). `.gitignore` covers root but not server.
+- **`packages/game` types** point to `./src/index.ts` (source, not dist). Works because no project references.
+- **`animation/` is dead code** — browser-side CSS/WAAPI code sitting in the server package with zero runtime callers.
+- **`run.bat` kills ALL node processes** before launch. Use `turbo dev` instead.
