@@ -665,8 +665,10 @@ class CombatService {
     }
 
     for (const h of aliveHeroes) {
-      // Cap loot floor to the hero's own progression level
-      const heroFloor = heroFloorMap.get(h.heroId) || 1;
+      // Skip bots — they don't have real hero records in the DB
+      if (!heroFloorMap.has(h.heroId)) continue;
+
+      const heroFloor = heroFloorMap.get(h.heroId)!;
       const cappedFloor = Math.min(run.floorNumber, Math.max(1, heroFloor));
 
       await db
