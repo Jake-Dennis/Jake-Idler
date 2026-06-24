@@ -1,5 +1,5 @@
 import { v4 as uuidv4 } from "uuid";
-import { eq } from "drizzle-orm";
+import { eq, like } from "drizzle-orm";
 import { db } from "../db/connection.js";
 import { players } from "../db/schema/index.js";
 
@@ -37,15 +37,16 @@ class PlayerStore {
   }
 
   async findByUsername(username: string): Promise<Player | undefined> {
-    // Check cache first (fast path for current-session players)
+    const lower = username.toLowerCase();
+    // Check cache first (case-insensitive)
     for (const player of this.cache.values()) {
-      if (player.username === username) return player;
+      if (player.username.toLowerCase() === lower) return player;
     }
-    // Fall back to DB (e.g. after server restart)
+    // Fall back to DB using case-insensitive LIKE
     const rows = await db
       .select()
       .from(players)
-      .where(eq(players.username, username))
+      .where(like(players.username, username))
       .limit(1);
     if (rows.length === 0) return undefined;
     const row = rows[0];
