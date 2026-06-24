@@ -1731,14 +1731,14 @@ function loadParty() {
 function showPartyNotInParty() {
   document.getElementById('party-not-in').style.display = 'block';
   document.getElementById('party-in').style.display = 'none';
-  document.getElementById('party-invites').style.display = 'none';
+  loadInvites();
 }
 
 function showPartyInParty(party) {
   document.getElementById('party-not-in').style.display = 'none';
   document.getElementById('party-in').style.display = 'block';
   document.getElementById('party-title').textContent = party.name;
-  document.getElementById('party-info').textContent = 'Members: ' + party.memberCount + '/' + party.maxSize + ' \\u00B7 Floor ' + party.currentFloor;
+  document.getElementById('party-info').innerHTML = 'Members: ' + party.memberCount + '/' + party.maxSize + ' \\u00B7 Floor ' + party.currentFloor + '<br /><span style="font-size:.72rem;color:#3a373a">ID: ' + party.id + '</span>';
 
   var membersDiv = document.getElementById('party-members');
   membersDiv.innerHTML = '';
