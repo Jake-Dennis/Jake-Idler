@@ -97,9 +97,6 @@ router.get("/:id/combat/status", requireAuth, async (req, res) => {
     return;
   }
 
-  // Advance combat by one round (poll-and-advance)
-  combatService.processOneRound(runId);
-
   // Deduct floor gold on wipe
   if (run.floorFailed && run.floorGoldValue > 0) {
     await db
@@ -269,31 +266,6 @@ router.get("/:id/combat/status", requireAuth, async (req, res) => {
   });
 });
 
-// GET /:id/combat/party-status — get party's current combat status (for non-leader members)
-router.get("/:id/combat/party-status", requireAuth, async (req, res) => {
-  const heroId = req.params.id as string;
-  const runId = combatService.getPartyIdForHero(heroId);
-  if (!runId || runId.startsWith("solo_")) { res.json({ inCombat: false }); return; }
-
-  const run = combatService.getPartyFloorRun(runId);
-  if (!run) { res.json({ inCombat: false }); return; }
-
-  const currentMonster = run.monsters[run.currentMonsterIndex];
-  const monsters = run.monsters.filter(m => m.currentHp > 0).map(m => ({
-    id: m.data.id, name: m.data.name, isBoss: m.data.isBoss,
-    hp: m.currentHp, maxHp: m.maxHp, isCurrentFocus: m === currentMonster,
-  }));
-
-  res.json({
-    inCombat: !run.floorCompleted && !run.floorFailed,
-    finished: run.floorCompleted || run.floorFailed,
-    floorCompleted: run.floorCompleted,
-    floorFailed: run.floorFailed,
-    monsters,
-    round: run.lastRound ?? null,
-  });
-});
-
 // GET /:id/combat/monster — get current monster details
 router.get("/:id/combat/monster", requireAuth, async (req, res) => {
   const heroId = req.params.id as string;
@@ -318,5 +290,47 @@ router.get("/:id/combat/monster", requireAuth, async (req, res) => {
     },
   });
 });
+
+// ─── Server-authoritative tick loop ─────────────────────────
+// After each tick, broadcast combat state to the party room via Socket.IO.
+combatService.onTick = (runId: string, run: any) => {
+  if (!run || runId.startsWith("solo_")) return;
+
+  const lastRound = run.lastRound;
+  const currentMonster = run.monsters?.[run.currentMonsterIndex];
+  const monsters = run.monsters
+    ?.filter((m: any) => m.currentHp > 0)
+    .map((m: any) => ({
+      id: m.data.id, name: m.data.name, isBoss: m.data.isBoss,
+      hp: m.currentHp, maxHp: m.maxHp, isCurrentFocus: m === currentMonster,
+    })) || [];
+
+  const state: any = {
+    inCombat: !run.floorCompleted && !run.floorFailed,
+    finished: run.floorCompleted || run.floorFailed,
+    floorCompleted: run.floorCompleted,
+    floorFailed: run.floorFailed,
+    monsters,
+    round: lastRound ?? null,
+  };
+
+  if (run.floorCompleted || run.floorFailed) {
+    state.result = {
+      heroWon: run.floorCompleted,
+      totalRounds: lastRound?.round ?? 0,
+      goldEarned: run.totalGoldRewarded ?? 0,
+      goldLost: run.floorFailed ? (run.floorGoldValue ?? 0) : 0,
+      monstersDefeated: run.monstersDefeated ?? 0,
+      totalMonsters: run.totalMonsters ?? 0,
+      shardsEarned: run.shardsEarned ?? {},
+    };
+  }
+
+  try {
+    getIO().to(`party:${runId}`).emit("party:combat-update", state);
+  } catch (_) {}
+};
+
+combatService.startTickLoop();
 
 export default router;

@@ -125,6 +125,22 @@ const HEAL_PRIORITY: CombatRole[] = [
 
 class CombatService {
   private partyFloors: Map<string, PartyFloorRunState> = new Map();
+  public tickInterval: ReturnType<typeof setInterval> | null = null;
+  public onTick: ((runId: string, run: PartyFloorRunState) => void) | null = null;
+
+  startTickLoop(): void {
+    if (this.tickInterval) return;
+    this.tickInterval = setInterval(() => this.tick(), 1000);
+    console.log('[Combat] Tick loop started');
+  }
+
+  stopTickLoop(): void {
+    if (this.tickInterval) {
+      clearInterval(this.tickInterval);
+      this.tickInterval = null;
+      console.log('[Combat] Tick loop stopped');
+    }
+  }
 
   isInCombat(heroId: string): boolean {
     return this.getActivePartyIdForHero(heroId) !== null;
@@ -286,6 +302,7 @@ class CombatService {
       if (run.floorCompleted || run.floorFailed) continue;
       try {
         this.processRound(partyId, run);
+        if (this.onTick) this.onTick(partyId, run);
       } catch (err) {
         console.error(`[Combat] Error processing ${partyId}:`, err);
       }

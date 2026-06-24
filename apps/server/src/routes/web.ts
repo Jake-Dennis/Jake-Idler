@@ -556,14 +556,11 @@ var hero = JSON.parse(document.getElementById('hero-data').textContent);
 var token = localStorage.getItem('token');
 if (!token) { window.location.href = '/game'; throw new Error('No token'); }
 
-var combatInterval = null;
 var isLooping = false;
 var loopCount = 0;
 var totalGoldEarned = 0;
-var inCombat = false;
 var showingResult = false;
 var combatGen = 0;
-var prevState = null;
 var currentParty = null;
 
 // ─── Weapon Type ───────────────────────────────────────────
@@ -1155,7 +1152,6 @@ function enterDungeon() {
     document.getElementById('start-btn').style.display = 'none';
     document.getElementById('stop-btn').style.display = '';
     document.getElementById('combat-log').innerHTML = '';
-    prevState = null;
 
     // Floor announcement
     var announce = document.getElementById('floor-announce');
@@ -1185,108 +1181,10 @@ function enterDungeon() {
     // Render monsters from the start response
     if (data.monsters && data.monsters.length > 0) {
       renderMonsters(data.monsters);
-      prevMonsterIds = data.monsters.map(function(m) { return m.id; });
     }
-
-    if (combatInterval) { clearTimeout(combatInterval); combatInterval = null; }
-    combatInterval = setTimeout(pollCombat, 500);
-    return pollCombat();
   })
   .catch(function(err) {
     if (!isLooping) alert(err.message);
-  });
-}
-
-// ─── Poll Combat ───────────────────────────────────────────
-var prevMonsterIds = null;
-
-function pollCombat() {
-  return fetch('/api/heroes/' + hero.id + '/combat/status', {
-    headers: { 'Authorization': 'Bearer ' + token },
-  })
-  .then(function(res) { return res.json(); })
-  .then(async function(state) {
-    if (!state || !state.round) {
-      prevState = null;
-      return;
-    }
-
-    if (state.round) {
-      document.getElementById('round-counter').textContent = 'Round ' + state.round.round;
-    }
-
-    if (prevState) {
-      await animateTransition(prevState, state);
-
-      // Re-render monsters when lineup changes (monster died, new one appears)
-      if (state.monsters) {
-        if (prevState.monsters) {
-          var currMonIds = state.monsters.map(function(m) { return m.id; }).sort().join(',');
-          var prevMonIds = prevState.monsters.map(function(m) { return m.id; }).sort().join(',');
-          if (currMonIds !== prevMonIds) {
-            renderMonsters(state.monsters);
-            // Fade in the first monster card as entrance animation
-            var firstCard = document.querySelector('.monster-card');
-            if (firstCard) { firstCard.classList.add('animate-fade-in'); setTimeout(function() { firstCard.classList.remove('animate-fade-in'); }, 500); }
-            // Boss announcement
-            var bossCard = document.querySelector('.monster-card.boss');
-            if (bossCard && state.monsters.length === 1) {
-              var announce = document.getElementById('floor-announce');
-              if (announce) {
-                announce.textContent = 'BOSS FIGHT';
-                announce.style.cssText = 'opacity:0;transform:scale(0.3);transition:none';
-                announce.offsetHeight;
-                announce.style.transition = 'opacity .6s ease, transform .6s ease';
-                announce.style.opacity = '1';
-                announce.style.transform = 'scale(1)';
-                setTimeout(function() {
-                  announce.style.opacity = '0';
-                  announce.style.transform = 'scale(1.5)';
-                  announce.style.transition = 'opacity .6s ease, transform .6s ease';
-                }, 1500);
-              }
-            }
-          } else {
-            updateMonsterBars(state.monsters);
-          }
-        } else {
-          renderMonsters(state.monsters);
-        }
-      }
-      if (state.round && state.round.partyHeroes) {
-        updateHeroBars(state.round.partyHeroes);
-      }
-    } else {
-      if (state.monsters) {
-        renderMonsters(state.monsters);
-        prevMonsterIds = state.monsters.map(function(m) { return m.id; });
-      }
-      if (state.round && state.round.partyHeroes) {
-        renderPartyHeroes(state.round.partyHeroes);
-      }
-      if (state.round && state.round.partyHeroes) {
-        updateHeroBars(state.round.partyHeroes);
-      }
-      if (state.round) addLog('info', state.round.currentMonsterName + ' appears!');
-    }
-
-    // Only set prevState when we have round data
-    if (state.round) prevState = state;
-
-    if (state.finished) {
-      if (combatInterval) { clearTimeout(combatInterval); combatInterval = null; }
-      showResult(state);
-      return;
-    } else {
-      showingResult = false;
-      combatInterval = setTimeout(pollCombat, 500);
-    }
-  })
-  .catch(function(err) {
-    console.error('Poll failed:', err);
-    if (!showingResult) {
-      combatInterval = setTimeout(pollCombat, 2000);
-    }
   });
 }
 
@@ -1391,7 +1289,6 @@ document.getElementById('result-retry-btn').addEventListener('click', function()
 document.getElementById('start-btn').addEventListener('click', enterDungeon);
 
 document.getElementById('stop-btn').addEventListener('click', function() {
-  if (combatInterval) { clearTimeout(combatInterval); combatInterval = null; }
   document.getElementById('combat-arena').classList.remove('active');
   document.getElementById('start-btn').style.display = '';
   document.getElementById('stop-btn').style.display = 'none';
@@ -1401,13 +1298,12 @@ document.getElementById('stop-btn').addEventListener('click', function() {
 
 function loopRetry() {
   // Reset arena for next run
-  prevState = null;
   document.getElementById('combat-log').innerHTML = '';
   document.getElementById('boss-row').innerHTML = '';
   document.getElementById('monster-row').innerHTML = '';
   document.getElementById('hero-row').innerHTML = '';
 
-  // Re-enter
+  // Re-enter — tick loop handles round processing
   var floor = parseInt(document.getElementById('floor-select').value);
   fetch('/api/heroes/' + hero.id + '/combat/start', {
     method: 'POST',
@@ -1417,14 +1313,15 @@ function loopRetry() {
   .then(function(res) { return res.json().then(function(d) { if (!res.ok) throw new Error(d.error || 'Failed'); return d; }); })
   .then(function() {
     combatGen++;
-    if (combatInterval) { clearTimeout(combatInterval); combatInterval = null; }
-    combatInterval = setTimeout(pollCombat, 500);
-    return pollCombat();
+    showingResult = false;
+    document.getElementById('combat-arena').classList.add('active');
+    document.getElementById('start-btn').style.display = 'none';
+    document.getElementById('stop-btn').style.display = '';
   })
   .catch(function(err) {
     if (isLooping) {
-      // Don't clear showingResult — if old finished state is polled, showResult is still blocked
-      combatInterval = setTimeout(pollCombat, 2000);
+      // Tick loop auto-retries on next tick if combat is active
+      setTimeout(loopRetry, 2000);
     } else {
       alert(err.message);
       isLooping = false;
@@ -1443,8 +1340,8 @@ function toggleLoop() {
     return;
   }
   updateLoopUI();
-  // Auto-enter dungeon if not already in combat
-  if (!combatInterval) {
+  // Auto-enter dungeon if not already showing combat
+  if (!document.getElementById('combat-arena').classList.contains('active')) {
     enterDungeon();
   }
 }
@@ -1503,51 +1400,82 @@ if (typeof io !== 'undefined' && token) {
   socket.on('party:member-joined', function() { loadParty(); });
   socket.on('party:member-left', function() { loadParty(); });
   socket.on('party:role-changed', function() { loadParty(); });
-  socket.on('party:combat-update', function(state) { handleCombatState(state); });
   socket.on('connect_error', function(err) { console.error('[Socket] Error:', err.message); });
-}
 
-// ─── Auto-join active combat if in a party ──────────────────
-// Party members use the same pollCombat() as the leader — just check
-// if the party has combat running and start polling.
-(function checkPartyCombat() {
-  if (!token) return;
-  fetch('/api/heroes/' + hero.id + '/combat/status', {
-    headers: { 'Authorization': 'Bearer ' + token },
-  })
-  .then(function(r) { return r.json(); })
-  .then(function(state) {
-    if (state.inCombat && !combatInterval) {
-      document.getElementById('combat-arena').classList.add('active');
-      document.getElementById('start-btn').style.display = 'none';
-      document.getElementById('stop-btn').style.display = '';
-      combatInterval = 1;
-      pollCombat();
-    } else if (state.finished) {
+  // Server-authoritative combat ticks — replaces all polling
+  var combatState = null;
+  socket.on('party:combat-update', async function(state) {
+    if (state.finished) {
+      if (state.round && combatState && combatState.round &&
+          state.round.round > combatState.round.round) {
+        await animateTransition(combatState, state);
+      }
       document.getElementById('combat-arena').classList.remove('active');
       document.getElementById('start-btn').style.display = '';
       document.getElementById('stop-btn').style.display = 'none';
+      showResult({
+        floorCompleted: state.floorCompleted,
+        floorFailed: state.floorFailed,
+        round: state.round,
+        result: state.result || {},
+      });
+      combatState = null;
+      return;
     }
-  })
-  .catch(function() {});
-})();
 
-// ─── Re-check combat state when tab becomes visible again ──
-document.addEventListener('visibilitychange', function() {
-  if (!document.hidden && !combatInterval) {
-    checkPartyCombat();
-  }
-});
+    document.getElementById('combat-arena').classList.add('active');
+    document.getElementById('start-btn').style.display = 'none';
+    document.getElementById('stop-btn').style.display = '';
 
-// ─── Periodic tab refresh (keeps all tabs in sync with server state) ──
+    if (combatState && state.round && state.round.round > combatState.round.round) {
+      await animateTransition(combatState, state);
+    } else {
+      if (state.monsters) renderMonsters(state.monsters);
+      if (state.round && state.round.partyHeroes) {
+        renderPartyHeroes(state.round.partyHeroes);
+        updateHeroBars(state.round.partyHeroes);
+      }
+      if (state.round && state.round.currentMonsterName) {
+        addLog('info', state.round.currentMonsterName + ' appears!');
+      }
+    }
+
+    if (state.round) {
+      document.getElementById('round-counter').textContent = 'Round ' + state.round.round;
+      combatState = state;
+    }
+  });
+}
+
+// ─── Initial state fetch on page load (catches up after refresh) ──
+if (token) {
+  (function() {
+    fetch('/api/heroes/' + hero.id + '/combat/status', {
+      headers: { 'Authorization': 'Bearer ' + token },
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(state) {
+      if (state.inCombat) {
+        document.getElementById('combat-arena').classList.add('active');
+        document.getElementById('start-btn').style.display = 'none';
+        document.getElementById('stop-btn').style.display = '';
+      } else if (state.finished) {
+        document.getElementById('combat-arena').classList.remove('active');
+        document.getElementById('start-btn').style.display = '';
+        document.getElementById('stop-btn').style.display = 'none';
+      }
+    })
+    .catch(function() {});
+  })();
+}
+
+// ─── Periodic tab refresh ──
 setInterval(function() {
   var tab = document.querySelector('.tab-content.active');
   if (!tab) return;
   if (tab.id === 'tab-equipment') loadEquipment();
   if (tab.id === 'tab-party') loadParty();
   if (tab.id === 'tab-crafting') loadCrafting();
-  // Re-check combat state if not already polling
-  if (!combatInterval) checkPartyCombat();
 }, 5000);
 
 // ─── Equipment ─────────────────────────────────────────────
