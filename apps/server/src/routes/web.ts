@@ -358,7 +358,7 @@ function generateGameHtml(hero: HeroResponse): string {
 <script id="hero-data" type="application/json">${heroJson}</script>
 
 <!-- ═══════════ HERO BAR ═══════════ -->
-<div class="hero-bar" id="hero-bar">
+<div class="hero-bar animate-torch-flicker" id="hero-bar">
   <div class="hero-avatar" id="hero-avatar-wrap" title="Change photo">
     <img id="hero-avatar-img" src="${hero.photoUrl || ''}" alt="${safeName}" style="${hero.photoUrl ? '' : 'display:none'}">
     <div class="hero-avatar-placeholder" id="hero-avatar-placeholder" style="${hero.photoUrl ? 'display:none' : ''}">${safeName.charAt(0).toUpperCase()}</div>
@@ -374,6 +374,7 @@ function generateGameHtml(hero: HeroResponse): string {
     <span id="hero-bar-hp">${hero.stats.hp}</span>/<span id="hero-bar-maxhp">${hero.stats.hp}</span>
   </span>
   <span class="h-stat"><i data-lucide="coins" style="width:14px;height:14px"></i> <span class="h-val" id="hero-bar-gold">${hero.gold}</span></span>
+  <button id="shake-toggle" style="background:transparent;border:1px solid #2a2020;border-radius:4px;color:#5a555a;font-size:.7rem;cursor:pointer;padding:2px 6px;margin-left:auto" title="Toggle screen shake">Shake</button>
 </div>
 
 <!-- ═══════════ TABS ═══════════ -->
@@ -410,6 +411,7 @@ function generateGameHtml(hero: HeroResponse): string {
       <div class="arena-row" id="monster-row"></div>
       <div id="arena-divider" style="border-top:1px solid #1a1518;margin:6px 0"></div>
       <div class="hero-row" id="hero-row"></div>
+      <div class="vignette-flash" id="vignette-flash"></div>
     </div>
 
     <div class="combat-log" id="combat-log"></div>
@@ -744,7 +746,7 @@ function computeAnimationSteps(prev, next) {
       // Hero dealt damage
       if (h.damage > 0) {
         var wType = (h.heroId === hero.id) ? getWeaponType() : 'melee';
-        steps.push({ type: 'ATTACK', entityId: 'hero-' + h.heroId, weaponType: wType, damage: Math.round(h.damage), isCrit: h.crit, stepIndex: stepIndex++ });
+        steps.push({ type: 'ATTACK', entityId: 'hero-' + h.heroId, weaponType: wType, role: h.role, damage: Math.round(h.damage), isCrit: h.crit, stepIndex: stepIndex++ });
 
         // Monster impact (monster-global)
         steps.push({ type: 'HIT', entityId: null, damage: Math.round(h.damage), isCrit: h.crit, stepIndex: stepIndex++ });
@@ -930,6 +932,41 @@ AnimationQueue.prototype._playStep = async function(step) {
 
   // Standard CSS-class-based animation for all other step types
   var classNames = EFFECT_TO_CSS_CLASS[step.type];
+  if (step.type === 'ATTACK' && (!step.weaponType || step.weaponType === 'melee')) {
+    if (step.role === 'tank') {
+      classNames = ['animate-shield', 'animate-windup'];
+    } else {
+      var wt = step.weaponType || 'melee';
+      if (wt === 'melee' || wt === 'sword') classNames = ['animate-slash'];
+      else if (wt === 'dagger') classNames = ['animate-stab'];
+      else if (wt === 'axe') classNames = ['animate-overhead'];
+      else classNames = ['animate-lunge'];
+    }
+  }
+
+  // Healing animations
+  if (step.type === 'HEAL') {
+    classNames = ['animate-heal-cast'];
+  }
+
+  // Boss entrance screen shake
+  if (step.type === 'MONSTER_APPEAR') {
+    var bossCard = document.querySelector('.monster-card.boss');
+    if (bossCard) {
+      var arena = document.querySelector('.arena');
+      if (arena) { arena.classList.add('animate-shake-screen'); setTimeout(function() { arena.classList.remove('animate-shake-screen'); }, 500); }
+    }
+  }
+
+  // Boss death screen effects
+  if (step.type === 'MONSTER_DEATH') {
+    var bossCard = document.querySelector('.monster-card.boss');
+    if (bossCard) {
+      classNames = ['animate-shake', 'animate-fade-out'];
+      var arena = document.querySelector('.arena');
+      if (arena) { arena.classList.add('animate-shake-screen', 'crit'); setTimeout(function() { arena.classList.remove('animate-shake-screen', 'crit'); }, 600); }
+    }
+  }
 
   // Resolve DOM element
   var el = document.getElementById(entityId);
@@ -958,6 +995,52 @@ AnimationQueue.prototype._playStep = async function(step) {
   // Remove CSS classes
   el.classList.remove.apply(el.classList, classNames);
 
+  // Damage numbers on HIT
+  if (step.type === 'HIT' && step.damage) {
+    var dmgColor = step.isCrit ? 'crit' : 'damage';
+    var r = el.getBoundingClientRect();
+    floatText(r.left + r.width/2 - 20, r.top - 10, Math.round(step.damage), dmgColor);
+  }
+
+  // Particles
+  if (step.type === 'HIT' && step.damage && el) {
+    var rect = el.getBoundingClientRect();
+    emitParticles('hit', rect.left + rect.width/2, rect.top + rect.height/2, 6);
+  }
+  if ((step.type === 'DEATH' || step.type === 'MONSTER_DEATH') && el) {
+    var rect = el.getBoundingClientRect();
+    emitParticles('death', rect.left + rect.width/2, rect.top + rect.height/2, 12);
+  }
+  if (step.type === 'HEAL' && el) {
+    var rect = el.getBoundingClientRect();
+    emitParticles('heal', rect.left + rect.width/2, rect.top, 6);
+  }
+  if (step.type === 'BLOCK' && el) {
+    var rect = el.getBoundingClientRect();
+    emitParticles('block', rect.left + rect.width/2, rect.top + rect.height/2, 6);
+  }
+
+  // Shadow pool on death
+  if ((step.type === 'DEATH' || step.type === 'MONSTER_DEATH') && el) {
+    el.classList.add('animate-shadow-pool');
+  }
+
+  // Hit-stop for melee attacks
+  if (step.type === 'ATTACK' && (!step.weaponType || step.weaponType === 'melee')) {
+    var monEl = document.querySelector('.monster-card.is-focus') || document.querySelector('.monster-card:first-child');
+    if (monEl) { monEl.classList.add('animate-hit-stop'); await new Promise(function(r) { setTimeout(r, 80); }); monEl.classList.remove('animate-hit-stop'); }
+  }
+
+  // Heal recipient glow
+  if (step.type === 'HEAL' && next.round && next.round.partyHeroes) {
+    var healTargetEl = document.getElementById(entityId);
+    if (healTargetEl) {
+      healTargetEl.classList.add('animate-heal-received');
+      await new Promise(function(r) { setTimeout(r, 500); });
+      healTargetEl.classList.remove('animate-heal-received');
+    }
+  }
+
   // Advance FSM
   if (targetState === 'DEAD') {
     // Stay dead
@@ -979,6 +1062,39 @@ AnimationQueue.prototype._resolveEntityId = function(step) {
   if (first && first.id) return first.id;
   return 'monster-focus';
 };
+
+// ─── DIY Particle System ────────────────────────────────────
+var PARTICLE_POOL = [];
+var PARTICLE_POOL_SIZE = 30;
+var PARTICLE_COLORS = {
+  hit: ['#ff8800', '#ffaa44', '#ffcc66', '#ffffff'],
+  death: ['#884422', '#664422', '#442211', '#ff4444'],
+  heal: ['#44cc44', '#66ee66', '#88ff88', '#aaffaa'],
+  block: ['#6688ff', '#88aaff', '#aaccff', '#ffffff']
+};
+for (var pi = 0; pi < PARTICLE_POOL_SIZE; pi++) {
+  var p = document.createElement('div');
+  p.className = 'particle';
+  p.style.cssText = 'position:fixed;width:6px;height:6px;border-radius:50%;pointer-events:none;z-index:500;opacity:0;transition:none';
+  document.body.appendChild(p);
+  PARTICLE_POOL.push(p);
+}
+var PARTICLE_IDX = 0;
+function emitParticles(type, x, y, count) {
+  var colors = PARTICLE_COLORS[type] || PARTICLE_COLORS.hit;
+  for (var i = 0; i < (count || 8); i++) {
+    var p = PARTICLE_POOL[PARTICLE_IDX % PARTICLE_POOL_SIZE]; PARTICLE_IDX++;
+    var angle = Math.random() * Math.PI * 2;
+    var speed = 40 + Math.random() * 80;
+    var distX = Math.cos(angle) * speed;
+    var distY = Math.sin(angle) * speed - 20;
+    var color = colors[Math.floor(Math.random() * colors.length)];
+    p.style.cssText = 'position:fixed;width:' + (4 + Math.random() * 4) + 'px;height:' + p.style.width + ';border-radius:50%;pointer-events:none;z-index:500;background:' + color + ';box-shadow:0 0 4px ' + color + ';left:' + x + 'px;top:' + y + 'px;opacity:1;transition:all ' + (300 + Math.random() * 200) + 'ms ease-out';
+    p.style.transform = 'translate(' + distX + 'px,' + distY + 'px) scale(0.3)';
+    setTimeout(function(el) { el.style.opacity = '0'; }, 20);
+    setTimeout(function(el) { el.style.cssText = 'position:fixed;width:6px;height:6px;border-radius:50%;pointer-events:none;z-index:500;opacity:0;transition:none'; }, 600);
+  }
+}
 
 // ─── Init Pipeline Globals ─────────────────────────────────
 var animFSM = new EntityAnimFSM();
@@ -1056,6 +1172,32 @@ async function animateTransition(prev, next) {
   // Update HP bars after animations
   if (next.monsters) updateMonsterBars(next.monsters);
   if (next.round.partyHeroes) updateHeroBars(next.round.partyHeroes);
+
+  // Screen effects
+  var hasCrit = false;
+  var hasHeavyHit = false;
+  steps.forEach(function(s) {
+    if (s.isCrit) hasCrit = true;
+    if (s.type === 'HIT' || s.type === 'ATTACK') hasHeavyHit = true;
+    // Enhanced crit float text
+    if (s.isCrit && s.entityId && s.damage) {
+      var targetEl = document.getElementById(s.entityId);
+      if (targetEl) {
+        var r = targetEl.getBoundingClientRect();
+        floatText(r.left + r.width/2 - 20, r.top - 20, Math.round(s.damage) + '!', 'crit');
+      }
+    }
+  });
+  var arena = document.querySelector('.arena');
+  if (hasCrit && arena) {
+    arena.classList.add('animate-shake-screen', 'crit');
+    var vf = document.getElementById('vignette-flash');
+    if (vf) { vf.className = 'vignette-flash crit flash'; setTimeout(function() { vf.className = 'vignette-flash'; }, 200); }
+    setTimeout(function() { arena.classList.remove('animate-shake-screen', 'crit'); }, 500);
+  } else if (hasHeavyHit && arena) {
+    arena.classList.add('animate-shake-screen');
+    setTimeout(function() { arena.classList.remove('animate-shake-screen'); }, 300);
+  }
 
   // Emit combat log entries from step metadata
   steps.forEach(function(s) { addCombatLogEntry(s, next); });
@@ -1796,6 +1938,12 @@ function acceptInvite(partyId) {
   })
   .catch(function(err) { alert(err.message); });
 }
+
+// ─── Shake Toggle ───────────────────────────────────────────
+document.getElementById('shake-toggle').addEventListener('click', function() {
+  document.body.classList.toggle('no-shake');
+  this.textContent = document.body.classList.contains('no-shake') ? 'Shake:OFF' : 'Shake:ON';
+});
 
 // ─── Photo Upload ──────────────────────────────────────────
 document.getElementById('hero-avatar-wrap').addEventListener('click', function() {

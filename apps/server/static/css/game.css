@@ -1,5 +1,5 @@
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-body{font-family:'Cinzel',system-ui,sans-serif;background:#030203;color:#9a949a;min-height:100vh}
+body{font-family:'Cinzel',system-ui,sans-serif;background:#030203;color:#b0a8b0;min-height:100vh}
 svg[data-lucide]{display:inline;vertical-align:middle}
 .btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:10px 20px;border:none;border-radius:4px;font-size:0.9rem;font-weight:600;cursor:pointer;transition:all .2s;text-decoration:none;text-transform:uppercase;letter-spacing:.5px}
 .btn:active{transform:scale(.97)}
@@ -136,7 +136,33 @@ svg[data-lucide]{display:inline;vertical-align:middle}
 @keyframes fadeIn{0%{opacity:0;transform:translateY(12px)}100%{opacity:1;transform:translateY(0)}}
 @keyframes bossPulse{0%,100%{box-shadow:0 0 25px rgba(60,50,20,.15),inset 0 0 30px rgba(60,50,20,.05)}50%{box-shadow:0 0 40px rgba(60,50,20,.25),inset 0 0 50px rgba(60,50,20,.1)}}
 
-/* ── Party ── */
+/* ── Screen Effects ── */
+.animate-shake-screen{animation:screenShake .3s ease;animation-duration:.3s}
+.animate-shake-screen.crit{animation-duration:.5s}
+@keyframes screenShake{0%{transform:translate3d(0,0,0)}10%{transform:translate3d(-4px,-2px,0)}20%{transform:translate3d(4px,2px,0)}30%{transform:translate3d(-3px,1px,0)}40%{transform:translate3d(3px,-1px,0)}50%{transform:translate3d(-2px,0,0)}60%{transform:translate3d(2px,0,0)}100%{transform:translate3d(0,0,0)}}
+.animate-hit-stop{animation:hitStop .08s ease;animation-duration:.08s}
+@keyframes hitStop{0%,100%{animation-play-state:running}50%{animation-play-state:paused}}
+.vignette-flash{position:absolute;inset:0;pointer-events:none;z-index:10;border-radius:6px;opacity:0;transition:opacity .6s ease}
+.vignette-flash.show{opacity:1}
+.vignette-flash.crit{background:radial-gradient(ellipse at center,transparent 50%,rgba(139,26,26,.4) 100%)}
+.vignette-flash.round{background:radial-gradient(ellipse at center,transparent 50%,rgba(0,0,0,.6) 100%)}
+.vignette-flash.flash{animation:vignetteFlash .2s ease;animation-duration:.2s}
+@keyframes vignetteFlash{0%{opacity:0}50%{opacity:1}100%{opacity:0}}
+.float-text.crit{font-size:1.3rem;text-shadow:0 0 12px rgba(184,134,11,.6)}
+
+/* ── Hero Class Animations ── */
+.animate-slash{animation:slash .35s ease-out;animation-duration:.35s}
+@keyframes slash{0%{transform:translate(0,0) rotate(0deg)}30%{transform:translate(30px,-10px) rotate(-15deg)}60%{transform:translate(50px,0) rotate(-30deg)}100%{transform:translate(0,0) rotate(0deg)}}
+.animate-stab{animation:stab .25s ease-out;animation-duration:.25s}
+@keyframes stab{0%{transform:translate(0,0)}40%{transform:translate(60px,0)}60%{transform:translate(60px,0)}100%{transform:translate(0,0)}}
+.animate-overhead{animation:overhead .4s ease-out;animation-duration:.4s}
+@keyframes overhead{0%{transform:translate(0,0) scale(1)}25%{transform:translate(20px,-20px) scale(.8)}50%{transform:translate(50px,0) scale(1.2)}100%{transform:translate(0,0) scale(1)}}
+.animate-heal-cast{animation:healCast .5s ease;animation-duration:.5s}
+@keyframes healCast{0%{box-shadow:0 0 0 transparent}50%{box-shadow:0 0 25px rgba(90,42,10,.5),inset 0 0 15px rgba(90,42,10,.15)}100%{box-shadow:0 0 0 transparent}}
+.animate-heal-received{animation:healReceived .5s ease;animation-duration:.5s}
+@keyframes healReceived{0%{box-shadow:0 0 0 transparent}50%{box-shadow:0 0 20px rgba(90,42,10,.4)}100%{box-shadow:0 0 0 transparent}}
+.animate-boss-entrance{animation:bossEntrance .5s ease-out;animation-duration:.5s}
+@keyframes bossEntrance{0%{transform:scale(0);opacity:0}60%{transform:scale(1.1);opacity:1}100%{transform:scale(1);opacity:1}}
 #party-in{display:none}
 #party-in.active{display:block}
 #party-not-in{display:none}
@@ -183,3 +209,12 @@ svg[data-lucide]{display:inline;vertical-align:middle}
 .inv-item .inv-stats{font-size:.78rem;color:#6a5a6a}
 .equip-section-title{font-size:1.05rem;font-weight:700;margin:16px 0 8px}
 .inv-count{font-size:.8rem;color:#6a5a6a;font-weight:400}
+
+/* ── Gothic UI ── */
+.animate-torch-flicker{animation:torchFlicker 2s ease-in-out infinite}
+@keyframes torchFlicker{0%,100%{box-shadow:0 0 8px rgba(184,134,11,.15)}50%{box-shadow:0 0 15px rgba(184,134,11,.3)}}
+.animate-shadow-pool{animation:shadowPool .6s ease-out forwards}
+@keyframes shadowPool{0%{box-shadow:0 0 0 rgba(0,0,0,0)}100%{box-shadow:0 0 50px 30px rgba(0,0,0,.5)}}
+
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}.animate-shake-screen,.animate-shake-screen.crit{animation:none!important}.vignette-flash{display:none!important}}
+.no-shake .animate-shake-screen,.no-shake .vignette-flash{display:none!important}
