@@ -46,7 +46,7 @@ router.post("/:id/shop/craft", requireAuth, async (req, res) => {
     return;
   }
 
-  res.status(201).json({ equipment: result.equipment });
+  res.status(201).json({ equipment: result.equipment, goldCost: result.goldCost });
 });
 
 // POST /api/heroes/:id/shop/salvage — salvage an item for gold (alchemy)
@@ -79,6 +79,39 @@ router.post("/:id/shop/salvage", requireAuth, async (req, res) => {
   }
 
   res.json({ gold: result.gold, shards: result.shards });
+});
+
+// POST /api/heroes/:id/shop/salvage-shard — convert a shard to gold
+const salvageShardSchema = z.object({
+  rarity: z.nativeEnum(Rarity),
+  bracketLevel: z.number().int().positive(),
+  amount: z.number().int().positive().default(1),
+});
+
+router.post("/:id/shop/salvage-shard", requireAuth, async (req, res) => {
+  const heroId = req.params.id as string;
+  const hero = await heroService.getHero(heroId);
+  if (!hero) { res.status(404).json({ error: "Hero not found" }); return; }
+  if (hero.playerId !== req.player!.id) { res.status(403).json({ error: "Not your hero" }); return; }
+
+  const parsed = salvageShardSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.flatten().fieldErrors });
+    return;
+  }
+
+  const result = await lootService.salvageShard(
+    heroId,
+    parsed.data.rarity,
+    parsed.data.bracketLevel,
+    parsed.data.amount,
+  );
+  if (!result.success) {
+    res.status(400).json({ error: result.error });
+    return;
+  }
+
+  res.json({ gold: result.gold });
 });
 
 export default router;

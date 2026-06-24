@@ -7,8 +7,11 @@ import {
   generateFloorLoot,
   calculateSalvageValue,
   getCraftCost,
+  getCraftGoldCost,
   getSalvageShards,
+  getShardSalvageValue,
   generateEquipment,
+  shardKey,
   CRAFTABLE_EQUIPMENT_TYPES,
 } from "@jake-idler/game";
 import { Rarity, type Equipment } from "@jake-idler/game";
@@ -35,6 +38,7 @@ class LootService {
   ): Promise<{
     gold: number;
     shards: Record<string, number>;
+    shardDrops: Record<string, number>;
     equipment?: Equipment;
   }> {
     const rows = await db.select().from(heroes).where(eq(heroes.id, heroId)).limit(1);
@@ -46,11 +50,13 @@ class LootService {
     // Roll for loot
     const loot = processMonsterLoot(floorNumber, isBoss, isBracketBoss);
 
-    // Apply shard drops
+    // Apply shard drops using bracket-level keys (e.g. "rare_10")
     const newShards = { ...currentShards };
+    const shardDrops: Record<string, number> = {};
     for (const drop of loot.shards) {
-      const key = drop.rarity as string;
+      const key = shardKey(drop.rarity, drop.bracketLevel);
       newShards[key] = (newShards[key] || 0) + drop.amount;
+      shardDrops[key] = (shardDrops[key] || 0) + drop.amount;
     }
 
     // Bracket bosses drop equipment
@@ -82,6 +88,7 @@ class LootService {
     return {
       gold: loot.gold,
       shards: newShards,
+      shardDrops,
       equipment: droppedEquipment,
     };
   }
@@ -95,7 +102,7 @@ class LootService {
     type: string,
     rarity: Rarity,
     bracketLevel: number,
-  ): Promise<{ success: boolean; equipment?: Equipment; error?: string }> {
+  ): Promise<{ success: boolean; equipment?: Equipment; goldCost?: number; error?: string }> {
     const rows = await db.select().from(heroes).where(eq(heroes.id, heroId)).limit(1);
     if (rows.length === 0) return { success: false, error: "Hero not found" };
 
@@ -103,10 +110,19 @@ class LootService {
     const shards = hero.shards as unknown as Record<string, number>;
     const cost = getCraftCost(rarity);
 
+    const goldCost = getCraftGoldCost(rarity, bracketLevel);
+
+    const shardKeyStr = shardKey(rarity, bracketLevel);
+
     // Check if hero has enough shards
-    const currentShards = shards[rarity as string] || 0;
+    const currentShards = shards[shardKeyStr] || 0;
     if (currentShards < cost) {
-      return { success: false, error: `Not enough ${rarity} shards (need ${cost}, have ${currentShards})` };
+      return { success: false, error: `Not enough ${shardKeyStr} shards (need ${cost}, have ${currentShards})` };
+    }
+
+    // Check if hero has enough gold
+    if (hero.gold < goldCost) {
+      return { success: false, error: `Not enough gold (need ${goldCost}, have ${hero.gold})` };
     }
 
     // Check inventory space
@@ -125,7 +141,7 @@ class LootService {
     }
 
     // Deduct shards
-    const newShards = { ...shards, [rarity as string]: currentShards - cost };
+    const newShards = { ...shards, [shardKeyStr]: currentShards - cost };
 
     // Generate the item
     const equipment = generateEquipment(slot, type, bracketLevel, rarity);
@@ -137,12 +153,13 @@ class LootService {
       .update(heroes)
       .set({
         shards: newShards as any,
+        gold: hero.gold - goldCost,
         inventory: inventory as unknown as unknown[],
         lastActive: new Date().toISOString(),
       })
       .where(eq(heroes.id, heroId));
 
-    return { success: true, equipment };
+    return { success: true, equipment, goldCost };
   }
 
   /**
@@ -167,14 +184,15 @@ class LootService {
     const equipment = inventory[idx];
     const goldValue = calculateSalvageValue(equipment);
     const shardCount = getSalvageShards(equipment.rarity);
+    const bracketLevel = Math.ceil(equipment.level / 10) * 10;
+    const shardKeyStr = shardKey(equipment.rarity, bracketLevel);
 
     // Remove from inventory, add gold and shards
     inventory.splice(idx, 1);
     const newGold = hero.gold + goldValue;
     const currentShards = hero.shards as unknown as Record<string, number> || {};
     const newShards = { ...currentShards };
-    const rarityKey = equipment.rarity as string;
-    newShards[rarityKey] = (newShards[rarityKey] || 0) + shardCount;
+    newShards[shardKeyStr] = (newShards[shardKeyStr] || 0) + shardCount;
 
     await db
       .update(heroes)
@@ -187,6 +205,45 @@ class LootService {
       .where(eq(heroes.id, heroId));
 
     return { success: true, gold: goldValue, shards: newShards };
+  }
+
+  /**
+   * Salvage a shard directly for gold (shard → gold conversion).
+   */
+  async salvageShard(
+    heroId: string,
+    rarity: Rarity,
+    bracketLevel: number,
+    amount: number,
+  ): Promise<{ success: boolean; gold?: number; error?: string }> {
+    const rows = await db.select().from(heroes).where(eq(heroes.id, heroId)).limit(1);
+    if (rows.length === 0) return { success: false, error: "Hero not found" };
+
+    const hero = rows[0];
+    const shards = hero.shards as unknown as Record<string, number>;
+    const key = shardKey(rarity, bracketLevel);
+    const owned = shards[key] || 0;
+
+    if (owned < amount) {
+      return { success: false, error: `Not enough ${key} shards (have ${owned}, need ${amount})` };
+    }
+
+    const goldPerShard = getShardSalvageValue(rarity, bracketLevel);
+    const totalGold = goldPerShard * amount;
+
+    const newShards = { ...shards, [key]: owned - amount };
+    const newGold = hero.gold + totalGold;
+
+    await db
+      .update(heroes)
+      .set({
+        shards: newShards as any,
+        gold: newGold,
+        lastActive: new Date().toISOString(),
+      })
+      .where(eq(heroes.id, heroId));
+
+    return { success: true, gold: totalGold };
   }
 }
 

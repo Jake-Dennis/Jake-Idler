@@ -134,7 +134,7 @@ export function processCombat(
 export const BASE_MONSTER_STATS: BigNumberStatBlock = {
   atk: new BigNumber(50),
   def: new BigNumber(5),
-  hp: new BigNumber(8000),
+  hp: new BigNumber(1500),
   spd: new BigNumber(50),
 };
 

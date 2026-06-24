@@ -3,6 +3,9 @@ import { requireAuth } from "../auth/middleware.js";
 import { combatService } from "../services/combat-service.js";
 import { heroService } from "../services/hero-service.js";
 import { partyService } from "../services/party-service.js";
+import { db } from "../db/connection.js";
+import { heroes } from "../db/schema/index.js";
+import { eq, sql } from "drizzle-orm";
 
 const router = Router();
 
@@ -33,6 +36,7 @@ router.post("/:id/combat/start", requireAuth, async (req, res) => {
 
     const memberData: Array<{
       heroId: string;
+      name: string;
       role: import("@jake-idler/game").CombatRole;
       position: import("@jake-idler/game").CombatPosition;
       level: number;
@@ -48,13 +52,13 @@ router.post("/:id/combat/start", requireAuth, async (req, res) => {
       if (partyService.isBot(memberId)) {
         const bot = partyService.getBot(memberId);
         if (bot) {
-          memberData.push({ heroId: bot.heroId, role, position, level: bot.level, equipped: bot.equipped });
+          memberData.push({ heroId: bot.heroId, name: bot.name, role, position, level: bot.level, equipped: bot.equipped });
         }
       } else {
         const playerHeroes = await heroService.getHeroesByPlayer(memberId);
         if (playerHeroes.length > 0) {
           const h = playerHeroes[0];
-          memberData.push({ heroId: h.id, role, position, level: h.level, equipped: h.equipped });
+          memberData.push({ heroId: h.id, name: h.name, role, position, level: h.level, equipped: h.equipped });
         }
       }
     }
@@ -68,7 +72,7 @@ router.post("/:id/combat/start", requireAuth, async (req, res) => {
   const role = "dps" as import("@jake-idler/game").CombatRole;
   const position = "middle" as import("@jake-idler/game").CombatPosition;
   const floorInfo = await combatService.startFloorRun(`solo_${heroId}`, heroId, floor, [{
-    heroId, role, position, level: hero.level, equipped: hero.equipped,
+    heroId, name: hero.name, role, position, level: hero.level, equipped: hero.equipped,
   }]);
   res.status(201).json({ ...floorInfo, partyCombat: false });
 });
@@ -92,8 +96,63 @@ router.get("/:id/combat/status", requireAuth, async (req, res) => {
     return;
   }
 
-  const isPartyCombat = !runId.startsWith("solo_");
+  // Advance combat by one round (poll-and-advance)
+  combatService.processOneRound(runId);
+
+  // Deduct floor gold on wipe
+  if (run.floorFailed && run.floorGoldValue > 0) {
+    await db
+      .update(heroes)
+      .set({
+        gold: sql`${heroes.gold} - ${run.floorGoldValue}`,
+        lastActive: new Date().toISOString(),
+      })
+      .where(eq(heroes.id, heroId));
+  }
+
+  // Build events from round data
+  const events: Array<{
+    type: string;
+    heroId?: string;
+    damage?: number;
+    crit?: boolean;
+    weaponType?: string;
+    role?: string;
+    healAmount?: number;
+    monsterName?: string;
+  }> = [];
+
   const lastRound = run.lastRound;
+  if (lastRound && lastRound.partyHeroes) {
+    // Get previous round's partyHeroes for comparison
+    // (In poll-and-advance, the round just processed is the one we need)
+    for (const h of lastRound.partyHeroes) {
+      if (h.damage > 0) {
+        const wType = (h.heroId === hero.id) ? (hero.equipped?.rightHandWeapon?.type || 'melee') : 'melee';
+        events.push({ type: 'hero_attack', heroId: h.heroId, damage: Math.round(h.damage), crit: h.crit, weaponType: wType, role: h.role });
+      }
+      if (h.healingDone > 0) {
+        events.push({ type: 'heal_cast', heroId: h.heroId, healAmount: Math.round(h.healingDone) });
+      }
+      if (h.healingReceived > 0) {
+        events.push({ type: 'healed', heroId: h.heroId, healAmount: Math.round(h.healingReceived) });
+      }
+      if (h.damageTaken > 0) {
+        events.push({ type: 'hero_hit', heroId: h.heroId, damage: Math.round(h.damageTaken), crit: h.monsterCrit });
+        if (h.role === 'tank') {
+          events.push({ type: 'block', heroId: h.heroId, damage: Math.round(h.damageTaken) });
+        }
+      }
+      if (!h.alive) {
+        events.push({ type: 'hero_death', heroId: h.heroId });
+      }
+    }
+    if (lastRound.monsterJustKilled) {
+      events.push({ type: 'monster_death' });
+    }
+  }
+
+  const isPartyCombat = !runId.startsWith("solo_");
 
   if (!run.floorCompleted && !run.floorFailed) {
     const currentMonster = run.monsters[run.currentMonsterIndex];
@@ -156,8 +215,10 @@ router.get("/:id/combat/status", requireAuth, async (req, res) => {
       heroWon: run.floorCompleted,
       totalRounds: lastRound?.round ?? 0,
       goldEarned: run.totalGoldRewarded,
+      goldLost: run.floorFailed ? run.floorGoldValue : 0,
       monstersDefeated: run.monstersDefeated,
       totalMonsters: run.totalMonsters,
+      shardsEarned: run.shardsEarned,
     },
     hero: heroAfter,
   });

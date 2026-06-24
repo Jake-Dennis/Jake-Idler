@@ -11,6 +11,7 @@ import { computeEquipmentStats, getBracketEquipmentLevel } from "./index.js";
 export interface ShardDropResult {
   rarity: Rarity;
   amount: number;
+  bracketLevel: number;
 }
 
 /**
@@ -58,12 +59,13 @@ export function rollShardDrops(
 ): ShardDropResult[] {
   const drops: ShardDropResult[] = [];
   const rarities = [Rarity.Common, Rarity.Uncommon, Rarity.Rare, Rarity.Epic, Rarity.Legendary];
+  const bracketLevel = getBracketEquipmentLevel(floorNumber);
 
   for (const rarity of rarities) {
     const adjustedRate = getAdjustedDropRate(floorNumber, rarity, bossMultiplier);
     // Roll for each rarity tier independently — always 1 shard per drop
     if (Math.random() * 100 < adjustedRate) {
-      drops.push({ rarity, amount: 1 });
+      drops.push({ rarity, amount: 1, bracketLevel });
     }
   }
 
@@ -217,21 +219,39 @@ export function generateFloorLoot(
  *   Legendary: 80x
  */
 export function calculateSalvageValue(equipment: Equipment): number {
-  const rarityMultipliers: Record<string, number> = {
-    common: 2,
-    uncommon: 5,
-    rare: 12,
-    epic: 30,
-    legendary: 80,
-  };
-
-  const mul = rarityMultipliers[equipment.rarity] || 1;
+  const mul = rarityMultiplier(equipment.rarity);
   return equipment.level * mul * 3;
+}
+
+/** Compound key for bracket-level shards: `{rarity}_{bracketLevel}` (e.g. `rare_10`). */
+export function shardKey(rarity: string, bracketLevel: number): string {
+  return rarity + '_' + bracketLevel;
+}
+
+/** Rarity multiplier shared by salvage value and craft gold cost. */
+function rarityMultiplier(rarity: string): number {
+  const m: Record<string, number> = { common: 2, uncommon: 5, rare: 12, epic: 30, legendary: 80 };
+  return m[rarity] || 1;
+}
+
+/**
+ * Gold cost to craft an item — ~2x salvage so salvaging isn't free item generation.
+ */
+export function getCraftGoldCost(rarity: Rarity, bracketLevel: number): number {
+  return bracketLevel * rarityMultiplier(rarity) * 7;
+}
+
+/**
+ * Gold received when salvaging a single shard of the given rarity and bracket level.
+ * ~1/4 of craft cost so salvaging shards is a gold source but crafting gear costs net gold.
+ */
+export function getShardSalvageValue(rarity: Rarity, bracketLevel: number): number {
+  return Math.round(bracketLevel * rarityMultiplier(rarity) * 1.75);
 }
 
 /**
  * Calculate the shard cost to craft an item of the given rarity.
- * Uses GameConfig.CRAFT_COST.
+ * Uses GameConfig.CRAFT_COST (1 per rarity — each shard type crafts its own tier).
  */
 export function getCraftCost(rarity: Rarity): number {
   return GameConfig.CRAFT_COST[rarity];

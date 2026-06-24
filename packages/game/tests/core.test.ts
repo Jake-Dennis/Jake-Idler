@@ -70,28 +70,28 @@ describe("computeHeroStats", () => {
 
 describe("computeEquipmentStats", () => {
   it("generates correct stats for weapon slot", () => {
-    // level 1 common → 1*5 + 0 = 5 ATK
+    // level 1 common → 40 + 1 + 0 = 41 ATK
     const stats = computeEquipmentStats("rightHandWeapon", 1, Rarity.Common);
-    expect(stats.atk).toBe(5);
+    expect(stats.atk).toBe(41);
     expect(stats.def).toBe(0);
     expect(stats.hp).toBe(0);
   });
 
   it("generates correct stats for accessory slot", () => {
-    // level 1 common → 1*2 + 0 = 2 HP
+    // level 1 common → 10 + 1 + 0 = 11 HP
     const stats = computeEquipmentStats("necklace", 1, Rarity.Common);
     expect(stats.atk).toBe(0);
     expect(stats.def).toBe(0);
-    expect(stats.hp).toBe(2);
+    expect(stats.hp).toBe(11);
   });
 });
 
 // ─── Starter Equipment ───────────────────────────────────────────
 
 describe("createStarterEquipment", () => {
-  it("creates 19 starter items (6 weapons + 6 armour + 7 accessories)", () => {
+  it("creates 16 starter items (6 weapons + 5 armour + 5 accessories)", () => {
     const gear = createStarterEquipment();
-    expect(gear).toHaveLength(19);
+    expect(gear).toHaveLength(16);
     // 3 main hands (melee/range/mage)
     const mh = gear.filter((i) => i.slot === "rightHandWeapon");
     expect(mh).toHaveLength(3);
@@ -100,21 +100,18 @@ describe("createStarterEquipment", () => {
     const oh = gear.filter((i) => i.slot === "leftHand");
     expect(oh).toHaveLength(3);
     expect(oh.map((i) => i.type).sort()).toEqual(["mage", "melee", "range"]);
-    // 6 armour slots
+    // 5 armour slots
     expect(gear.filter((i) => i.slot === "helmet")).toHaveLength(1);
     expect(gear.filter((i) => i.slot === "body")).toHaveLength(1);
     expect(gear.filter((i) => i.slot === "legs")).toHaveLength(1);
     expect(gear.filter((i) => i.slot === "boots")).toHaveLength(1);
-    expect(gear.filter((i) => i.slot === "belt")).toHaveLength(1);
     expect(gear.filter((i) => i.slot === "gloves")).toHaveLength(1);
-    // 7 accessory slots
+    // 5 accessory slots
     expect(gear.filter((i) => i.slot === "necklace")).toHaveLength(1);
     expect(gear.filter((i) => i.slot === "leftRing")).toHaveLength(1);
     expect(gear.filter((i) => i.slot === "rightRing")).toHaveLength(1);
     expect(gear.filter((i) => i.slot === "leftEarring")).toHaveLength(1);
     expect(gear.filter((i) => i.slot === "rightEarring")).toHaveLength(1);
-    expect(gear.filter((i) => i.slot === "leftBracelet")).toHaveLength(1);
-    expect(gear.filter((i) => i.slot === "rightBracelet")).toHaveLength(1);
   });
 
   it("all starter items are Lv10 common with effectiveLevel 10 (raw level, no rarity bonus)", () => {
@@ -131,10 +128,10 @@ describe("createStarterEquipment", () => {
 
 describe("monster scaling vs starter gear", () => {
   it("floor 1 trash takes ~50 rounds for starter hero (~5 min for full floor)", () => {
-    // Starter hero with full Lv10 common gear (raw level = stat, no rarity bonus baked in)
-    const heroAtk = 20;  // 2 weapon slots × 10
-    const heroDef = 60;  // 6 armour slots × 10
-    const heroHp = 70;   // 7 accessory slots × 10
+    // Starter hero with full Lv10 common gear: weapon=40+10, armor=10+10, accessory=10+10
+    const heroAtk = 100;  // 2 weapons × (40 + 10)
+    const heroDef = 100;  // 5 armor × (10 + 10)
+    const heroHp = 100;   // 5 accessories × (10 + 10)
 
     // Floor 1 monster stats
     const monster = generateMonster(1, false);
@@ -150,9 +147,9 @@ describe("monster scaling vs starter gear", () => {
     const dmgPerRound = Math.max(0, heroAtk - monsterDef);
     const roundsPerKill = Math.ceil(monsterHp / dmgPerRound);
 
-    // ~50 rounds per trash mob → ~5 min for ~5 monsters
-    expect(roundsPerKill).toBeGreaterThan(40);
-    expect(roundsPerKill).toBeLessThan(65);
+    // ~15 rounds per trash mob with Lv10 common starter gear
+    expect(roundsPerKill).toBeGreaterThan(10);
+    expect(roundsPerKill).toBeLessThan(20);
   });
 
   it("bracket boss at floor 10 needs epic+ gear to survive", () => {
@@ -160,11 +157,11 @@ describe("monster scaling vs starter gear", () => {
     const boss = generateBracketBoss(1); // bracket 1, floor 10
     const bossAtk = boss.stats.atk.toNumber();
 
-    // Starter Lv10 common DEF = 60 → boss should punch through
-    expect(Math.max(0, bossAtk - 60)).toBeGreaterThan(0);
+    // Starter Lv10 common DEF = 5 × (10 + 0) = 50 → boss should punch through
+    expect(Math.max(0, bossAtk - 50)).toBeGreaterThan(0);
 
-    // Lv10 epic DEF = 6 × (10 + 40) = 300 → should be safe
-    const epicDef = 6 * (10 + 40);
+    // Lv10 epic DEF = 5 × (10 + 30) = 200 → tank should be safe
+    const epicDef = 5 * (10 + 30);
     expect(Math.max(0, bossAtk - epicDef)).toBe(0);
   });
 });
@@ -251,11 +248,12 @@ describe("generateMonster", () => {
     expect(monster.stats.hp.toNumber()).toBeGreaterThan(0);
   });
 
-  it("boss has 2x HP but same ATK as regular", () => {
+  it("boss has 2x stats and 3x XP vs regular", () => {
     const regular = generateMonster(5, false);
     const boss = generateMonster(5, true);
     expect(boss.stats.hp.toNumber()).toBeCloseTo(regular.stats.hp.toNumber() * 2, -2);
-    expect(boss.stats.atk.toNumber()).toBe(regular.stats.atk.toNumber());
+    expect(boss.stats.atk.toNumber()).toBeCloseTo(regular.stats.atk.toNumber() * 2, -2);
+    expect(boss.stats.def.toNumber()).toBeCloseTo(regular.stats.def.toNumber() * 2, -2);
     expect(boss.xpReward.toNumber()).toBeGreaterThan(regular.xpReward.toNumber());
   });
 });

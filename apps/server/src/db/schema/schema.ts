@@ -1,11 +1,8 @@
 import { sqliteTable, text, integer, uniqueIndex } from "drizzle-orm/sqlite-core";
 
+/** Shards are stored as `{rarity}_{bracketLevel}` keys (e.g. `rare_10`, `common_20`). */
 export interface HeroShards {
-  common: number;
-  uncommon: number;
-  rare: number;
-  epic: number;
-  legendary: number;
+  [key: string]: number;
 }
 
 export interface HeroStats {

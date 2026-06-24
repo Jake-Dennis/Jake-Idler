@@ -16,6 +16,7 @@ import { lootService } from "./loot-service.js";
 
 export interface PartyHeroRoundData {
   heroId: string;
+  name: string;
   role: CombatRole;
   position: CombatPosition;
   damage: number;
@@ -49,6 +50,19 @@ export interface CombatRoundState {
   partyHeroes: PartyHeroRoundData[];
 }
 
+// ─── Combat Events (explicit action log for client) ─────────
+
+export type CombatEvent = {
+  type: string;
+  heroId?: string;
+  damage?: number;
+  crit?: boolean;
+  weaponType?: string;
+  role?: string;
+  healAmount?: number;
+  monsterName?: string;
+};
+
 // ─── Internal Types ──────────────────────────────────────────
 
 interface FloorMonster {
@@ -62,6 +76,7 @@ interface FloorMonster {
 
 interface PartyHeroRunState {
   heroId: string;
+  name: string;
   role: CombatRole;
   position: CombatPosition;
   hp: number;
@@ -90,7 +105,10 @@ interface PartyFloorRunState {
   roundIndex: number;
   lastRound: CombatRoundState | null;
   totalGoldRewarded: number;
+  floorGoldValue: number;
+  shardsEarned: Record<string, number>;
   finishedAt: number | null;
+  events: CombatEvent[];
 }
 
 const POSITION_TARGET_PRIORITY: CombatPosition[] = [
@@ -141,6 +159,7 @@ class CombatService {
     floorNumber: number,
     partyMembers: Array<{
       heroId: string;
+      name: string;
       role: CombatRole;
       position: CombatPosition;
       level: number;
@@ -155,8 +174,8 @@ class CombatService {
     const partySize = partyMembers.length;
     const monsters = this.generateMonsterQueue(floorNumber, partySize);
 
-    // Scale monster HP by party size (ATK stays at base value)
-    const hpScale = 0.03 + Math.sqrt(partySize) * 0.12;
+    // Scale monster HP by party size so each member contributes proportionally
+    const hpScale = 1 + (Math.sqrt(partySize) - 1) * 0.5;
     for (const m of monsters) {
       m.maxHp = Math.round(m.maxHp * hpScale);
       m.currentHp = Math.round(m.currentHp * hpScale);
@@ -184,13 +203,14 @@ class CombatService {
         atk = rawAtk;
       }
 
-      // Solo heroes get passive self-heal (ATK × 0.04 per round — ~50% win rate vs boss)
+      // Solo heroes get passive self-heal so they can survive a full floor with recommended gear
       if (partySize === 1 && pm.role !== "healer") {
-        healing = rawAtk * 0.044;
+        healing = rawAtk * 0.055;
       }
 
       heroes_.push({
         heroId: pm.heroId,
+        name: pm.name,
         role: pm.role,
         position: pm.position,
         hp,
@@ -217,7 +237,10 @@ class CombatService {
       roundIndex: 0,
       lastRound: null,
       totalGoldRewarded: 0,
+      floorGoldValue: monsters.reduce((sum, m) => sum + m.goldReward, 0),
+      shardsEarned: {},
       finishedAt: null,
+      events: [],
     };
 
     this.partyFloors.set(partyId, run);
@@ -230,6 +253,7 @@ class CombatService {
         name: m.data.name,
         isBoss: m.data.isBoss,
         hp: m.maxHp,
+        maxHp: m.maxHp,
         atk: m.data.stats.atk.toNumber(),
         def: m.data.stats.def.toNumber(),
       })),
@@ -267,6 +291,21 @@ class CombatService {
       }
     }
 
+    this.cleanupOldRuns();
+  }
+
+  // ─── Poll-and-Advance ─────────────────────────────────────
+
+  processOneRound(partyId: string): boolean {
+    const run = this.partyFloors.get(partyId);
+    if (!run) return false;
+    if (run.floorCompleted || run.floorFailed) return false;
+    this.processRound(partyId, run);
+    this.cleanupOldRuns();
+    return true;
+  }
+
+  private cleanupOldRuns(): void {
     const now = Date.now();
     for (const [partyId, run] of this.partyFloors) {
       if (run.finishedAt !== null && now - run.finishedAt > 60000) {
@@ -354,6 +393,7 @@ class CombatService {
       const baseDmg = calculateDamage(hero.atk, currentMonster.data.stats.def.toNumber());
       const variance = 0.8 + Math.random() * 0.4; // ±20%
       const dmg = Math.max(1, Math.round(baseDmg * variance * (crit ? CRIT_MULTIPLIER : 1.0)));
+      var beforeHp = currentMonster.currentHp;
       currentMonster.currentHp = Math.max(0, currentMonster.currentHp - dmg);
       totalDpsDamage += dmg;
       if (dmg > 0) lastDpsCrit = crit;
@@ -461,14 +501,14 @@ class CombatService {
         for (const h of run.heroes) {
           if (h.alive) {
             db.update(heroes)
-              .set({ level: run.floorNumber, lastActive: new Date().toISOString() })
+              .set({ level: run.floorNumber, currentFloor: sql`MAX(${heroes.currentFloor}, ${run.floorNumber})`, lastActive: new Date().toISOString() })
               .where(eq(heroes.id, h.heroId));
           }
         }
       }
 
       try {
-        void this.processKillRewards(run.initiatorHeroId, run.floorNumber, currentMonster);
+        void this.processKillRewards(run, currentMonster);
       } catch (err) {
         console.error(`[Combat] Kill rewards failed for ${partyId}:`, err);
       }
@@ -500,6 +540,7 @@ class CombatService {
   ): PartyHeroRoundData {
     return {
       heroId: hero.heroId,
+      name: hero.name,
       role: hero.role,
       position: hero.position,
       damage,
@@ -584,23 +625,50 @@ class CombatService {
   }
 
   private async processKillRewards(
-    heroId: string,
-    floorNumber: number,
+    run: PartyFloorRunState,
     currentMonster: FloorMonster,
   ): Promise<void> {
-    if (!currentMonster.lootProcessed) {
-      currentMonster.lootProcessed = true;
+    if (currentMonster.lootProcessed) return;
+    currentMonster.lootProcessed = true;
+
+    const aliveHeroes = run.heroes.filter((h) => h.alive);
+    if (aliveHeroes.length === 0) return;
+
+    const isBoss = currentMonster.data.isBoss;
+    const isBracketBoss = run.floorNumber % 10 === 0;
+
+    // Fetch each hero's progression level so loot is capped to their own floor,
+    // preventing high-level players from boosting low-level alts through high floors.
+    const heroIds = aliveHeroes.map((h) => h.heroId);
+    const heroRows = await db.select({ id: heroes.id, currentFloor: heroes.currentFloor }).from(heroes).where(sql`${heroes.id} IN ${heroIds}`);
+
+    const heroFloorMap = new Map<string, number>();
+    for (const row of heroRows) {
+      heroFloorMap.set(row.id, row.currentFloor);
+    }
+
+    for (const h of aliveHeroes) {
+      // Cap loot floor to the hero's own progression level
+      const heroFloor = heroFloorMap.get(h.heroId) || 1;
+      const cappedFloor = Math.min(run.floorNumber, Math.max(1, heroFloor));
+
       await db
         .update(heroes)
         .set({
           gold: sql`${heroes.gold} + ${currentMonster.goldReward}`,
           lastActive: new Date().toISOString(),
         })
-        .where(eq(heroes.id, heroId));
+        .where(eq(heroes.id, h.heroId));
 
-      const isBoss = currentMonster.data.isBoss;
-      const isBracketBoss = floorNumber % 10 === 0;
-      await lootService.processKillLoot(heroId, floorNumber, isBoss, isBracketBoss);
+      const lootResult = await lootService.processKillLoot(h.heroId, cappedFloor, isBoss, isBracketBoss);
+
+      // Accumulate shard tracking from the initiator's drops only (avoid double-counting)
+      if (h.heroId === run.initiatorHeroId) {
+        run.totalGoldRewarded += currentMonster.goldReward;
+        for (const [key, val] of Object.entries(lootResult.shardDrops)) {
+          run.shardsEarned[key] = (run.shardsEarned[key] || 0) + val;
+        }
+      }
     }
   }
 }

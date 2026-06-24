@@ -72,7 +72,7 @@ export const GameConfig = {
    * Using sqrt(floor) — even math, clean milestones:
    *   floor 1: 1×    floor 4: 2×    floor 9: 3×    floor 16: 4×
    */
-  FLOOR_SCALE_EXPONENT: 0.5,
+  FLOOR_SCALE_EXPONENT: 0.3,
 
   /**
    * Floor scaling factor for drop rate adjustments.

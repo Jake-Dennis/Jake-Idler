@@ -65,11 +65,14 @@ export function computeEquipmentStats(
 
   switch (category) {
     case "weapon":
-      return { atk: level * 5 + rarityFlat, def: 0, hp: 0 };
+      // Common=40+level, Uncommon=50+level, Rare=60+level, Epic=70+level, Legendary=80+level
+      return { atk: 40 + level + rarityFlat, def: 0, hp: 0 };
     case "armor":
-      return { atk: 0, def: level * 2 + rarityFlat, hp: 0 };
+      // Common=10+level, Uncommon=20+level, Rare=30+level, Epic=40+level, Legendary=50+level
+      return { atk: 0, def: 10 + level + rarityFlat, hp: 0 };
     case "accessory":
-      return { atk: 0, def: 0, hp: level * 2 + rarityFlat };
+      // Common=10+level, Uncommon=20+level, Rare=30+level, Epic=40+level, Legendary=50+level
+      return { atk: 0, def: 0, hp: 10 + level + rarityFlat };
   }
 }
 

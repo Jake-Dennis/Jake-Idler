@@ -374,7 +374,14 @@ function generateGameHtml(hero: HeroResponse): string {
     <span id="hero-bar-hp">${hero.stats.hp}</span>/<span id="hero-bar-maxhp">${hero.stats.hp}</span>
   </span>
   <span class="h-stat"><i data-lucide="coins" style="width:14px;height:14px"></i> <span class="h-val" id="hero-bar-gold">${hero.gold}</span></span>
-  <button id="shake-toggle" style="background:transparent;border:1px solid #2a2020;border-radius:4px;color:#5a555a;font-size:.7rem;cursor:pointer;padding:2px 6px;margin-left:auto" title="Toggle screen shake">Shake</button>
+  <span class="h-stat">
+    <label for="floor-select" style="color:#4a454a;font-weight:700;font-size:.7rem;letter-spacing:1px;margin-right:4px">FLOOR</label>
+    <select id="floor-select" style="padding:2px 6px;background:#0a080a;border:1px solid #2a2020;border-radius:4px;color:#9a949a;font-size:.8rem;cursor:pointer"></select>
+  </span>
+  <button id="start-btn" class="btn btn-primary btn-sm" title="Start dungeon run"><i data-lucide="sword" style="width:14px;height:14px"></i> Start</button>
+  <button id="stop-btn" style="display:none;background:transparent;border:1px solid #4a2020;border-radius:4px;color:#6a2525;font-size:.7rem;cursor:pointer;padding:4px 8px" title="Stop dungeon run"><i data-lucide="square" style="width:14px;height:14px"></i> Stop</button>
+  <button id="loop-btn" class="btn btn-loop btn-sm" title="Toggle dungeon loop"><i data-lucide="refresh-cw" style="width:14px;height:14px"></i> LOOP</button>
+  <button id="shake-toggle" style="background:transparent;border:1px solid #2a2020;border-radius:4px;color:#5a555a;font-size:.7rem;cursor:pointer;padding:2px 6px" title="Toggle screen shake">Shake</button>
 </div>
 
 <!-- ═══════════ TABS ═══════════ -->
@@ -382,26 +389,11 @@ function generateGameHtml(hero: HeroResponse): string {
   <button class="tab active" data-tab="dungeon"><i data-lucide="sword" style="width:16px;height:16px"></i> Dungeon</button>
   <button class="tab" data-tab="equipment"><i data-lucide="shield" style="width:16px;height:16px"></i> Equipment</button>
   <button class="tab" data-tab="party"><i data-lucide="users" style="width:16px;height:16px"></i> Party</button>
+  <button class="tab" data-tab="crafting"><i data-lucide="hammer" style="width:16px;height:16px"></i> Crafting</button>
 </div>
 
 <!-- ═══════════ TAB: DUNGEON ═══════════ -->
 <div id="tab-dungeon" class="tab-content active">
-
-  <div id="dungeon-setup" class="dungeon-setup">
-    <div class="floor-selector">
-      <label for="floor-select" style="color:#4a454a;font-weight:700;font-size:.75rem;letter-spacing:2px;margin-right:8px">FLOOR</label>
-      <select id="floor-select"></select>
-    </div>
-
-    <div id="monster-preview" class="monster-preview">
-      Select a floor and enter the dungeon to begin your adventure!
-    </div>
-
-    <div class="btn-group" style="justify-content:center;max-width:400px;margin:0 auto">
-      <button id="enter-btn" class="btn btn-primary"><i data-lucide="sword" style="width:16px;height:16px"></i> Enter Dungeon</button>
-      <button id="loop-btn" class="btn btn-loop"><i data-lucide="refresh-cw" style="width:16px;height:16px"></i> LOOP</button>
-    </div>
-  </div>
 
   <div id="combat-arena">
     <div class="round-counter" id="round-counter">Round 0</div>
@@ -412,8 +404,10 @@ function generateGameHtml(hero: HeroResponse): string {
       <div id="arena-divider" style="border-top:1px solid #1a1518;margin:6px 0"></div>
       <div class="hero-row" id="hero-row"></div>
       <div class="vignette-flash" id="vignette-flash"></div>
+      <div class="floor-announce" id="floor-announce"></div>
     </div>
 
+    <button id="log-toggle" style="background:transparent;border:1px solid #1a1518;border-radius:3px;color:#4a454a;font-size:.65rem;cursor:pointer;padding:2px 8px;margin-top:4px;align-self:center">Hide log</button>
     <div class="combat-log" id="combat-log"></div>
 
     <div id="loop-info" class="loop-info"></div>
@@ -422,11 +416,14 @@ function generateGameHtml(hero: HeroResponse): string {
 
 <!-- ═══════════ TAB: EQUIPMENT ═══════════ -->
 <div id="tab-equipment" class="tab-content">
-  <div class="equip-section-title">Equipment Slots</div>
-  <div class="equip-grid" id="equip-grid"></div>
-
-  <div class="equip-section-title">Inventory <span class="inv-count" id="inv-count"></span></div>
-  <div id="equip-inventory"></div>
+  <div class="equip-character">
+    <div class="equip-stats-panel" id="equip-stats-panel"></div>
+    <div class="equip-body-grid" id="equip-grid"></div>
+    <div class="equip-inventory-panel">
+      <div class="equip-section-title" style="margin-bottom:6px">Inventory <span class="inv-count" id="inv-count"></span></div>
+      <div class="equip-inventory-wrap" id="equip-inventory"></div>
+    </div>
+  </div>
 </div>
 
 <!-- ═══════════ TAB: PARTY ═══════════ -->
@@ -490,6 +487,49 @@ function generateGameHtml(hero: HeroResponse): string {
 </div>
 </div>
 
+<!-- ═══════════ TAB: CRAFTING ═══════════ -->
+<div id="tab-crafting" class="tab-content">
+  <div class="craft-layout">
+    <div class="craft-panel">
+      <div class="craft-section-title">Shards</div>
+      <div id="craft-shard-list" class="craft-shard-list"></div>
+
+      <div class="craft-section-title" style="margin-top:16px">Salvage Equipment</div>
+      <div id="craft-salvage-list" class="craft-salvage-list"></div>
+    </div>
+
+    <div class="craft-panel">
+      <div class="craft-section-title">Craft Gear</div>
+      <div class="craft-form">
+        <div class="craft-row">
+          <label>Slot</label>
+          <select id="craft-slot"><option value="">—</option></select>
+        </div>
+        <div class="craft-row">
+          <label>Type</label>
+          <select id="craft-type"><option value="">—</option></select>
+        </div>
+        <div class="craft-row">
+          <label>Rarity</label>
+          <select id="craft-rarity">
+            <option value="common">Common</option>
+            <option value="uncommon">Uncommon</option>
+            <option value="rare">Rare</option>
+            <option value="epic">Epic</option>
+            <option value="legendary">Legendary</option>
+          </select>
+        </div>
+        <div id="craft-cost-display" class="craft-cost"></div>
+        <button id="craft-btn" class="btn btn-primary" style="width:100%">Craft</button>
+        <div id="craft-result" class="craft-result"></div>
+      </div>
+
+      <div class="craft-section-title" style="margin-top:16px">Convert Shard → Gold</div>
+      <div id="craft-convert-list" class="craft-shard-list"></div>
+    </div>
+  </div>
+</div>
+
 <!-- ═══════════ RESULT OVERLAY ═══════════ -->
 <div id="result-overlay" class="overlay">
   <div class="overlay-card">
@@ -519,6 +559,9 @@ var combatInterval = null;
 var isLooping = false;
 var loopCount = 0;
 var totalGoldEarned = 0;
+var inCombat = false;
+var showingResult = false;
+var combatGen = 0;
 var prevState = null;
 var currentParty = null;
 
@@ -543,6 +586,7 @@ document.querySelectorAll('.tab').forEach(function(tab) {
     document.getElementById('tab-' + this.dataset.tab).classList.add('active');
     if (this.dataset.tab === 'equipment') loadEquipment();
     if (this.dataset.tab === 'party') loadParty();
+    if (this.dataset.tab === 'crafting') loadCrafting();
   });
 });
 
@@ -555,17 +599,6 @@ document.querySelectorAll('.tab').forEach(function(tab) {
     opt.textContent = 'Floor ' + i + (i % 10 === 0 ? ' [BOSS]' : '') + (i === hero.currentFloor ? ' (current)' : '');
     sel.appendChild(opt);
   }
-  sel.addEventListener('change', function() {
-    var floor = parseInt(this.value);
-    var preview = document.getElementById('monster-preview');
-    var isBoss = floor % 10 === 0;
-    preview.innerHTML = '<strong>Floor ' + floor + '</strong><br />' +
-      (isBoss ? '<span style="color:#fbbf24;font-weight:600"><i data-lucide="crown" style="width:16px;height:16px"></i> BRACKET BOSS FLOOR</span>' : 'Difficulty scales with floor level.') +
-      '<br /><span style="color:#8888aa;font-size:.8rem">' + (isBoss ? 'A powerful boss awaits!' : 'Defeat all monsters to face the floor boss.') + '</span>';
-    if (typeof lucide !== 'undefined') lucide.createIcons();
-  });
-  // Trigger initial preview
-  sel.dispatchEvent(new Event('change'));
 })();
 
 // ─── Hero Bar ──────────────────────────────────────────────
@@ -576,12 +609,13 @@ function updateHeroBar(h) {
   document.getElementById('hero-bar-atk').textContent = h.stats ? h.stats.atk : hero.stats.atk;
   document.getElementById('hero-bar-def').textContent = h.stats ? h.stats.def : hero.stats.def;
   document.getElementById('hero-bar-gold').textContent = h.gold != null ? h.gold : hero.gold;
-  var hp = h.stats ? h.stats.hp : hero.stats.hp;
-  var maxHp = h.stats ? h.stats.hp : hero.stats.hp;
-  document.getElementById('hero-bar-hp').textContent = hp;
-  document.getElementById('hero-bar-maxhp').textContent = maxHp;
+  var hp = h.hp != null ? h.hp : (h.stats ? h.stats.hp : hero.stats.hp);
+  var maxHp = h.maxHp != null ? h.maxHp : hp;
+  document.getElementById('hero-bar-hp').textContent = Math.round(hp);
+  document.getElementById('hero-bar-maxhp').textContent = Math.round(maxHp);
   var bar = document.getElementById('hero-bar-hp-fill');
-  bar.style.width = '100%';
+  var pct = maxHp > 0 ? (hp / maxHp) * 100 : 100;
+  bar.style.width = pct + '%';
   bar.className = 'hp-bar-inner ' + hpColorClass(hp, maxHp);
 }
 
@@ -600,8 +634,11 @@ function floatText(x, y, text, cls) {
   var el = document.createElement('div');
   el.className = 'float-text ' + (cls || '');
   el.textContent = (typeof text === 'number') ? Math.round(text) : text;
-  el.style.left = x + 'px';
-  el.style.top = y + 'px';
+  // Add random offset to prevent overlapping
+  var offsetX = (Math.random() - 0.5) * 40;
+  var offsetY = (Math.random() - 0.5) * 20;
+  el.style.left = (x + offsetX) + 'px';
+  el.style.top = (y + offsetY) + 'px';
   document.body.appendChild(el);
   setTimeout(function() { el.remove(); }, 800);
 }
@@ -618,7 +655,16 @@ function renderMonsters(monsters) {
     card.className = 'monster-card' + (m.isBoss ? ' boss' : '') + (m.isCurrentFocus ? ' is-focus' : '');
     card.id = 'monster-' + m.id;
     var pct = m.maxHp > 0 ? (m.hp / m.maxHp) * 100 : 0;
-    var icon = m.isBoss ? '<i data-lucide="skull" style="width:28px;height:28px"></i>' : '<i data-lucide="bug" style="width:22px;height:22px"></i>';
+    var icon;
+    if (m.isBoss && m.name && m.name.toLowerCase().indexOf('skeleton') !== -1) {
+      icon = '<img src="/assets/Boss/Boss-Viciouse-Skeleton.png" style="width:56px;height:56px;object-fit:contain;display:block;margin:0 auto" alt="Skeleton Boss">';
+    } else if (m.isBoss) {
+      icon = '<i data-lucide="skull" style="width:36px;height:36px"></i>';
+    } else if (m.name && m.name.toLowerCase().indexOf('skeleton') !== -1) {
+      icon = '<img src="/assets/Trash-Mobs/Aggressive%20skeleton%20warrior%20in%20battle%20stance.png" style="width:44px;height:44px;object-fit:contain;display:block;margin:0 auto" alt="Skeleton">';
+    } else {
+      icon = '<i data-lucide="bug" style="width:22px;height:22px"></i>';
+    }
     card.innerHTML = '<div class="monster-icon">' + icon + '</div>' +
       '<div class="monster-name">' + escHtml(m.name) + '</div>' +
       '<div class="hp-bar-outer" style="width:100%"><div class="hp-bar-inner ' + hpColorClass(m.hp, m.maxHp) + '" style="width:' + pct + '%"></div></div>' +
@@ -649,7 +695,7 @@ function renderPartyHeroes(partyHeroes) {
       card.className = 'hero-card role-' + role;
       card.id = 'hero-' + h.heroId;
       var pct = h.maxHp > 0 ? (h.hp / h.maxHp) * 100 : 0;
-      var heroName = (h.heroId === hero.id) ? hero.name : (h.heroId.startsWith('bot_') ? h.heroId.substring(4, 12) + ' (Bot)' : h.heroId.substring(0, 10));
+      var heroName = (h.heroId === hero.id) ? hero.name : (h.name || h.heroId.substring(0, 10));
       var photoUrl = (h.heroId === hero.id) ? hero.photoUrl : null;
       var iconHtml;
       if (photoUrl) {
@@ -660,7 +706,7 @@ function renderPartyHeroes(partyHeroes) {
       card.innerHTML = iconHtml +
         '<div class="hero-card-name">' + heroName + '</div>' +
         '<div class="hp-bar-outer"><div class="hp-bar-inner ' + hpColorClass(h.hp, h.maxHp) + '" style="width:' + pct + '%"></div></div>' +
-        '<div class="hero-hp">' + Math.round(h.hp) + '/' + Math.round(h.maxHp) + '</div>';
+        '<div class="hero-hp"><i data-lucide="' + (icons[role] || 'sword') + '" style="width:12px;height:12px;margin-right:4px;vertical-align:middle"></i><span class="hero-hp-text">' + Math.round(h.hp) + '/' + Math.round(h.maxHp) + '</span></div>';
       var img = card.querySelector('.hero-card-photo');
       if (img) img.onerror = function() { this.style.display = 'none'; };
       heroRow.appendChild(card);
@@ -675,14 +721,14 @@ function updateMonsterBars(monsters) {
   monsters.forEach(function(m) {
     var el = document.getElementById('monster-' + m.id);
     if (!el) return;
+    var hpText = el.querySelector('.monster-hp');
+    if (hpText) hpText.textContent = Math.round(m.hp) + '/' + Math.round(m.maxHp);
     var pct = m.maxHp > 0 ? (m.hp / m.maxHp) * 100 : 0;
     var bar = el.querySelector('.hp-bar-inner');
     if (bar) {
       bar.style.width = pct + '%';
       bar.className = 'hp-bar-inner ' + hpColorClass(m.hp, m.maxHp);
     }
-    var hpText = el.querySelector('.monster-hp');
-    if (hpText) hpText.textContent = m.hp + '/' + m.maxHp;
   });
 }
 
@@ -696,372 +742,27 @@ function updateHeroBars(partyHeroes) {
       bar.style.width = pct + '%';
       bar.className = 'hp-bar-inner ' + hpColorClass(h.hp, h.maxHp);
     }
-    var hpText = el.querySelector('.hero-hp');
-    if (hpText) hpText.textContent = h.hp + '/' + h.maxHp;
+    var hpText = el.querySelector('.hero-hp-text');
+    if (hpText) hpText.textContent = Math.round(h.hp) + '/' + Math.round(h.maxHp);
+
+    // Update hero bar (top menu) for player's hero
+    if (h.heroId === hero.id) {
+      document.getElementById('hero-bar-hp').textContent = Math.round(h.hp);
+      document.getElementById('hero-bar-maxhp').textContent = Math.round(h.maxHp);
+      var topBar = document.getElementById('hero-bar-hp-fill');
+      if (topBar) {
+        topBar.style.width = pct + '%';
+        topBar.className = 'hp-bar-inner ' + hpColorClass(h.hp, h.maxHp);
+      }
+    }
   });
 }
 
-// ─── Animation Pipeline (inlined from animation/*.ts) ──────
 
-// Effect → FSM state mapping
-var EFFECT_TO_FSM_STATE = {
-  ATTACK: 'ATTACKING',
-  HIT: 'IMPACT',
-  HEAL: 'RECOVERY',
-  BLOCK: 'RECOVERY',
-  DEATH: 'DEAD',
-  MONSTER_DEATH: 'DEAD',
-  MONSTER_APPEAR: 'IDLE'
-};
 
-// Effect → CSS class(es) mapping
-var EFFECT_TO_CSS_CLASS = {
-  ATTACK: ['animate-lunge', 'animate-windup'],
-  HIT: ['animate-flash-red', 'animate-shake'],
-  HEAL: ['animate-pulse-green'],
-  BLOCK: ['animate-shield'],
-  DEATH: ['animate-fade-out'],
-  MONSTER_DEATH: ['animate-fade-out'],
-  MONSTER_APPEAR: ['animate-fade-in']
-};
+// ─── AnimationQueue (removed — replaced by inline animateTransition) ──
 
-// ─── CombatDiff ────────────────────────────────────────────
-function computeAnimationSteps(prev, next) {
-  if (prev === null) return [];
-  if (next.round == null) return [];
-  if (next.round <= (prev.round != null ? prev.round : -1)) return [];
-
-  var steps = [];
-  var stepIndex = 0;
-
-  if (next.partyHeroes && prev.partyHeroes) {
-    for (var hi = 0; hi < next.partyHeroes.length; hi++) {
-      var h = next.partyHeroes[hi];
-      var prevH = null;
-      for (var pi = 0; pi < prev.partyHeroes.length; pi++) {
-        if (prev.partyHeroes[pi].heroId === h.heroId) { prevH = prev.partyHeroes[pi]; break; }
-      }
-      if (!prevH) continue;
-
-      // Hero dealt damage
-      if (h.damage > 0) {
-        var wType = (h.heroId === hero.id) ? getWeaponType() : 'melee';
-        steps.push({ type: 'ATTACK', entityId: 'hero-' + h.heroId, weaponType: wType, role: h.role, damage: Math.round(h.damage), isCrit: h.crit, stepIndex: stepIndex++ });
-
-        // Monster impact (monster-global)
-        steps.push({ type: 'HIT', entityId: null, damage: Math.round(h.damage), isCrit: h.crit, stepIndex: stepIndex++ });
-      }
-
-      // Hero received healing
-      if (h.healingReceived > 0) {
-        steps.push({ type: 'HEAL', entityId: 'hero-' + h.heroId, healAmount: Math.round(h.healingReceived), stepIndex: stepIndex++ });
-      }
-
-      // Hero took damage
-      if (h.damageTaken > 0) {
-        var dmgTaken = Math.round(h.damageTaken);
-        steps.push({ type: 'HIT', entityId: 'hero-' + h.heroId, damage: dmgTaken, isCrit: h.monsterCrit, stepIndex: stepIndex++ });
-
-        if (h.role === 'tank') {
-          steps.push({ type: 'BLOCK', entityId: 'hero-' + h.heroId, damage: dmgTaken, stepIndex: stepIndex++ });
-        }
-      }
-
-      // Hero died
-      if (!h.alive && prevH.alive) {
-        steps.push({ type: 'DEATH', entityId: 'hero-' + h.heroId, stepIndex: stepIndex++ });
-      }
-    }
-  }
-
-  // Monster was killed this round
-  if (next.monsterJustKilled && !prev.monsterJustKilled) {
-    steps.push({ type: 'MONSTER_DEATH', entityId: null, stepIndex: stepIndex++ });
-  }
-
-  // New monster appeared
-  if (next.currentMonsterName && next.currentMonsterName !== prev.currentMonsterName && !next.monsterJustKilled) {
-    steps.push({ type: 'MONSTER_APPEAR', entityId: null, stepIndex: stepIndex++ });
-  }
-
-  return steps;
-}
-
-// ─── EntityAnimFSM ─────────────────────────────────────────
-function EntityAnimFSM() {
-  this.states = {};
-}
-
-var LEGAL_TRANSITIONS = {
-  'IDLE→ATTACKING': true,
-  'ATTACKING→IMPACT': true,
-  'ATTACKING→DEAD': true,
-  'IMPACT→RECOVERY': true,
-  'IMPACT→DEAD': true,
-  'RECOVERY→IDLE': true,
-  'RECOVERY→DEAD': true,
-  'DEAD→IDLE': true
-};
-
-EntityAnimFSM.prototype.registerEntity = function(entityId) {
-  if (!this.states.hasOwnProperty(entityId)) {
-    this.states[entityId] = 'IDLE';
-  }
-};
-
-EntityAnimFSM.prototype.getState = function(entityId) {
-  return this.states[entityId] || 'IDLE';
-};
-
-EntityAnimFSM.prototype.canTransition = function(entityId, targetState) {
-  var current = this.getState(entityId);
-  // Any → DEAD always allowed
-  if (targetState === 'DEAD') return true;
-  // DEAD entity: only DEAD→IDLE allowed
-  if (current === 'DEAD') return targetState === 'IDLE';
-  return LEGAL_TRANSITIONS[current + '→' + targetState] === true;
-};
-
-EntityAnimFSM.prototype.transitionTo = function(entityId, targetState) {
-  if (!this.canTransition(entityId, targetState)) return false;
-  this.states[entityId] = targetState;
-  return true;
-};
-
-EntityAnimFSM.prototype.isDead = function(entityId) {
-  return this.getState(entityId) === 'DEAD';
-};
-
-EntityAnimFSM.prototype.forceReset = function(entityId) {
-  this.states[entityId] = 'IDLE';
-};
-
-// ─── AnimationQueue ────────────────────────────────────────
 var DURATION_CACHE = {};
-var DEFAULT_DURATION_MS = 300;
-var TIMEOUT_GUARD_MS = 500;
-var MAX_STEPS = 100;
-
-function resolveAnimDuration(className) {
-  if (DURATION_CACHE[className] !== undefined) return DURATION_CACHE[className];
-
-  var el = document.createElement('div');
-  el.className = className;
-  el.style.cssText = 'position:absolute;left:-9999px;top:-9999px;width:1px;height:1px';
-  document.body.appendChild(el);
-
-  var ms = DEFAULT_DURATION_MS;
-  try {
-    var raw = getComputedStyle(el).animationDuration;
-    if (raw) {
-      if (raw.indexOf('ms') !== -1) { var v = parseFloat(raw); if (!isNaN(v)) ms = v; }
-      else if (raw.indexOf('s') !== -1) { var v = parseFloat(raw); if (!isNaN(v)) ms = v * 1000; }
-    }
-  } catch(e) {}
-  document.body.removeChild(el);
-
-  DURATION_CACHE[className] = ms;
-  return ms;
-}
-
-function AnimationQueue(fsm, getAnimDurationFn) {
-  this.fsm = fsm;
-  this.getAnimDuration = getAnimDurationFn || resolveAnimDuration;
-}
-
-AnimationQueue.prototype.playSteps = async function(steps) {
-  if (!steps || steps.length === 0) return;
-
-  if (steps.length > MAX_STEPS) {
-    console.warn('[AnimationQueue] Step count (' + steps.length + ') exceeds max (' + MAX_STEPS + '). Truncating to ' + MAX_STEPS + '.');
-    steps = steps.slice(0, MAX_STEPS);
-  }
-
-  for (var i = 0; i < steps.length; i++) {
-    await this._playStep(steps[i]);
-  }
-};
-
-AnimationQueue.prototype._playStep = async function(step) {
-  var entityId = this._resolveEntityId(step);
-  var targetState = EFFECT_TO_FSM_STATE[step.type];
-
-  // Guard: FSM check
-  if (!this.fsm.canTransition(entityId, targetState)) return;
-
-  // Lock FSM
-  this.fsm.transitionTo(entityId, targetState);
-
-  // Handle weapon-type-specific attacks (projectile systems)
-  if (step.type === 'ATTACK' && step.weaponType) {
-    if (step.weaponType === 'mage' || step.weaponType === 'range') {
-      var heroEl = document.getElementById(entityId);
-      var monsterEl = document.querySelector('.monster-card.is-focus') || document.querySelector('.monster-card:first-child');
-      if (heroEl && monsterEl) {
-        if (step.weaponType === 'mage') {
-          var colors = { fire: '#ff8800', ice: '#4488ff', arcane: '#aa44ff' };
-          var color = colors.fire;
-          if (hero.equipped && hero.equipped.rightHandWeapon) {
-            var n = (hero.equipped.rightHandWeapon.name || '').toLowerCase();
-            if (n.indexOf('ice') !== -1 || n.indexOf('frost') !== -1) color = colors.ice;
-            else if (n.indexOf('arcane') !== -1 || n.indexOf('void') !== -1) color = colors.arcane;
-          }
-          createProjectile(heroEl, monsterEl, color, false);
-          // Projectile flight delay
-          await new Promise(function(r) { setTimeout(r, 380); });
-          createExplosion(monsterEl, color);
-        } else {
-          // Range: arc arrow
-          createProjectile(heroEl, monsterEl, '#88ccff', true);
-          await new Promise(function(r) { setTimeout(r, 430); });
-          monsterEl.classList.add('animate-flash-white');
-          var hr = monsterEl.getBoundingClientRect();
-          floatText(hr.left + hr.width/2 - 20, hr.top - 10, 'HIT!', 'damage');
-          await new Promise(function(r) { setTimeout(r, 400); });
-          monsterEl.classList.remove('animate-flash-white');
-        }
-      }
-      // Advance FSM after projectile attack
-      if (targetState === 'ATTACKING') {
-        this.fsm.transitionTo(entityId, 'RECOVERY');
-        this.fsm.transitionTo(entityId, 'IDLE');
-      }
-      return;
-    }
-  }
-
-  // Standard CSS-class-based animation for all other step types
-  var classNames = EFFECT_TO_CSS_CLASS[step.type];
-  if (step.type === 'ATTACK' && (!step.weaponType || step.weaponType === 'melee')) {
-    if (step.role === 'tank') {
-      classNames = ['animate-shield', 'animate-windup'];
-    } else {
-      var wt = step.weaponType || 'melee';
-      if (wt === 'melee' || wt === 'sword') classNames = ['animate-slash'];
-      else if (wt === 'dagger') classNames = ['animate-stab'];
-      else if (wt === 'axe') classNames = ['animate-overhead'];
-      else classNames = ['animate-lunge'];
-    }
-  }
-
-  // Healing animations
-  if (step.type === 'HEAL') {
-    classNames = ['animate-heal-cast'];
-  }
-
-  // Boss entrance screen shake
-  if (step.type === 'MONSTER_APPEAR') {
-    var bossCard = document.querySelector('.monster-card.boss');
-    if (bossCard) {
-      var arena = document.querySelector('.arena');
-      if (arena) { arena.classList.add('animate-shake-screen'); setTimeout(function() { arena.classList.remove('animate-shake-screen'); }, 500); }
-    }
-  }
-
-  // Boss death screen effects
-  if (step.type === 'MONSTER_DEATH') {
-    var bossCard = document.querySelector('.monster-card.boss');
-    if (bossCard) {
-      classNames = ['animate-shake', 'animate-fade-out'];
-      var arena = document.querySelector('.arena');
-      if (arena) { arena.classList.add('animate-shake-screen', 'crit'); setTimeout(function() { arena.classList.remove('animate-shake-screen', 'crit'); }, 600); }
-    }
-  }
-
-  // Resolve DOM element
-  var el = document.getElementById(entityId);
-  if (!el) return;
-
-  if (!classNames || classNames.length === 0) return;
-
-  // Read CSS duration
-  var durationMs = this.getAnimDuration(classNames[0]);
-
-  // Apply CSS classes
-  el.classList.add.apply(el.classList, classNames);
-
-  // Await animationend with timeout fallback
-  await new Promise(function(resolve) {
-    var resolved = false;
-    function onEnd() {
-      if (!resolved) { resolved = true; el.removeEventListener('animationend', onEnd); resolve(); }
-    }
-    el.addEventListener('animationend', onEnd, { once: true });
-    setTimeout(function() {
-      if (!resolved) { resolved = true; el.removeEventListener('animationend', onEnd); resolve(); }
-    }, durationMs + TIMEOUT_GUARD_MS);
-  });
-
-  // Remove CSS classes
-  el.classList.remove.apply(el.classList, classNames);
-
-  // Damage numbers on HIT
-  if (step.type === 'HIT' && step.damage) {
-    var dmgColor = step.isCrit ? 'crit' : 'damage';
-    var r = el.getBoundingClientRect();
-    floatText(r.left + r.width/2 - 20, r.top - 10, Math.round(step.damage), dmgColor);
-  }
-
-  // Particles
-  if (step.type === 'HIT' && step.damage && el) {
-    var rect = el.getBoundingClientRect();
-    emitParticles('hit', rect.left + rect.width/2, rect.top + rect.height/2, 6);
-  }
-  if ((step.type === 'DEATH' || step.type === 'MONSTER_DEATH') && el) {
-    var rect = el.getBoundingClientRect();
-    emitParticles('death', rect.left + rect.width/2, rect.top + rect.height/2, 12);
-  }
-  if (step.type === 'HEAL' && el) {
-    var rect = el.getBoundingClientRect();
-    emitParticles('heal', rect.left + rect.width/2, rect.top, 6);
-  }
-  if (step.type === 'BLOCK' && el) {
-    var rect = el.getBoundingClientRect();
-    emitParticles('block', rect.left + rect.width/2, rect.top + rect.height/2, 6);
-  }
-
-  // Shadow pool on death
-  if ((step.type === 'DEATH' || step.type === 'MONSTER_DEATH') && el) {
-    el.classList.add('animate-shadow-pool');
-  }
-
-  // Hit-stop for melee attacks
-  if (step.type === 'ATTACK' && (!step.weaponType || step.weaponType === 'melee')) {
-    var monEl = document.querySelector('.monster-card.is-focus') || document.querySelector('.monster-card:first-child');
-    if (monEl) { monEl.classList.add('animate-hit-stop'); await new Promise(function(r) { setTimeout(r, 80); }); monEl.classList.remove('animate-hit-stop'); }
-  }
-
-  // Heal recipient glow
-  if (step.type === 'HEAL' && next.round && next.round.partyHeroes) {
-    var healTargetEl = document.getElementById(entityId);
-    if (healTargetEl) {
-      healTargetEl.classList.add('animate-heal-received');
-      await new Promise(function(r) { setTimeout(r, 500); });
-      healTargetEl.classList.remove('animate-heal-received');
-    }
-  }
-
-  // Advance FSM
-  if (targetState === 'DEAD') {
-    // Stay dead
-  } else if (targetState === 'ATTACKING') {
-    this.fsm.transitionTo(entityId, 'IMPACT');
-    this.fsm.transitionTo(entityId, 'RECOVERY');
-    this.fsm.transitionTo(entityId, 'IDLE');
-  } else {
-    this.fsm.transitionTo(entityId, 'RECOVERY');
-    this.fsm.transitionTo(entityId, 'IDLE');
-  }
-};
-
-AnimationQueue.prototype._resolveEntityId = function(step) {
-  if (step.entityId !== null) return step.entityId;
-  var focus = document.querySelector('.monster-card.is-focus');
-  if (focus && focus.id) return focus.id;
-  var first = document.querySelector('.monster-card');
-  if (first && first.id) return first.id;
-  return 'monster-focus';
-};
 
 // ─── DIY Particle System ────────────────────────────────────
 var PARTICLE_POOL = [];
@@ -1089,118 +790,266 @@ function emitParticles(type, x, y, count) {
     var distX = Math.cos(angle) * speed;
     var distY = Math.sin(angle) * speed - 20;
     var color = colors[Math.floor(Math.random() * colors.length)];
-    p.style.cssText = 'position:fixed;width:' + (4 + Math.random() * 4) + 'px;height:' + p.style.width + ';border-radius:50%;pointer-events:none;z-index:500;background:' + color + ';box-shadow:0 0 4px ' + color + ';left:' + x + 'px;top:' + y + 'px;opacity:1;transition:all ' + (300 + Math.random() * 200) + 'ms ease-out';
+    p.style.cssText = 'position:fixed;width:' + (4 + Math.random() * 4) + 'px;height:' + (4 + Math.random() * 4) + 'px;border-radius:50%;pointer-events:none;z-index:500;background:' + color + ';box-shadow:0 0 4px ' + color + ';left:' + x + 'px;top:' + y + 'px;opacity:1;transition:all ' + (300 + Math.random() * 200) + 'ms ease-out';
     p.style.transform = 'translate(' + distX + 'px,' + distY + 'px) scale(0.3)';
-    setTimeout(function(el) { el.style.opacity = '0'; }, 20);
-    setTimeout(function(el) { el.style.cssText = 'position:fixed;width:6px;height:6px;border-radius:50%;pointer-events:none;z-index:500;opacity:0;transition:none'; }, 600);
+    (function(part) { setTimeout(function() { part.style.opacity = '0'; }, 20); })(p);
+    (function(part) { setTimeout(function() { part.style.cssText = 'position:fixed;width:6px;height:6px;border-radius:50%;pointer-events:none;z-index:500;opacity:0;transition:none'; }, 600); })(p);
   }
 }
 
-// ─── Init Pipeline Globals ─────────────────────────────────
-var animFSM = new EntityAnimFSM();
-var animQueue = new AnimationQueue(animFSM);
 
-// ─── Combat Log (step-based) ───────────────────────────────
-function findPartyHero(partyHeroes, heroId) {
-  for (var i = 0; i < partyHeroes.length; i++) {
-    if (partyHeroes[i].heroId === heroId) return partyHeroes[i];
-  }
-  return null;
-}
 
-function addCombatLogEntry(step, next) {
-  var round = next.round;
-  if (!round) return;
-  var roleLabel;
-
-  switch (step.type) {
-    case 'ATTACK':
-      var heroData = findPartyHero(round.partyHeroes, step.entityId.replace('hero-', ''));
-      roleLabel = heroData ? heroData.role.charAt(0).toUpperCase() + heroData.role.slice(1) : 'Hero';
-      if (step.isCrit) addLog('crit', '[R' + round.round + '] ' + roleLabel + ' CRITS for ' + step.damage + '!');
-      else addLog('damage', '[R' + round.round + '] ' + roleLabel + ' hits for ' + step.damage);
-      break;
-    case 'HEAL':
-      addLog('heal', '[R' + round.round + '] +' + step.healAmount + ' HP healed');
-      break;
-    case 'BLOCK':
-      addLog('block', '[R' + round.round + '] Tank blocks ' + step.damage + ' damage!');
-      break;
-    case 'DEATH':
-      var deadHero = findPartyHero(round.partyHeroes, step.entityId.replace('hero-', ''));
-      roleLabel = deadHero ? deadHero.role.charAt(0).toUpperCase() + deadHero.role.slice(1) : 'Hero';
-      addLog('kill', '[R' + round.round + '] ' + roleLabel + ' has fallen!');
-      break;
-    case 'MONSTER_DEATH':
-      addLog('kill', '[R' + round.round + '] ' + (prevState && prevState.round ? prevState.round.currentMonsterName : 'Monster') + ' defeated!');
-      break;
-    case 'MONSTER_APPEAR':
-      addLog('info', 'Next: ' + round.currentMonsterName + ' appears!');
-      break;
-    case 'HIT':
-      // HIT steps on heroes produce damage logs; HIT steps on monsters are logged by ATTACK
-      if (step.entityId && step.entityId.indexOf('hero-') === 0) {
-        var hitHero = findPartyHero(round.partyHeroes, step.entityId.replace('hero-', ''));
-        if (hitHero && hitHero.role !== 'tank') {
-          roleLabel = hitHero.role.charAt(0).toUpperCase() + hitHero.role.slice(1);
-          addLog('damage', '[R' + round.round + '] ' + roleLabel + ' takes ' + step.damage + (step.isCrit ? ' (CRIT!)' : ''));
-        }
-      }
-      break;
-  }
-}
-
-// ─── Animate Transition (pipeline version) ─────────────────
+// ─── Animate Transition (simplified — event-driven playback) ─
 async function animateTransition(prev, next) {
   if (!next.round || !prev.round) return;
   if (next.round.round <= prev.round.round) return;
 
-  // Register entities in FSM
-  if (next.round.partyHeroes) {
-    next.round.partyHeroes.forEach(function(h) {
-      animFSM.registerEntity('hero-' + h.heroId);
-    });
-  }
-  animFSM.registerEntity('monster-focus');
+  // Compare hero data between rounds and play animations
+  if (next.round.partyHeroes && prev.round.partyHeroes) {
+    // Phase 1: Fire all hero attack animations simultaneously
+    var attackPromises = [];
+    for (var hi = 0; hi < next.round.partyHeroes.length; hi++) {
+      var h = next.round.partyHeroes[hi];
+      var prevH = null;
+      for (var pi = 0; pi < prev.round.partyHeroes.length; pi++) {
+        if (prev.round.partyHeroes[pi].heroId === h.heroId) { prevH = prev.round.partyHeroes[pi]; break; }
+      }
+      if (!prevH) continue;
 
-  // Compute animation steps from round data
-  var steps = computeAnimationSteps(prev.round, next.round);
-
-  // Play steps via AnimationQueue
-  await animQueue.playSteps(steps);
-
-  // Update HP bars after animations
-  if (next.monsters) updateMonsterBars(next.monsters);
-  if (next.round.partyHeroes) updateHeroBars(next.round.partyHeroes);
-
-  // Screen effects
-  var hasCrit = false;
-  var hasHeavyHit = false;
-  steps.forEach(function(s) {
-    if (s.isCrit) hasCrit = true;
-    if (s.type === 'HIT' || s.type === 'ATTACK') hasHeavyHit = true;
-    // Enhanced crit float text
-    if (s.isCrit && s.entityId && s.damage) {
-      var targetEl = document.getElementById(s.entityId);
-      if (targetEl) {
-        var r = targetEl.getBoundingClientRect();
-        floatText(r.left + r.width/2 - 20, r.top - 20, Math.round(s.damage) + '!', 'crit');
+      if (h.damage > 0) {
+        (function(heroData, prevHero) {
+          attackPromises.push((async function() {
+            var wType = (heroData.heroId === hero.id) ? getWeaponType() : 'melee';
+            var el = document.getElementById('hero-' + heroData.heroId);
+            var monEl = document.querySelector('.monster-card.is-focus') || document.querySelector('.monster-card:first-child');
+            if (!el) return;
+            if (wType === 'mage' || wType === 'range') {
+              if (monEl) {
+                if (wType === 'mage') {
+                  var colors = { fire: '#ff8800', ice: '#4488ff', arcane: '#aa44ff' };
+                  var color = colors.fire;
+                  if (hero.equipped && hero.equipped.rightHandWeapon) {
+                    var n = (hero.equipped.rightHandWeapon.name || '').toLowerCase();
+                    if (n.indexOf('ice') !== -1 || n.indexOf('frost') !== -1) color = colors.ice;
+                    else if (n.indexOf('arcane') !== -1 || n.indexOf('void') !== -1) color = colors.arcane;
+                  }
+                  createProjectile(el, monEl, color, false);
+                  await sleep(380);
+                  createExplosion(monEl, color);
+                } else {
+                  createProjectile(el, monEl, '#88ccff', true);
+                  await sleep(430);
+                  monEl.classList.add('animate-flash-white');
+                  var hr2 = monEl.getBoundingClientRect();
+                  floatText(hr2.left + hr2.width/2 - 20, hr2.top - 10, 'HIT!', 'damage');
+                  await sleep(400);
+                  monEl.classList.remove('animate-flash-white');
+                }
+                if (heroData.crit) {
+                  var arena = document.querySelector('.arena');
+                  if (arena) { arena.classList.add('animate-shake-screen'); setTimeout(function() { arena.classList.remove('animate-shake-screen'); }, 500); }
+                }
+              }
+            } else {
+              var animClass = (heroData.role === 'tank') ? 'animate-shield' : 'animate-slash';
+              el.classList.add(animClass);
+              await sleep(getAnimDuration(animClass) + 50);
+              el.classList.remove(animClass);
+              if (monEl) {
+                monEl.classList.add('animate-hit-stop');
+                await sleep(80);
+                monEl.classList.remove('animate-hit-stop');
+              }
+            }
+          })());
+        })(h, prevH);
       }
     }
-  });
-  var arena = document.querySelector('.arena');
-  if (hasCrit && arena) {
-    arena.classList.add('animate-shake-screen', 'crit');
-    var vf = document.getElementById('vignette-flash');
-    if (vf) { vf.className = 'vignette-flash crit flash'; setTimeout(function() { vf.className = 'vignette-flash'; }, 200); }
-    setTimeout(function() { arena.classList.remove('animate-shake-screen', 'crit'); }, 500);
-  } else if (hasHeavyHit && arena) {
-    arena.classList.add('animate-shake-screen');
-    setTimeout(function() { arena.classList.remove('animate-shake-screen'); }, 300);
+    // Wait for all attack animations to finish
+    if (attackPromises.length > 0) await Promise.all(attackPromises);
+
+    // Phase 2: Combined monster hit effects
+    var totalDamage = 0;
+    var anyCrit = false;
+    for (var hi2 = 0; hi2 < next.round.partyHeroes.length; hi2++) {
+      var h2 = next.round.partyHeroes[hi2];
+      if (h2.damage > 0) {
+        totalDamage += h2.damage;
+        if (h2.crit) anyCrit = true;
+        var monEl2 = document.querySelector('.monster-card.is-focus') || document.querySelector('.monster-card:first-child');
+        if (monEl2) {
+          monEl2.classList.add('animate-flash-red', 'animate-shake', 'animate-hit-splat');
+          var mr2 = monEl2.getBoundingClientRect();
+          floatText(mr2.left + mr2.width/2 - 20, mr2.top - 10, Math.round(h2.damage), 'damage');
+          emitParticles('hit', mr2.left + mr2.width/2, mr2.top + mr2.height/2, 6);
+        }
+      }
+    }
+    if (totalDamage > 0) {
+      await animSleep('animate-flash-red');
+      var monEl3 = document.querySelector('.monster-card.is-focus') || document.querySelector('.monster-card:first-child');
+      if (monEl3) monEl3.classList.remove('animate-flash-red', 'animate-shake');
+      if (anyCrit) {
+        var arena = document.querySelector('.arena');
+        if (arena) { arena.classList.add('animate-shake-screen'); setTimeout(function() { arena.classList.remove('animate-shake-screen'); }, getAnimDuration('animate-shake-screen') + 50); }
+      }
+    }
+
+    await sleep(PHASE_GAP_MS);
+    // ─── PHASE 3: DEFEND (all monsters attack simultaneously) ───
+    var anyHeroHit = false;
+    for (var hi3 = 0; hi3 < next.round.partyHeroes.length; hi3++) {
+      var h3 = next.round.partyHeroes[hi3];
+      if (h3.damageTaken > 0) { anyHeroHit = true; break; }
+    }
+    if (anyHeroHit) {
+      var allMonsters = document.querySelectorAll('.monster-card');
+      for (var mi = 0; mi < allMonsters.length; mi++) {
+        var m = allMonsters[mi];
+        if (m.classList.contains('boss')) { m.classList.add('animate-shake-screen'); } else { m.classList.add('animate-shake'); }
+      }
+      await animSleep('animate-shake');
+      for (var mi2 = 0; mi2 < allMonsters.length; mi2++) { allMonsters[mi2].classList.remove('animate-shake-screen', 'animate-shake'); }
+      for (var hi4 = 0; hi4 < next.round.partyHeroes.length; hi4++) {
+        var h4 = next.round.partyHeroes[hi4];
+        if (h4.damageTaken > 0) {
+          var hel2 = document.getElementById('hero-' + h4.heroId);
+          if (hel2) {
+            hel2.classList.add('animate-flash-red', 'animate-shake');
+            await animSleep('animate-flash-red');
+            hel2.classList.remove('animate-flash-red', 'animate-shake');
+            if (h4.role === 'tank') {
+              var mCards = document.querySelectorAll('.monster-card');
+              for (var bi = 0; bi < mCards.length; bi++) {
+                hel2.classList.add('animate-shield', 'animate-block-burst');
+                var br2 = hel2.getBoundingClientRect();
+                emitParticles('block', br2.left + br2.width/2, br2.top + br2.height/2, 4);
+                if (bi === 0) floatText(br2.left + br2.width/2 - 20, br2.top - 10, 'BLOCK', 'block');
+                await animSleep('animate-block-burst');
+                hel2.classList.remove('animate-shield', 'animate-block-burst');
+              }
+            }
+          }
+        }
+      }
+    }
+
+    await sleep(PHASE_GAP_MS);
+    // ─── PHASE 4: HEAL ───────────────────────────────────────
+    for (var hi5 = 0; hi5 < next.round.partyHeroes.length; hi5++) {
+      var h5 = next.round.partyHeroes[hi5];
+      // Healer cast
+      if (h5.healingDone > 0) {
+        var casterEl = document.getElementById('hero-' + h5.heroId);
+        if (casterEl) {
+          casterEl.classList.add('animate-heal-cast');
+          var cr = casterEl.getBoundingClientRect();
+          floatText(cr.left + cr.width/2 - 20, cr.top - 10, '+' + Math.round(h5.healingDone), 'heal');
+          await animSleep('animate-heal-cast');
+          casterEl.classList.remove('animate-heal-cast');
+        }
+      }
+      // Heal received
+      if (h5.healingReceived > 0) {
+        var hel = document.getElementById('hero-' + h5.heroId);
+        if (hel) {
+          var hr3 = hel.getBoundingClientRect();
+          emitParticles('heal', hr3.left + hr3.width/2, hr3.top + hr3.height/2, 8);
+          hel.classList.add('animate-heal-received');
+          await animSleep('animate-heal-received');
+          hel.classList.remove('animate-heal-received');
+          floatText(hr3.left + hr3.width/2 - 20, hr3.top - 20, '+' + Math.round(h5.healingReceived), 'heal');
+        }
+      }
+    }
+
+    await sleep(PHASE_GAP_MS);
+    // ─── PHASE 5: DEATHS ─────────────────────────────────────
+    for (var hi6 = 0; hi6 < next.round.partyHeroes.length; hi6++) {
+      var h6 = next.round.partyHeroes[hi6];
+      var prevH6 = null;
+      for (var pi6 = 0; pi6 < prev.round.partyHeroes.length; pi6++) {
+        if (prev.round.partyHeroes[pi6].heroId === h6.heroId) { prevH6 = prev.round.partyHeroes[pi6]; break; }
+      }
+      if (!prevH6) continue;
+      if (!h6.alive && prevH6.alive) {
+        var hel3 = document.getElementById('hero-' + h6.heroId);
+        if (hel3) {
+          var rect3 = hel3.getBoundingClientRect();
+          emitParticles('death', rect3.left + rect3.width/2, rect3.top + rect3.height/2, 12);
+          hel3.classList.add('animate-fade-out');
+          await animSleep('animate-fade-out');
+        }
+      }
+    }
   }
 
-  // Emit combat log entries from step metadata
-  steps.forEach(function(s) { addCombatLogEntry(s, next); });
+  // Monster death
+  if (next.round.monsterJustKilled && !prev.round.monsterJustKilled) {
+    var target = document.querySelector('.monster-card.is-focus') || document.querySelector('.monster-card');
+    if (target) {
+      var rect = target.getBoundingClientRect();
+      // Big death particle burst
+      emitParticles('death', rect.left + rect.width/2, rect.top + rect.height/2, 20);
+      // Screen shake
+      var arena = document.querySelector('.arena');
+      if (arena) { arena.classList.add('animate-shake-screen'); setTimeout(function() { arena.classList.remove('animate-shake-screen'); }, getAnimDuration('animate-shake-screen') + 50); }
+      // Flash white then fade out
+      target.classList.add('animate-flash-white');
+      await animSleep('animate-flash-white');
+      target.classList.remove('animate-flash-white');
+      target.classList.add('animate-fade-out');
+      await animSleep('animate-fade-out');
+    }
+  }
+
+  // Update HP bars from snapshot
+  if (next.monsters) updateMonsterBars(next.monsters);
+  if (next.round && next.round.partyHeroes) updateHeroBars(next.round.partyHeroes);
+
+  // Screen shake on crit
+  var hasCrit = next.round && next.round.partyHeroes && next.round.partyHeroes.some(function(h) { return h.crit; });
+  if (hasCrit) {
+    var arena = document.querySelector('.arena');
+    if (arena) { arena.classList.add('animate-shake-screen'); setTimeout(function() { arena.classList.remove('animate-shake-screen'); }, getAnimDuration('animate-shake-screen') + 50); }
+  }
+
+  // Combat log
+  if (next.round.partyHeroes) {
+    next.round.partyHeroes.forEach(function(h) {
+      if (h.damage > 0) addLog(h.crit ? 'crit' : 'damage', '[R' + next.round.round + '] ' + h.name + ' ' + (h.crit ? 'CRITS' : 'hits') + ' for ' + Math.round(h.damage));
+      if (h.damageTaken > 0 && h.role !== 'tank') addLog('damage', '[R' + next.round.round + '] ' + h.name + ' takes ' + Math.round(h.damageTaken));
+      if (h.damageTaken > 0 && h.role === 'tank') addLog('block', '[R' + next.round.round + '] ' + h.name + ' blocks ' + Math.round(h.damageTaken) + ' damage!');
+      if (h.healingReceived > 0) addLog('heal', '[R' + next.round.round + '] +' + Math.round(h.healingReceived) + ' HP healed');
+      if (!h.alive && prevH && prevH.alive) addLog('kill', '[R' + next.round.round + '] ' + h.name + ' has fallen!');
+    });
+  }
+  if (next.round.monsterJustKilled && !prev.round.monsterJustKilled) {
+    addLog('kill', '[R' + next.round.round + '] ' + prev.round.currentMonsterName + ' defeated!');
+  }
+}
+
+function sleep(ms) {
+  return new Promise(function(r) { setTimeout(r, ms); });
+}
+
+// Wait for a CSS animation to finish by reading its duration from the live style.
+// The 50ms buffer covers class toggling + reflow. Single source of truth — change
+// the CSS keyframe and the timing updates automatically.
+function animSleep(className) {
+  return sleep(getAnimDuration(className) + 50);
+}
+
+// Perceptual pause between phases so the player can register each one.
+// Not tied to a specific animation — just enough for the eye to follow.
+var PHASE_GAP_MS = 200;
+
+function getAnimDuration(className) {
+  var d = DURATION_CACHE[className]; if (d !== undefined) return d;
+  var el = document.createElement('div'); el.className = className; el.style.cssText = 'position:absolute;left:-9999px;top:-9999px;width:1px;height:1px';
+  document.body.appendChild(el);
+  var ms = 300; try { var raw = getComputedStyle(el).animationDuration; if (raw) { if (raw.indexOf('ms') !== -1) { var v = parseFloat(raw); if (!isNaN(v)) ms = v; } else if (raw.indexOf('s') !== -1) { var v = parseFloat(raw); if (!isNaN(v)) ms = v * 1000; } } } catch(e) {}
+  document.body.removeChild(el); DURATION_CACHE[className] = ms; return ms;
 }
 
 // ─── Projectile System ─────────────────────────────────────
@@ -1291,9 +1140,6 @@ function createExplosion(el, color) {
 // ─── Enter Dungeon ─────────────────────────────────────────
 function enterDungeon() {
   var floor = parseInt(document.getElementById('floor-select').value);
-  var btn = document.getElementById('enter-btn');
-  btn.disabled = true;
-  btn.textContent = 'Entering...';
 
   fetch('/api/heroes/' + hero.id + '/combat/start', {
     method: 'POST',
@@ -1302,28 +1148,53 @@ function enterDungeon() {
   })
   .then(function(res) { return res.json().then(function(d) { if (!res.ok) throw new Error(d.error || 'Failed'); return d; }); })
   .then(function(data) {
-    document.getElementById('dungeon-setup').style.display = 'none';
+    combatGen++;
+    showingResult = false;
     document.getElementById('combat-arena').classList.add('active');
+    document.getElementById('start-btn').style.display = 'none';
+    document.getElementById('stop-btn').style.display = '';
     document.getElementById('combat-log').innerHTML = '';
     prevState = null;
+
+    // Floor announcement
+    var announce = document.getElementById('floor-announce');
+    if (announce) {
+      announce.textContent = 'Floor ' + floor;
+      announce.style.opacity = '0';
+      announce.style.transition = 'none';
+      announce.style.animation = 'none';
+      announce.offsetHeight;
+      announce.style.transition = 'opacity .8s ease, transform .8s ease';
+      announce.style.transform = 'scale(0.5)';
+      announce.offsetHeight;
+      announce.style.opacity = '1';
+      announce.style.transform = 'scale(1)';
+      setTimeout(function() {
+        announce.style.opacity = '0';
+        announce.style.transform = 'scale(1.5)';
+        announce.style.transition = 'opacity .6s ease, transform .6s ease';
+      }, 1200);
+    }
 
     // Render heroes from the start response
     if (data.heroes && data.heroes.length > 0) {
       renderPartyHeroes(data.heroes);
     }
 
-    if (combatInterval) clearInterval(combatInterval);
-    combatInterval = setInterval(pollCombat, 1500);
+    // Render monsters from the start response
+    if (data.monsters && data.monsters.length > 0) {
+      renderMonsters(data.monsters);
+      prevMonsterIds = data.monsters.map(function(m) { return m.id; });
+    }
+
+    if (combatInterval) { clearTimeout(combatInterval); combatInterval = null; }
+    combatInterval = setTimeout(pollCombat, 500);
     return pollCombat();
   })
-  .catch(function(err) { alert(err.message); })
-  .finally(function() {
-    btn.disabled = false;
-    btn.innerHTML = '<i data-lucide="sword" style="width:16px;height:16px"></i> Enter Dungeon';
+  .catch(function(err) {
+    if (!isLooping) alert(err.message);
   });
 }
-
-document.getElementById('enter-btn').addEventListener('click', enterDungeon);
 
 // ─── Poll Combat ───────────────────────────────────────────
 var prevMonsterIds = null;
@@ -1333,22 +1204,52 @@ function pollCombat() {
     headers: { 'Authorization': 'Bearer ' + token },
   })
   .then(function(res) { return res.json(); })
-  .then(function(state) {
+  .then(async function(state) {
+    if (!state || !state.round) {
+      prevState = null;
+      return;
+    }
+
     if (state.round) {
       document.getElementById('round-counter').textContent = 'Round ' + state.round.round;
     }
 
     if (prevState) {
-      animateTransition(prevState, state);
+      await animateTransition(prevState, state);
 
       // Re-render monsters when lineup changes (monster died, new one appears)
-      if (state.monsters && prevState.monsters) {
-        var currMonIds = state.monsters.map(function(m) { return m.id; }).sort().join(',');
-        var prevMonIds = prevState.monsters.map(function(m) { return m.id; }).sort().join(',');
-        if (currMonIds !== prevMonIds) {
-          renderMonsters(state.monsters);
+      if (state.monsters) {
+        if (prevState.monsters) {
+          var currMonIds = state.monsters.map(function(m) { return m.id; }).sort().join(',');
+          var prevMonIds = prevState.monsters.map(function(m) { return m.id; }).sort().join(',');
+          if (currMonIds !== prevMonIds) {
+            renderMonsters(state.monsters);
+            // Fade in the first monster card as entrance animation
+            var firstCard = document.querySelector('.monster-card');
+            if (firstCard) { firstCard.classList.add('animate-fade-in'); setTimeout(function() { firstCard.classList.remove('animate-fade-in'); }, 500); }
+            // Boss announcement
+            var bossCard = document.querySelector('.monster-card.boss');
+            if (bossCard && state.monsters.length === 1) {
+              var announce = document.getElementById('floor-announce');
+              if (announce) {
+                announce.textContent = 'BOSS FIGHT';
+                announce.style.cssText = 'opacity:0;transform:scale(0.3);transition:none';
+                announce.offsetHeight;
+                announce.style.transition = 'opacity .6s ease, transform .6s ease';
+                announce.style.opacity = '1';
+                announce.style.transform = 'scale(1)';
+                setTimeout(function() {
+                  announce.style.opacity = '0';
+                  announce.style.transform = 'scale(1.5)';
+                  announce.style.transition = 'opacity .6s ease, transform .6s ease';
+                }, 1500);
+              }
+            }
+          } else {
+            updateMonsterBars(state.monsters);
+          }
         } else {
-          updateMonsterBars(state.monsters);
+          renderMonsters(state.monsters);
         }
       }
       if (state.round && state.round.partyHeroes) {
@@ -1362,21 +1263,37 @@ function pollCombat() {
       if (state.round && state.round.partyHeroes) {
         renderPartyHeroes(state.round.partyHeroes);
       }
+      if (state.round && state.round.partyHeroes) {
+        updateHeroBars(state.round.partyHeroes);
+      }
       if (state.round) addLog('info', state.round.currentMonsterName + ' appears!');
     }
 
-    prevState = state;
+    // Only set prevState when we have round data
+    if (state.round) prevState = state;
 
     if (state.finished) {
-      if (combatInterval) { clearInterval(combatInterval); combatInterval = null; }
+      if (combatInterval) { clearTimeout(combatInterval); combatInterval = null; }
       showResult(state);
+      return;
+    } else {
+      showingResult = false;
+      combatInterval = setTimeout(pollCombat, 500);
     }
   })
-  .catch(function(err) { console.error('Poll failed:', err); });
+  .catch(function(err) {
+    console.error('Poll failed:', err);
+    if (!showingResult) {
+      combatInterval = setTimeout(pollCombat, 2000);
+    }
+  });
 }
 
 // ─── Result ────────────────────────────────────────────────
 function showResult(state) {
+  if (showingResult) return;
+  showingResult = true;
+  var currentGen = combatGen;
   var overlay = document.getElementById('result-overlay');
   var title = document.getElementById('result-title');
   var icon = document.getElementById('result-icon');
@@ -1395,13 +1312,27 @@ function showResult(state) {
   details.innerHTML = '';
 
   if (won) {
+    var shardLines = '';
+    if (r.shardsEarned) {
+      var shardKeys = Object.keys(r.shardsEarned).filter(function(k) { return r.shardsEarned[k] > 0; }).sort();
+      for (var si = 0; si < shardKeys.length; si++) {
+        var sk = shardKeys[si];
+        var parts = sk.split('_');
+        var sc = rarityColors[parts[0]] || '#aaa';
+        shardLines += '<br /><span style="color:' + sc + ';font-size:.78rem">' + parts[0].charAt(0).toUpperCase() + parts[0].slice(1) + ' Lv.' + (parts[1] || '?') + ' shard ×' + r.shardsEarned[sk] + '</span>';
+      }
+    }
     details.innerHTML = 'Cleared in ' + (r.totalRounds || roundInfo.round || '?') + ' rounds!' +
       '<br />Monsters defeated: ' + (r.monstersDefeated || 0) + '/' + (r.totalMonsters || '?') +
-      '<br />Gold earned: <strong style="color:#fbbf24">' + (r.goldEarned || 0) + '</strong>';
+      '<br />Gold earned: <strong style="color:#fbbf24">' + (r.goldEarned || 0) + '</strong>' +
+      shardLines;
   } else {
     details.innerHTML = 'Your party was defeated.<br />';
     if (state.round && state.round.currentMonsterName) {
       details.innerHTML += 'Felled by: ' + state.round.currentMonsterName;
+    }
+    if (r.goldLost > 0) {
+      details.innerHTML += '<br />Gold lost: <strong style="color:#6a2525">-' + r.goldLost + '</strong>';
     }
   }
 
@@ -1426,11 +1357,12 @@ function showResult(state) {
     hero.level = state.hero.level;
   }
 
-  if (isLooping && won) {
-    // Auto retry
+  if (isLooping) {
+    // Auto retry on win or loss
     retryBtn.style.display = 'none';
     overlay.classList.add('show');
     setTimeout(function() {
+      if (combatGen !== currentGen) return;
       overlay.classList.remove('show');
       loopRetry();
     }, 1500);
@@ -1443,16 +1375,27 @@ function showResult(state) {
 document.getElementById('result-btn').addEventListener('click', function() {
   document.getElementById('result-overlay').classList.remove('show');
   if (isLooping) {
-    // Stop looping on manual dismiss during defeat
-    if (document.getElementById('result-title').textContent === 'DEFEAT') {
-      toggleLoop();
-    }
+    toggleLoop();
   }
+  document.getElementById('combat-arena').classList.remove('active');
+  document.getElementById('start-btn').style.display = '';
+  document.getElementById('stop-btn').style.display = 'none';
 });
 
 document.getElementById('result-retry-btn').addEventListener('click', function() {
   document.getElementById('result-overlay').classList.remove('show');
   loopRetry();
+});
+
+document.getElementById('start-btn').addEventListener('click', enterDungeon);
+
+document.getElementById('stop-btn').addEventListener('click', function() {
+  if (combatInterval) { clearTimeout(combatInterval); combatInterval = null; }
+  document.getElementById('combat-arena').classList.remove('active');
+  document.getElementById('start-btn').style.display = '';
+  document.getElementById('stop-btn').style.display = 'none';
+  document.getElementById('result-overlay').classList.remove('show');
+  if (isLooping) toggleLoop();
 });
 
 function loopRetry() {
@@ -1472,11 +1415,21 @@ function loopRetry() {
   })
   .then(function(res) { return res.json().then(function(d) { if (!res.ok) throw new Error(d.error || 'Failed'); return d; }); })
   .then(function() {
-    if (combatInterval) clearInterval(combatInterval);
-    combatInterval = setInterval(pollCombat, 1500);
+    combatGen++;
+    if (combatInterval) { clearTimeout(combatInterval); combatInterval = null; }
+    combatInterval = setTimeout(pollCombat, 500);
     return pollCombat();
   })
-  .catch(function(err) { alert(err.message); isLooping = false; updateLoopUI(); });
+  .catch(function(err) {
+    if (isLooping) {
+      // Don't clear showingResult — if old finished state is polled, showResult is still blocked
+      combatInterval = setTimeout(pollCombat, 2000);
+    } else {
+      alert(err.message);
+      isLooping = false;
+      updateLoopUI();
+    }
+  });
 }
 
 // ─── Loop Toggle ───────────────────────────────────────────
@@ -1485,8 +1438,14 @@ function toggleLoop() {
   if (!isLooping) {
     loopCount = 0;
     totalGoldEarned = 0;
+    updateLoopUI();
+    return;
   }
   updateLoopUI();
+  // Auto-enter dungeon if not already in combat
+  if (!combatInterval) {
+    enterDungeon();
+  }
 }
 
 function updateLoopUI() {
@@ -1495,8 +1454,12 @@ function updateLoopUI() {
   if (isLooping) {
     btn.classList.add('active');
     btn.innerHTML = '<i data-lucide="square" style="width:16px;height:16px"></i> STOP';
-    info.classList.add('show');
-    info.innerHTML = '<i data-lucide="refresh-cw" style="width:14px;height:14px"></i> Looping | Runs: <strong id="run-count-display">' + loopCount + '</strong> | Gold: <strong id="gold-count-display">' + totalGoldEarned + '</strong>';
+    if (loopCount > 0) {
+      info.classList.add('show');
+      info.innerHTML = '<i data-lucide="refresh-cw" style="width:14px;height:14px"></i> Looping | Runs: <strong id="run-count-display">' + loopCount + '</strong> | Gold: <strong id="gold-count-display">' + totalGoldEarned + '</strong>';
+    } else {
+      info.classList.remove('show');
+    }
   } else {
     btn.classList.remove('active');
     btn.innerHTML = '<i data-lucide="refresh-cw" style="width:16px;height:16px"></i> LOOP';
@@ -1537,6 +1500,37 @@ var SLOT_NAMES = {
 
 var SLOT_ORDER = ['rightHandWeapon','leftHand','helmet','body','legs','boots','gloves','necklace','leftRing','rightRing','leftEarring','rightEarring'];
 
+var SLOT_ICONS = {
+  rightHandWeapon: 'sword',
+  leftHand: 'shield',
+  helmet: 'helmet',
+  body: 'shirt',
+  legs: 'shirt',
+  boots: 'shield',
+  gloves: 'shield',
+  necklace: 'gem',
+  leftRing: 'gem',
+  rightRing: 'gem',
+  leftEarring: 'gem',
+  rightEarring: 'gem'
+};
+
+// Grid positions for a character-body layout (3-column grid, each entry = [col, row])
+var SLOT_POSITIONS = {
+  helmet:        [2, 1],
+  rightHandWeapon: [1, 2],
+  body:          [2, 2],
+  leftHand:      [3, 2],
+  legs:          [2, 3],
+  boots:         [2, 4],
+  gloves:        [2, 5],
+  necklace:      [1, 6],
+  leftEarring:   [2, 6],
+  rightEarring:  [3, 6],
+  leftRing:      [1, 7],
+  rightRing:     [3, 7]
+};
+
 var rarityColors = { common:'#aaa', uncommon:'#22c55e', rare:'#3b82f6', epic:'#a855f7', legendary:'#f59e0b' };
 
 function getItemEmoji(slot, type) {
@@ -1564,6 +1558,20 @@ function getMainStat(item) {
 function loadEquipment() {
   renderEquipmentSlots(hero.equipped || {});
   renderInventory(hero.inventory || []);
+  renderStatsPanel(hero);
+}
+
+function renderStatsPanel(h) {
+  var panel = document.getElementById('equip-stats-panel');
+  if (!panel) return;
+  var s = h.stats || {};
+  panel.innerHTML =
+    '<div style="font-size:.85rem;font-weight:700;color:#9a949a;margin-bottom:8px">' + escHtml(h.name) + '</div>' +
+    '<div class="stat-row"><span class="stat-label">Level</span><span class="stat-value">' + (h.level || 0) + '</span></div>' +
+    '<div class="stat-row"><span class="stat-label"><i data-lucide="sword" style="width:12px;height:12px;vertical-align:middle"></i> ATK</span><span class="stat-value atk">' + (s.atk || 0) + '</span></div>' +
+    '<div class="stat-row"><span class="stat-label"><i data-lucide="shield" style="width:12px;height:12px;vertical-align:middle"></i> DEF</span><span class="stat-value def">' + (s.def || 0) + '</span></div>' +
+    '<div class="stat-row"><span class="stat-label"><i data-lucide="heart" style="width:12px;height:12px;vertical-align:middle"></i> HP</span><span class="stat-value hp">' + (s.hp || 0) + '</span></div>';
+  if (typeof lucide !== 'undefined') lucide.createIcons();
 }
 
 function renderEquipmentSlots(equipped) {
@@ -1573,42 +1581,51 @@ function renderEquipmentSlots(equipped) {
     var slot = SLOT_ORDER[i];
     var slotName = SLOT_NAMES[slot];
     var item = equipped[slot];
+    var pos = SLOT_POSITIONS[slot] || [1, 1];
     var div = document.createElement('div');
-    div.className = 'equip-slot';
+    div.className = 'equip-slot' + (item ? ' has-item' : '');
     div.dataset.slot = slot;
-
-    var label = document.createElement('div');
-    label.className = 'slot-label';
-    label.textContent = slotName;
-    div.appendChild(label);
+    div.style.gridColumn = pos[0];
+    div.style.gridRow = pos[1];
 
     if (item) {
       var color = rarityColors[item.rarity] || '#aaa';
+      var borderColor = item.rarity === 'legendary' ? '#f59e0b' : item.rarity === 'epic' ? '#a855f7' : item.rarity === 'rare' ? '#3b82f6' : item.rarity === 'uncommon' ? '#22c55e' : '#2a1a3a';
+      div.style.borderColor = borderColor;
+      div.style.boxShadow = '0 0 8px ' + borderColor + '22';
       var content = document.createElement('div');
       content.className = 'slot-equipped';
       content.innerHTML =
-        '<div class="item-icon"><i data-lucide="' + getItemEmoji(slot, item.type) + '" style="width:22px;height:22px"></i></div>' +
+        '<div class="item-icon"><i data-lucide="' + getItemEmoji(slot, item.type) + '" style="width:20px;height:20px;color:' + color + '"></i></div>' +
         '<div class="item-name" style="color:' + color + '">' + escHtml(item.name) + '</div>' +
         '<div class="item-stat" style="color:' + color + '">' + getMainStat(item) + '</div>' +
-        '<div class="item-level">Lv.' + item.level + ' \\u00B7 ' + item.rarity.toUpperCase() + '</div>';
+        '<div class="item-level">Lv.' + item.level + '</div>';
       div.appendChild(content);
 
+      var label = document.createElement('div');
+      label.className = 'slot-label';
+      label.textContent = slotName;
+      div.appendChild(label);
+
       var unequipBtn = document.createElement('button');
-      unequipBtn.className = 'btn btn-danger btn-sm';
-      unequipBtn.style.cssText = 'margin-top:6px;width:auto;padding:3px 10px;font-size:.72rem';
-      unequipBtn.textContent = 'UNEQUIP';
+      unequipBtn.className = 'unequip-btn';
+      unequipBtn.textContent = '×';
+      unequipBtn.title = 'Unequip ' + slotName;
       unequipBtn.addEventListener('click', (function(s) { return function() { unequipItem(s); }; })(slot));
       div.appendChild(unequipBtn);
     } else {
+      var label = document.createElement('div');
+      label.className = 'slot-label';
+      label.textContent = slotName;
+      div.appendChild(label);
       var empty = document.createElement('div');
       empty.className = 'slot-empty';
-      empty.textContent = '(empty)';
+      empty.textContent = slotName === 'Ring' || slotName === 'Earring' ? '(empty)' : '(empty)';
       div.appendChild(empty);
     }
 
     grid.appendChild(div);
   }
-  if (typeof lucide !== 'undefined') lucide.createIcons();
 }
 
 function renderInventory(inventory) {
@@ -1618,7 +1635,7 @@ function renderInventory(inventory) {
   countEl.textContent = '(' + inventory.length + ' items)';
 
   if (inventory.length === 0) {
-    container.innerHTML = '<div style="text-align:center;padding:20px;color:#555577">No items in inventory.</div>';
+    container.innerHTML = '<div style="text-align:center;padding:24px;color:#3a373a;font-size:.85rem">No items in inventory.</div>';
     return;
   }
 
@@ -1630,7 +1647,7 @@ function renderInventory(inventory) {
 
     var icon = document.createElement('div');
     icon.className = 'inv-icon';
-    icon.innerHTML = '<i data-lucide="' + getItemEmoji(item.slot, item.type) + '" style="width:24px;height:24px"></i>';
+    icon.innerHTML = '<i data-lucide="' + getItemEmoji(item.slot, item.type) + '" style="width:20px;height:20px;color:' + color + '"></i>';
     card.appendChild(icon);
 
     var info = document.createElement('div');
@@ -1641,9 +1658,8 @@ function renderInventory(inventory) {
     card.appendChild(info);
 
     var equipBtn = document.createElement('button');
-    equipBtn.className = 'btn btn-primary btn-sm';
-    equipBtn.textContent = 'EQUIP';
-    equipBtn.style.cssText = 'width:auto;padding:5px 14px';
+    equipBtn.className = 'equip-btn';
+    equipBtn.textContent = 'Equip';
     equipBtn.addEventListener('click', (function(id, s) { return function() { equipItem(id, s); }; })(item.id, item.slot));
     card.appendChild(equipBtn);
 
@@ -1938,6 +1954,213 @@ function acceptInvite(partyId) {
   })
   .catch(function(err) { alert(err.message); });
 }
+
+// ─── Crafting ───────────────────────────────────────────────
+var CRAFTABLE_SLOTS = {
+  rightHandWeapon: ['melee','range','mage'],
+  leftHand: ['melee','range','mage'],
+  helmet: ['universal'], body: ['universal'], legs: ['universal'],
+  boots: ['universal'], gloves: ['universal'],
+  necklace: ['universal'], leftRing: ['universal'], rightRing: ['universal'],
+  leftEarring: ['universal'], rightEarring: ['universal']
+};
+
+function loadCrafting() {
+  fetch('/api/heroes/' + hero.id, {
+    headers: { 'Authorization': 'Bearer ' + token }
+  })
+  .then(function(res) { return res.json(); })
+  .then(function(h) {
+    hero.gold = h.gold;
+    hero.stats = h.stats;
+    hero.level = h.level;
+    renderCraftShards(h.shards || {});
+    renderConvertShards(h.shards || {});
+    renderSalvageItems(h.inventory || []);
+    populateCraftSlots();
+    updateCraftCost();
+  })
+  .catch(function(err) { console.error('Crafting load failed:', err); });
+}
+
+function renderCraftShards(shards) {
+  var container = document.getElementById('craft-shard-list');
+  container.innerHTML = '';
+  var keys = Object.keys(shards).filter(function(k) { return shards[k] > 0; }).sort();
+  if (keys.length === 0) {
+    container.innerHTML = '<div style="text-align:center;padding:16px;color:#3a373a;font-size:.78rem">No shards yet — kill monsters to earn them.</div>';
+    return;
+  }
+  for (var i = 0; i < keys.length; i++) {
+    var k = keys[i];
+    var parts = k.split('_');
+    var rarity = parts[0];
+    var bracket = parts[1] || '?';
+    var color = rarityColors[rarity] || '#aaa';
+    var div = document.createElement('div');
+    div.className = 'craft-shard-entry';
+    div.innerHTML =
+      '<span class="shard-label" style="color:' + color + '">' + rarity.charAt(0).toUpperCase() + rarity.slice(1) + ' Lv.' + bracket + '</span>' +
+      '<span class="shard-count">' + shards[k] + 'x</span>';
+    container.appendChild(div);
+  }
+}
+
+function renderConvertShards(shards) {
+  var container = document.getElementById('craft-convert-list');
+  container.innerHTML = '';
+  var keys = Object.keys(shards).filter(function(k) { return shards[k] > 0; }).sort();
+  if (keys.length === 0) {
+    container.innerHTML = '<div style="text-align:center;padding:16px;color:#3a373a;font-size:.78rem">No shards to convert.</div>';
+    return;
+  }
+  for (var i = 0; i < keys.length; i++) {
+    var k = keys[i];
+    var parts = k.split('_');
+    var rarity = parts[0];
+    var bracket = parseInt(parts[1]) || 10;
+    var color = rarityColors[rarity] || '#aaa';
+    var goldVal = bracket * ({common:2,uncommon:5,rare:12,epic:30,legendary:80}[rarity] || 1) * 1.75;
+    var div = document.createElement('div');
+    div.className = 'craft-shard-entry';
+    div.innerHTML =
+      '<span class="shard-label" style="color:' + color + '">' + rarity.charAt(0).toUpperCase() + rarity.slice(1) + ' Lv.' + bracket + '</span>' +
+      '<span style="color:#5a555a;font-size:.72rem">' + shards[k] + 'x → ' + Math.round(goldVal) + 'g</span>' +
+      '<button class="shard-btn" data-key="' + k + '">Convert 1</button>';
+    container.appendChild(div);
+    div.querySelector('.shard-btn').addEventListener('click', (function(key, r, b) {
+      return function() { convertShard(key, r, b); };
+    })(k, rarity, bracket));
+  }
+}
+
+function convertShard(key, rarity, bracket) {
+  fetch('/api/heroes/' + hero.id + '/shop/salvage-shard', {
+    method: 'POST',
+    headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ rarity: rarity, bracketLevel: bracket, amount: 1 })
+  })
+  .then(function(res) { return res.json().then(function(d) { if (!res.ok) throw new Error(d.error || 'Failed'); return d; }); })
+  .then(function() { loadCrafting(); refreshHero(); })
+  .catch(function(err) { alert(err.message); });
+}
+
+function renderSalvageItems(inventory) {
+  var container = document.getElementById('craft-salvage-list');
+  container.innerHTML = '';
+  if (!inventory || inventory.length === 0) {
+    container.innerHTML = '<div style="text-align:center;padding:16px;color:#3a373a;font-size:.78rem">No items to salvage.</div>';
+    return;
+  }
+  for (var i = 0; i < inventory.length; i++) {
+    var item = inventory[i];
+    var color = rarityColors[item.rarity] || '#aaa';
+    var div = document.createElement('div');
+    div.className = 'craft-salvage-entry';
+    div.innerHTML =
+      '<div class="salvage-info"><div class="salvage-name" style="color:' + color + '">' + escHtml(item.name || 'Unnamed') + '</div>' +
+      '<div class="salvage-stats">' + (SLOT_NAMES[item.slot] || item.slot) + ' · Lv.' + item.level + ' · ' + item.rarity.toUpperCase() + '</div></div>' +
+      '<button class="salvage-btn" data-id="' + item.id + '">Salvage</button>';
+    container.appendChild(div);
+    div.querySelector('.salvage-btn').addEventListener('click', (function(id) {
+      return function() { salvageItemCraft(id); };
+    })(item.id));
+  }
+}
+
+function salvageItemCraft(itemId) {
+  fetch('/api/heroes/' + hero.id + '/shop/salvage', {
+    method: 'POST',
+    headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ equipmentId: itemId })
+  })
+  .then(function(res) { return res.json().then(function(d) { if (!res.ok) throw new Error(d.error || 'Failed'); return d; }); })
+  .then(function() { loadCrafting(); refreshHero(); })
+  .catch(function(err) { alert(err.message); });
+}
+
+function populateCraftSlots() {
+  var sel = document.getElementById('craft-slot');
+  sel.innerHTML = '<option value="">—</option>';
+  for (var slot in CRAFTABLE_SLOTS) {
+    var opt = document.createElement('option');
+    opt.value = slot;
+    opt.textContent = SLOT_NAMES[slot] || slot;
+    sel.appendChild(opt);
+  }
+}
+
+document.getElementById('craft-slot').addEventListener('change', function() {
+  populateCraftTypes();
+  updateCraftCost();
+});
+
+document.getElementById('craft-type').addEventListener('change', updateCraftCost);
+document.getElementById('craft-rarity').addEventListener('change', updateCraftCost);
+
+function populateCraftTypes() {
+  var slot = document.getElementById('craft-slot').value;
+  var sel = document.getElementById('craft-type');
+  sel.innerHTML = '<option value="">—</option>';
+  var types = CRAFTABLE_SLOTS[slot];
+  if (!types) return;
+  for (var i = 0; i < types.length; i++) {
+    var opt = document.createElement('option');
+    opt.value = types[i];
+    opt.textContent = types[i].charAt(0).toUpperCase() + types[i].slice(1);
+    sel.appendChild(opt);
+  }
+}
+
+function updateCraftCost() {
+  var rarity = document.getElementById('craft-rarity').value;
+  var mult = { common: 2, uncommon: 5, rare: 12, epic: 30, legendary: 80 }[rarity] || 1;
+  var bracket = Math.ceil(hero.currentFloor / 10) * 10 || 10;
+  var goldCost = bracket * mult * 7;
+  document.getElementById('craft-cost-display').textContent = 'Cost: 1 ' + rarity.charAt(0).toUpperCase() + rarity.slice(1) + ' shard · ' + goldCost + ' gold';
+}
+
+document.getElementById('craft-btn').addEventListener('click', function() {
+  var slot = document.getElementById('craft-slot').value;
+  var type = document.getElementById('craft-type').value;
+  var rarity = document.getElementById('craft-rarity').value;
+  var result = document.getElementById('craft-result');
+
+  if (!slot || !type) { result.className = 'craft-result error'; result.textContent = 'Select a slot and type.'; return; }
+
+  result.className = 'craft-result';
+  result.textContent = 'Crafting...';
+
+  fetch('/api/heroes/' + hero.id + '/shop/craft', {
+    method: 'POST',
+    headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ slot: slot, type: type, rarity: rarity })
+  })
+  .then(function(res) { return res.json().then(function(d) { if (!res.ok) throw new Error(d.error || 'Failed'); return d; }); })
+  .then(function(data) {
+    result.className = 'craft-result success';
+    result.innerHTML = 'Crafted! <span style="color:' + (rarityColors[rarity] || '#aaa') + '">' + (data.equipment.name || rarity.charAt(0).toUpperCase() + rarity.slice(1) + ' ' + (SLOT_NAMES[slot] || slot)) + '</span>';
+    loadCrafting();
+    refreshHero();
+  })
+  .catch(function(err) {
+    result.className = 'craft-result error';
+    result.textContent = err.message;
+  });
+});
+
+// ─── Log Toggle ─────────────────────────────────────────────
+document.getElementById('log-toggle').addEventListener('click', function() {
+  var log = document.getElementById('combat-log');
+  var btn = document.getElementById('log-toggle');
+  if (log.style.display === 'none') {
+    log.style.display = '';
+    btn.textContent = 'Hide log';
+  } else {
+    log.style.display = 'none';
+    btn.textContent = 'Show log';
+  }
+});
 
 // ─── Shake Toggle ───────────────────────────────────────────
 document.getElementById('shake-toggle').addEventListener('click', function() {

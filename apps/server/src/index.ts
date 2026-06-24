@@ -12,7 +12,6 @@ import partyRoutes from "./routes/party.js";
 import friendRoutes from "./routes/friends.js";
 import leaderboardRoutes from "./routes/leaderboard.js";
 import webRoutes from "./routes/web.js";
-import { GameConfig } from "@jake-idler/game";
 import { initSocketIO } from "./socket/index.js";
 import { initDatabase } from "./db/connection.js";
 
@@ -29,6 +28,9 @@ app.use("/uploads", express.static(path.resolve(import.meta.dirname, "..", "uplo
 
 // Serve static CSS files
 app.use("/static", express.static(path.resolve(import.meta.dirname, "..", "static")));
+
+// Serve game assets
+app.use("/assets", express.static(path.resolve(import.meta.dirname, "..", "..", "..", "Jake-Assets")));
 
 // Routes
 // Redirect root to game
@@ -56,51 +58,20 @@ initSocketIO(server);
 server.listen(PORT, () => {
   initDatabase();
   console.log(`Server running on http://localhost:${PORT}`);
-  startGameLoop();
-});
-
-// ─── Game Loop ──────────────────────────────────────────────────
-
-let tickInterval: ReturnType<typeof setInterval> | null = null;
-let leaderboardInterval: ReturnType<typeof setInterval> | null = null;
-
-function startGameLoop(): void {
-  if (tickInterval) return;
-
-  console.log(`[GameLoop] Starting tick loop (${GameConfig.TICK_INTERVAL_MS}ms interval)`);
-
-  tickInterval = setInterval(async () => {
-    const { combatService } = await import("./services/combat-service.js");
-    await combatService.tick();
-  }, GameConfig.TICK_INTERVAL_MS);
-
-  leaderboardInterval = setInterval(async () => {
+  // Periodic leaderboard refresh
+  setInterval(async () => {
     const { leaderboardService } = await import("./services/leaderboard-service.js");
     await leaderboardService.updateLeaderboard();
   }, 10_000);
-}
-
-function stopGameLoop(): void {
-  if (tickInterval) {
-    clearInterval(tickInterval);
-    tickInterval = null;
-  }
-  if (leaderboardInterval) {
-    clearInterval(leaderboardInterval);
-    leaderboardInterval = null;
-  }
-  console.log("[GameLoop] Stopped");
-}
+});
 
 // Graceful shutdown
 process.on("SIGINT", () => {
   console.log("[Server] Shutting down...");
-  stopGameLoop();
   process.exit(0);
 });
 
 process.on("SIGTERM", () => {
   console.log("[Server] Shutting down...");
-  stopGameLoop();
   process.exit(0);
 });

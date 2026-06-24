@@ -42,7 +42,10 @@ export {
   generateFloorLoot,
   calculateSalvageValue,
   getCraftCost,
+  getCraftGoldCost,
   getSalvageShards,
+  getShardSalvageValue,
+  shardKey,
   CRAFTABLE_EQUIPMENT_TYPES,
 } from "./loot.js";
 export type { ShardDropResult, LootResult } from "./loot.js";
