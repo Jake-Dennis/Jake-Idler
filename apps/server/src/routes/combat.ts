@@ -222,6 +222,29 @@ router.get("/:id/combat/status", requireAuth, async (req, res) => {
   }
 
   const heroAfter = await heroService.getHero(heroId);
+
+  // Broadcast finished state to party members
+  if (isPartyCombat) {
+    try {
+      getIO().to(`party:${runId}`).emit('party:combat-update', {
+        inCombat: false,
+        finished: true,
+        floorCompleted: run.floorCompleted,
+        floorFailed: run.floorFailed,
+        round: lastRound ?? null,
+        result: {
+          heroWon: run.floorCompleted,
+          totalRounds: lastRound?.round ?? 0,
+          goldEarned: run.totalGoldRewarded,
+          goldLost: run.floorFailed ? run.floorGoldValue : 0,
+          monstersDefeated: run.monstersDefeated,
+          totalMonsters: run.totalMonsters,
+          shardsEarned: run.shardsEarned,
+        },
+      });
+    } catch (_) {}
+  }
+
   res.json({
     inCombat: false,
     finished: true,
@@ -249,24 +272,26 @@ router.get("/:id/combat/status", requireAuth, async (req, res) => {
 // GET /:id/combat/party-status — get party's current combat status (for non-leader members)
 router.get("/:id/combat/party-status", requireAuth, async (req, res) => {
   const heroId = req.params.id as string;
-  const party = partyService.getPartyByPlayer(req.player!.id);
-  if (!party) { res.json({ inCombat: false }); return; }
-
-  const runId = combatService.getPartyIdForHero(party.memberIds[0] || heroId);
+  const runId = combatService.getPartyIdForHero(heroId);
   if (!runId || runId.startsWith("solo_")) { res.json({ inCombat: false }); return; }
 
   const run = combatService.getPartyFloorRun(runId);
-  if (!run || (!run.floorCompleted && !run.floorFailed)) {
-    if (!run) { res.json({ inCombat: false }); return; }
-    const currentMonster = run.monsters[run.currentMonsterIndex];
-    const monsters = run.monsters.filter(m => m.currentHp > 0).map(m => ({
-      id: m.data.id, name: m.data.name, isBoss: m.data.isBoss,
-      hp: m.currentHp, maxHp: m.maxHp, isCurrentFocus: m === currentMonster,
-    }));
-    res.json({ inCombat: true, monsters, round: run.lastRound ?? null });
-    return;
-  }
-  res.json({ inCombat: false, finished: true, floorCompleted: run.floorCompleted, floorFailed: run.floorFailed });
+  if (!run) { res.json({ inCombat: false }); return; }
+
+  const currentMonster = run.monsters[run.currentMonsterIndex];
+  const monsters = run.monsters.filter(m => m.currentHp > 0).map(m => ({
+    id: m.data.id, name: m.data.name, isBoss: m.data.isBoss,
+    hp: m.currentHp, maxHp: m.maxHp, isCurrentFocus: m === currentMonster,
+  }));
+
+  res.json({
+    inCombat: !run.floorCompleted && !run.floorFailed,
+    finished: run.floorCompleted || run.floorFailed,
+    floorCompleted: run.floorCompleted,
+    floorFailed: run.floorFailed,
+    monsters,
+    round: run.lastRound ?? null,
+  });
 });
 
 // GET /:id/combat/monster — get current monster details

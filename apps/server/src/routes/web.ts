@@ -1536,6 +1536,30 @@ if (typeof io !== 'undefined' && token) {
   socket.on('party:combat-update', function(state) {
     document.getElementById('combat-arena').classList.add('active');
     if (!prevState) prevState = null;
+
+    // Combat finished — show result for party members
+    if (state.finished) {
+      if (state.floorCompleted) {
+        showResult({
+          floorCompleted: true,
+          round: state.round,
+          result: state.result || {},
+        });
+      } else if (state.floorFailed) {
+        showResult({
+          floorCompleted: false,
+          floorFailed: true,
+          round: state.round,
+          result: state.result || {},
+        });
+      }
+      if (partyCombatInterval) {
+        clearInterval(partyCombatInterval);
+        partyCombatInterval = null;
+      }
+      return;
+    }
+
     var fakeState = state;
     fakeState.floorCompleted = false;
     fakeState.floorFailed = false;
