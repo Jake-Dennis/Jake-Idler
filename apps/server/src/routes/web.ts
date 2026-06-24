@@ -1489,7 +1489,6 @@ if (typeof io !== 'undefined' && token) {
   socket = io({ auth: { token: token } });
   socket.on('connect', function() {
     console.log('[Socket] Connected');
-    // Auto-check party and join room for combat updates
     fetch('/api/party', { headers: { 'Authorization': 'Bearer ' + token } })
       .then(function(r) { return r.json(); })
       .then(function(d) {
@@ -1504,81 +1503,51 @@ if (typeof io !== 'undefined' && token) {
   socket.on('party:member-joined', function() { if (currentParty) loadParty(); });
   socket.on('party:member-left', function() { if (currentParty) loadParty(); });
   socket.on('party:role-changed', function() { if (currentParty) loadParty(); });
-  // Poll party combat status if not the leader (no active pollCombat)
-  var partyCombatInterval = null;
-  function pollPartyCombat() {
-    fetch('/api/heroes/' + hero.id + '/combat/party-status', {
-      headers: { 'Authorization': 'Bearer ' + token },
-    })
-    .then(function(r) { return r.json(); })
-    .then(function(state) {
-      if (!state.inCombat) {
-        if (partyCombatInterval) { clearInterval(partyCombatInterval); partyCombatInterval = null; }
-        return;
-      }
-      document.getElementById('combat-arena').classList.add('active');
-      if (state.monsters) renderMonsters(state.monsters);
-      if (state.round && state.round.partyHeroes) {
-        renderPartyHeroes(state.round.partyHeroes);
-        updateHeroBars(state.round.partyHeroes);
-      }
-      if (state.round) {
-        document.getElementById('round-counter').textContent = 'Round ' + state.round.round;
-      }
-      if (state.finished && partyCombatInterval) {
-        clearInterval(partyCombatInterval);
-        partyCombatInterval = null;
-      }
-    })
-    .catch(function() {});
-  }
-
-  socket.on('party:combat-update', function(state) {
-    document.getElementById('combat-arena').classList.add('active');
-    if (!prevState) prevState = null;
-
-    // Combat finished — show result for party members
-    if (state.finished) {
-      if (state.floorCompleted) {
-        showResult({
-          floorCompleted: true,
-          round: state.round,
-          result: state.result || {},
-        });
-      } else if (state.floorFailed) {
-        showResult({
-          floorCompleted: false,
-          floorFailed: true,
-          round: state.round,
-          result: state.result || {},
-        });
-      }
-      if (partyCombatInterval) {
-        clearInterval(partyCombatInterval);
-        partyCombatInterval = null;
-      }
-      return;
-    }
-
-    var fakeState = state;
-    fakeState.floorCompleted = false;
-    fakeState.floorFailed = false;
-    fakeState.finished = false;
-    if (state.monsters) renderMonsters(state.monsters);
-    if (state.round && state.round.partyHeroes) {
-      renderPartyHeroes(state.round.partyHeroes);
-      updateHeroBars(state.round.partyHeroes);
-    }
-    if (state.round) {
-      document.getElementById('round-counter').textContent = 'Round ' + state.round.round;
-      prevState = state;
-    }
-    // Also start polling as fallback
-    if (!partyCombatInterval && !combatInterval) {
-      partyCombatInterval = setInterval(pollPartyCombat, 2000);
-    }
-  });
+  socket.on('party:combat-update', function(state) { handleCombatState(state); });
   socket.on('connect_error', function(err) { console.error('[Socket] Error:', err.message); });
+}
+
+// ─── Party Combat Polling (works with or without Socket.IO) ──
+var partyCombatInterval = null;
+var partyCombatActive = false;
+
+function handleCombatState(state) {
+  if (!state || !state.inCombat) {
+    if (partyCombatActive && state && state.finished) {
+      if (state.floorCompleted) {
+        showResult({ floorCompleted: true, round: state.round, result: state.result || {} });
+      } else if (state.floorFailed) {
+        showResult({ floorCompleted: false, floorFailed: true, round: state.round, result: state.result || {} });
+      }
+      partyCombatActive = false;
+      if (partyCombatInterval) { clearInterval(partyCombatInterval); partyCombatInterval = null; }
+    }
+    return;
+  }
+  partyCombatActive = true;
+  document.getElementById('combat-arena').classList.add('active');
+  if (state.monsters) renderMonsters(state.monsters);
+  if (state.round && state.round.partyHeroes) {
+    renderPartyHeroes(state.round.partyHeroes);
+    updateHeroBars(state.round.partyHeroes);
+  }
+  if (state.round) {
+    document.getElementById('round-counter').textContent = 'Round ' + state.round.round;
+  }
+}
+
+function pollPartyCombat() {
+  fetch('/api/heroes/' + hero.id + '/combat/party-status', {
+    headers: { 'Authorization': 'Bearer ' + token },
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(state) { handleCombatState(state); })
+  .catch(function() {});
+}
+
+// Always start party combat polling on page load (works for party members without socket)
+if (token) {
+  partyCombatInterval = setInterval(pollPartyCombat, 2000);
 }
 
 // ─── Equipment ─────────────────────────────────────────────
