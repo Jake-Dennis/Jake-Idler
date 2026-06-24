@@ -292,9 +292,9 @@ router.get("/:id/combat/monster", requireAuth, async (req, res) => {
 });
 
 // ─── Server-authoritative tick loop ─────────────────────────
-// After each tick, broadcast combat state to the party room via Socket.IO.
+// After each tick, broadcast combat state to all connected clients via Socket.IO.
 combatService.onTick = (runId: string, run: any) => {
-  if (!run || runId.startsWith("solo_")) return;
+  if (!run) return;
 
   const lastRound = run.lastRound;
   const currentMonster = run.monsters?.[run.currentMonsterIndex];
@@ -327,7 +327,9 @@ combatService.onTick = (runId: string, run: any) => {
   }
 
   try {
-    getIO().to(`party:${runId}`).emit("party:combat-update", state);
+    // Party combat → emit to party room; solo → emit to initiator's hero room
+    const room = runId.startsWith("solo_") ? `hero:${run.initiatorHeroId}` : `party:${runId}`;
+    getIO().to(room).emit("party:combat-update", state);
   } catch (_) {}
 };
 

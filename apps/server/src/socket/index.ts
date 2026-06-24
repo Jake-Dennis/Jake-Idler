@@ -158,6 +158,10 @@ export function initSocketIO(server: HttpServer): Server {
     io?.emit("player:online", { playerId, username: player.username });
 
     // Join party room (if in one)
+    socket.on("hero:join", (heroId: string) => {
+      socket.join(`hero:${heroId}`);
+    });
+
     socket.on("party:join-room", (partyId: string) => {
       socket.join(`party:${partyId}`);
       if (!partyMembers.has(partyId)) {

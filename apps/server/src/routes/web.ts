@@ -1386,6 +1386,8 @@ if (typeof io !== 'undefined' && token) {
   socket = io({ auth: { token: token } });
   socket.on('connect', function() {
     console.log('[Socket] Connected');
+    // Join personal hero room for solo combat updates
+    socket.emit('hero:join', hero.id);
     fetch('/api/party', { headers: { 'Authorization': 'Bearer ' + token } })
       .then(function(r) { return r.json(); })
       .then(function(d) {
