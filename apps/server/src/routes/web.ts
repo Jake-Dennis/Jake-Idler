@@ -1499,10 +1499,10 @@ if (typeof io !== 'undefined' && token) {
       })
       .catch(function() {});
   });
-  socket.on('party:formation', function() { if (currentParty) loadParty(); });
-  socket.on('party:member-joined', function() { if (currentParty) loadParty(); });
-  socket.on('party:member-left', function() { if (currentParty) loadParty(); });
-  socket.on('party:role-changed', function() { if (currentParty) loadParty(); });
+  socket.on('party:formation', function() { loadParty(); });
+  socket.on('party:member-joined', function() { loadParty(); });
+  socket.on('party:member-left', function() { loadParty(); });
+  socket.on('party:role-changed', function() { loadParty(); });
   socket.on('party:combat-update', function(state) { handleCombatState(state); });
   socket.on('connect_error', function(err) { console.error('[Socket] Error:', err.message); });
 }
@@ -1525,6 +1525,13 @@ if (typeof io !== 'undefined' && token) {
   })
   .catch(function() {});
 })();
+
+// ─── Periodic party refresh (fallback if socket.io not connected) ──
+setInterval(function() {
+  if (document.getElementById('tab-party').classList.contains('active')) {
+    loadParty();
+  }
+}, 5000);
 
 // ─── Equipment ─────────────────────────────────────────────
 var SLOT_NAMES = {
