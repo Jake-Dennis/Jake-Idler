@@ -1507,82 +1507,24 @@ if (typeof io !== 'undefined' && token) {
   socket.on('connect_error', function(err) { console.error('[Socket] Error:', err.message); });
 }
 
-// ─── Party Combat Polling (works with or without Socket.IO) ──
-var partyCombatInterval = null;
-var partyCombatActive = false;
-var partyPrevState = null;
-
-function renderCombatState(state) {
-  document.getElementById('combat-arena').classList.add('active');
-
-  // First render — create hero cards and monster cards
-  if (!partyPrevState && state.round && state.round.partyHeroes) {
-    renderPartyHeroes(state.round.partyHeroes);
-  }
-  if (!partyPrevState && state.monsters) {
-    renderMonsters(state.monsters);
-  }
-
-  // Animate transition if we have a previous round
-  if (state.round && partyPrevState && partyPrevState.round &&
-      state.round.round > partyPrevState.round.round) {
-    animateTransition(partyPrevState, state);
-  } else {
-    // No transition — just update HP bars and monster renders
-    if (state.monsters) {
-      if (partyPrevState && partyPrevState.monsters) {
-        updateMonsterBars(state.monsters);
-      } else {
-        renderMonsters(state.monsters);
-      }
-    }
-    if (state.round && state.round.partyHeroes) {
-      updateHeroBars(state.round.partyHeroes);
-    }
-  }
-
-  if (state.round) {
-    document.getElementById('round-counter').textContent = 'Round ' + state.round.round;
-    partyPrevState = state;
-  }
-}
-
-function handleCombatState(state) {
-  if (!state || !state.inCombat) {
-    if (partyCombatActive && state && state.finished) {
-      // Do final animation before showing result
-      if (state.round && partyPrevState && partyPrevState.round &&
-          state.round.round > partyPrevState.round.round) {
-        animateTransition(partyPrevState, state);
-      }
-      if (state.floorCompleted) {
-        showResult({ floorCompleted: true, round: state.round, result: state.result || {} });
-      } else if (state.floorFailed) {
-        showResult({ floorCompleted: false, floorFailed: true, round: state.round, result: state.result || {} });
-      }
-      partyCombatActive = false;
-      partyPrevState = null;
-      if (partyCombatInterval) { clearInterval(partyCombatInterval); partyCombatInterval = null; }
-    }
-    return;
-  }
-  partyCombatActive = true;
-  renderCombatState(state);
-}
-
-function pollPartyCombat() {
-  fetch('/api/heroes/' + hero.id + '/combat/party-status', {
+// ─── Auto-join active combat if in a party ──────────────────
+// Party members use the same pollCombat() as the leader — just check
+// if the party has combat running and start polling.
+(function checkPartyCombat() {
+  if (!token) return;
+  fetch('/api/heroes/' + hero.id + '/combat/status', {
     headers: { 'Authorization': 'Bearer ' + token },
   })
   .then(function(r) { return r.json(); })
-  .then(function(state) { handleCombatState(state); })
+  .then(function(state) {
+    if (state.inCombat && !combatInterval) {
+      document.getElementById('combat-arena').classList.add('active');
+      combatInterval = 1; // prevent pollCombat from scheduling itself
+      pollCombat();
+    }
+  })
   .catch(function() {});
-}
-
-// Always start party combat polling on page load (works for party members without socket)
-if (token) {
-  partyCombatInterval = setInterval(pollPartyCombat, 2000);
-}
+})();
 
 // ─── Equipment ─────────────────────────────────────────────
 var SLOT_NAMES = {
