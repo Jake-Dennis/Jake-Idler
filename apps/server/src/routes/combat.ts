@@ -7,6 +7,7 @@ import { db } from "../db/connection.js";
 import { heroes } from "../db/schema/index.js";
 import { eq, sql } from "drizzle-orm";
 import { getIO } from "../socket/index.js";
+import { combatSerializer } from "../game/serializers/combat-serializer.js";
 
 const router = Router();
 
@@ -109,95 +110,16 @@ router.get("/:id/combat/status", requireAuth, async (req, res) => {
       .where(eq(heroes.id, heroId));
   }
 
-  // Build events from round data
-  const events: Array<{
-    type: string;
-    heroId?: string;
-    damage?: number;
-    crit?: boolean;
-    weaponType?: string;
-    role?: string;
-    healAmount?: number;
-    monsterName?: string;
-  }> = [];
-
-  const lastRound = run.lastRound;
-  if (lastRound && lastRound.partyHeroes) {
-    // Get previous round's partyHeroes for comparison
-    // (In poll-and-advance, the round just processed is the one we need)
-    for (const h of lastRound.partyHeroes) {
-      if (h.damage > 0) {
-        const wType = (h.heroId === hero.id) ? (hero.equipped?.rightHandWeapon?.type || 'melee') : 'melee';
-        events.push({ type: 'hero_attack', heroId: h.heroId, damage: Math.round(h.damage), crit: h.crit, weaponType: wType, role: h.role });
-      }
-      if (h.healingDone > 0) {
-        events.push({ type: 'heal_cast', heroId: h.heroId, healAmount: Math.round(h.healingDone) });
-      }
-      if (h.healingReceived > 0) {
-        events.push({ type: 'healed', heroId: h.heroId, healAmount: Math.round(h.healingReceived) });
-      }
-      if (h.damageTaken > 0) {
-        events.push({ type: 'hero_hit', heroId: h.heroId, damage: Math.round(h.damageTaken), crit: h.monsterCrit });
-        if (h.role === 'tank') {
-          events.push({ type: 'block', heroId: h.heroId, damage: Math.round(h.damageTaken) });
-        }
-      }
-      if (!h.alive) {
-        events.push({ type: 'hero_death', heroId: h.heroId });
-      }
-    }
-    if (lastRound.monsterJustKilled) {
-      events.push({ type: 'monster_death' });
-    }
-  }
+  // Build events from round data (centralised in serializer)
+  const events = run.lastRound
+    ? combatSerializer.buildEvents(run.lastRound, { id: hero.id, equipped: hero.equipped })
+    : [];
 
   const isPartyCombat = !runId.startsWith("solo_");
 
   if (!run.floorCompleted && !run.floorFailed) {
-    const currentMonster = run.monsters[run.currentMonsterIndex];
-    const monsters = run.monsters
-      .filter(m => m.currentHp > 0)
-      .map(m => ({
-        id: m.data.id,
-        name: m.data.name,
-        isBoss: m.data.isBoss,
-        hp: m.currentHp,
-        maxHp: m.maxHp,
-        isCurrentFocus: m === currentMonster,
-      }));
-
     // State broadcast to party room is handled by onTick callback — not here
-
-    res.json({
-      inCombat: true,
-      finished: false,
-      floorCompleted: false,
-      floorFailed: false,
-      partyCombat: isPartyCombat,
-      monsters,
-      round: lastRound ? {
-        round: lastRound.round,
-        heroDamage: lastRound.totalHeroDamage,
-        heroCrit: lastRound.totalHeroCrit,
-        monsterDamage: lastRound.monsterDamage,
-        monsterCrit: lastRound.monsterCrit,
-        monsterHp: lastRound.monsterHp,
-        monsterMaxHp: lastRound.monsterMaxHp,
-        totalRounds: lastRound.round,
-        monstersDefeated: lastRound.monstersDefeated,
-        totalMonsters: lastRound.totalMonsters,
-        currentMonsterName: lastRound.currentMonsterName,
-        currentMonsterIsBoss: lastRound.currentMonsterIsBoss,
-        monsterJustKilled: lastRound.monsterJustKilled,
-        partyHeroes: lastRound.partyHeroes,
-      } : null,
-      floorProgress: {
-        monstersDefeated: run.monstersDefeated,
-        totalMonsters: run.totalMonsters,
-        currentMonsterName: currentMonster?.data.name ?? "Unknown",
-        currentMonsterIsBoss: currentMonster?.data.isBoss ?? false,
-      },
-    });
+    res.json(combatSerializer.toView(run, heroId));
     return;
   }
 
@@ -206,45 +128,12 @@ router.get("/:id/combat/status", requireAuth, async (req, res) => {
   // Broadcast finished state to party members
   if (isPartyCombat) {
     try {
-      getIO().to(`party:${runId}`).emit('party:combat-update', {
-        inCombat: false,
-        finished: true,
-        floorCompleted: run.floorCompleted,
-        floorFailed: run.floorFailed,
-        round: lastRound ?? null,
-        result: {
-          heroWon: run.floorCompleted,
-          totalRounds: lastRound?.round ?? 0,
-          goldEarned: run.totalGoldRewarded,
-          goldLost: run.floorFailed ? run.floorGoldValue : 0,
-          monstersDefeated: run.monstersDefeated,
-          totalMonsters: run.totalMonsters,
-          shardsEarned: run.shardsEarned,
-        },
-      });
+      getIO().to(`party:${runId}`).emit('party:combat-update', combatSerializer.toView(run, null));
     } catch (_) {}
   }
 
   res.json({
-    inCombat: false,
-    finished: true,
-    floorCompleted: run.floorCompleted,
-    floorFailed: run.floorFailed,
-    partyCombat: isPartyCombat,
-    round: lastRound ?? null,
-    floorProgress: {
-      monstersDefeated: run.monstersDefeated,
-      totalMonsters: run.totalMonsters,
-    },
-    result: {
-      heroWon: run.floorCompleted,
-      totalRounds: lastRound?.round ?? 0,
-      goldEarned: run.totalGoldRewarded,
-      goldLost: run.floorFailed ? run.floorGoldValue : 0,
-      monstersDefeated: run.monstersDefeated,
-      totalMonsters: run.totalMonsters,
-      shardsEarned: run.shardsEarned,
-    },
+    ...combatSerializer.toView(run, heroId),
     hero: heroAfter,
   });
 });
@@ -276,45 +165,13 @@ router.get("/:id/combat/monster", requireAuth, async (req, res) => {
 
 // ─── Server-authoritative tick loop ─────────────────────────
 // After each tick, broadcast combat state to all connected clients via Socket.IO.
-combatService.onTick = (runId: string, run: any) => {
+combatService.onTick = (runId, run) => {
   if (!run) return;
   console.log(`[Combat] Tick: ${runId} round=${run.lastRound?.round} hp=${run.monsters?.[0]?.currentHp}`);
 
-  const lastRound = run.lastRound;
-  const currentMonster = run.monsters?.[run.currentMonsterIndex];
-  const monsters = run.monsters
-    ?.filter((m: any) => m.currentHp > 0)
-    .map((m: any) => ({
-      id: m.data.id, name: m.data.name, isBoss: m.data.isBoss,
-      hp: m.currentHp, maxHp: m.maxHp, isCurrentFocus: m === currentMonster,
-    })) || [];
-
-  const state: any = {
-    inCombat: !run.floorCompleted && !run.floorFailed,
-    finished: run.floorCompleted || run.floorFailed,
-    floorCompleted: run.floorCompleted,
-    floorFailed: run.floorFailed,
-    partyCombat: !runId.startsWith("solo_"),
-    monsters,
-    round: lastRound ?? null,
-  };
-
-  if (run.floorCompleted || run.floorFailed) {
-    state.result = {
-      heroWon: run.floorCompleted,
-      totalRounds: lastRound?.round ?? 0,
-      goldEarned: run.totalGoldRewarded ?? 0,
-      goldLost: run.floorFailed ? (run.floorGoldValue ?? 0) : 0,
-      monstersDefeated: run.monstersDefeated ?? 0,
-      totalMonsters: run.totalMonsters ?? 0,
-      shardsEarned: run.shardsEarned ?? {},
-    };
-  }
-
   try {
-    // Party combat → emit to party room; solo → emit to initiator's hero room
     const room = runId.startsWith("solo_") ? `hero:${run.initiatorHeroId}` : `party:${runId}`;
-    getIO().to(room).emit("party:combat-update", state);
+    getIO().to(room).emit("party:combat-update", combatSerializer.toView(run, null));
   } catch (_) {}
 };
 
