@@ -667,7 +667,11 @@ function renderMonsters(monsters) {
       '<div class="monster-name">' + escHtml(m.name) + '</div>' +
       '<div class="hp-bar-outer" style="width:100%"><div class="hp-bar-inner ' + hpColorClass(m.hp, m.maxHp) + '" style="width:' + pct + '%"></div></div>' +
       '<div class="monster-hp">' + Math.round(m.hp) + '/' + Math.round(m.maxHp) + '</div>';
-    if (m.isBoss) bossRow.appendChild(card);
+    if (m.isBoss) {
+      bossRow.appendChild(card);
+      // Boss entrance animation
+      setTimeout(function() { card.classList.add('animate-boss-entrance'); }, 50);
+    }
     else monsterRow.appendChild(card);
   });
   if (typeof lucide !== 'undefined') lucide.createIcons();
@@ -855,7 +859,7 @@ async function animateTransition(prev, next) {
               el.classList.remove(animClass);
               if (monEl) {
                 monEl.classList.add('animate-hit-stop');
-                await sleep(80);
+                await animSleep('animate-hit-stop');
                 monEl.classList.remove('animate-hit-stop');
               }
             }
@@ -1005,13 +1009,6 @@ async function animateTransition(prev, next) {
   if (next.monsters) updateMonsterBars(next.monsters);
   if (next.round && next.round.partyHeroes) updateHeroBars(next.round.partyHeroes);
 
-  // Screen shake on crit
-  var hasCrit = next.round && next.round.partyHeroes && next.round.partyHeroes.some(function(h) { return h.crit; });
-  if (hasCrit) {
-    var arena = document.querySelector('.arena');
-    if (arena) { arena.classList.add('animate-shake-screen'); setTimeout(function() { arena.classList.remove('animate-shake-screen'); }, getAnimDuration('animate-shake-screen') + 50); }
-  }
-
   // Combat log
   if (next.round.partyHeroes) {
     next.round.partyHeroes.forEach(function(h) {
@@ -1019,7 +1016,15 @@ async function animateTransition(prev, next) {
       if (h.damageTaken > 0 && h.role !== 'tank') addLog('damage', '[R' + next.round.round + '] ' + h.name + ' takes ' + Math.round(h.damageTaken));
       if (h.damageTaken > 0 && h.role === 'tank') addLog('block', '[R' + next.round.round + '] ' + h.name + ' blocks ' + Math.round(h.damageTaken) + ' damage!');
       if (h.healingReceived > 0) addLog('heal', '[R' + next.round.round + '] +' + Math.round(h.healingReceived) + ' HP healed');
-      if (!h.alive && prevH && prevH.alive) addLog('kill', '[R' + next.round.round + '] ' + h.name + ' has fallen!');
+      if (!h.alive) {
+        var prevH = null;
+        if (prev.round && prev.round.partyHeroes) {
+          for (var pi = 0; pi < prev.round.partyHeroes.length; pi++) {
+            if (prev.round.partyHeroes[pi].heroId === h.heroId) { prevH = prev.round.partyHeroes[pi]; break; }
+          }
+        }
+        if (prevH && prevH.alive) addLog('kill', '[R' + next.round.round + '] ' + h.name + ' has fallen!');
+      }
     });
   }
   if (next.round.monsterJustKilled && !prev.round.monsterJustKilled) {
@@ -1152,6 +1157,7 @@ function enterDungeon() {
     document.getElementById('start-btn').style.display = 'none';
     document.getElementById('stop-btn').style.display = '';
     document.getElementById('combat-log').innerHTML = '';
+    document.getElementById('round-counter').textContent = 'Round 1';
 
     // Floor announcement
     var announce = document.getElementById('floor-announce');
@@ -1256,8 +1262,8 @@ function showResult(state) {
     hero.level = state.hero.level;
   }
 
-  if (isLooping) {
-    // Auto retry on win or loss
+  if (isLooping && won) {
+    // Auto retry on victory only
     retryBtn.style.display = 'none';
     overlay.classList.add('show');
     setTimeout(function() {
@@ -1420,6 +1426,7 @@ if (typeof io !== 'undefined' && token) {
         floorFailed: state.floorFailed,
         round: state.round,
         result: state.result || {},
+        hero: state.hero,
       });
       combatState = null;
       return;
@@ -1507,6 +1514,7 @@ setInterval(function() {
         floorFailed: state.floorFailed,
         round: state.round,
         result: state.result || {},
+        hero: state.hero,
       });
     }
   })

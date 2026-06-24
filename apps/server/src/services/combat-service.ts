@@ -109,6 +109,7 @@ interface PartyFloorRunState {
   shardsEarned: Record<string, number>;
   finishedAt: number | null;
   events: CombatEvent[];
+  goldPenaltyApplied?: boolean;
 }
 
 const POSITION_TARGET_PRIORITY: CombatPosition[] = [
@@ -301,7 +302,7 @@ class CombatService {
     for (const [partyId, run] of this.partyFloors) {
       if (run.floorCompleted || run.floorFailed) continue;
       try {
-        this.processRound(partyId, run);
+        await this.processRound(partyId, run);
         if (this.onTick) this.onTick(partyId, run);
       } catch (err) {
         console.error(`[Combat] Error processing ${partyId}:`, err);
@@ -333,7 +334,7 @@ class CombatService {
 
   // ─── Round Processing ──────────────────────────────────────
 
-  private processRound(partyId: string, run: PartyFloorRunState): void {
+  private async processRound(partyId: string, run: PartyFloorRunState): Promise<void> {
     run.tickCount++;
 
     const currentMonster = run.monsters[run.currentMonsterIndex];
@@ -410,7 +411,6 @@ class CombatService {
       const baseDmg = calculateDamage(hero.atk, currentMonster.data.stats.def.toNumber());
       const variance = 0.8 + Math.random() * 0.4; // ±20%
       const dmg = Math.max(1, Math.round(baseDmg * variance * (crit ? CRIT_MULTIPLIER : 1.0)));
-      var beforeHp = currentMonster.currentHp;
       currentMonster.currentHp = Math.max(0, currentMonster.currentHp - dmg);
       totalDpsDamage += dmg;
       if (dmg > 0) lastDpsCrit = crit;
@@ -517,7 +517,7 @@ class CombatService {
         }
         for (const h of run.heroes) {
           if (h.alive) {
-            db.update(heroes)
+            await db.update(heroes)
               .set({ level: run.floorNumber, currentFloor: sql`MAX(${heroes.currentFloor}, ${run.floorNumber})`, lastActive: new Date().toISOString() })
               .where(eq(heroes.id, h.heroId));
           }
@@ -657,6 +657,7 @@ class CombatService {
     // Fetch each hero's progression level so loot is capped to their own floor,
     // preventing high-level players from boosting low-level alts through high floors.
     const heroIds = aliveHeroes.map((h) => h.heroId);
+    if (heroIds.length === 0) return;
     const heroRows = await db.select({ id: heroes.id, currentFloor: heroes.currentFloor }).from(heroes).where(sql`${heroes.id} IN ${heroIds}`);
 
     const heroFloorMap = new Map<string, number>();

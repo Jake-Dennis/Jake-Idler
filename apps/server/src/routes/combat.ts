@@ -97,12 +97,13 @@ router.get("/:id/combat/status", requireAuth, async (req, res) => {
     return;
   }
 
-  // Deduct floor gold on wipe
-  if (run.floorFailed && run.floorGoldValue > 0) {
+  // Deduct floor gold on wipe (only once)
+  if (run.floorFailed && run.floorGoldValue > 0 && !run.goldPenaltyApplied) {
+    run.goldPenaltyApplied = true;
     await db
       .update(heroes)
       .set({
-        gold: sql`${heroes.gold} - ${run.floorGoldValue}`,
+        gold: sql`MAX(0, ${heroes.gold} - ${run.floorGoldValue})`,
         lastActive: new Date().toISOString(),
       })
       .where(eq(heroes.id, heroId));
