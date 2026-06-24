@@ -1519,8 +1519,14 @@ if (typeof io !== 'undefined' && token) {
   .then(function(state) {
     if (state.inCombat && !combatInterval) {
       document.getElementById('combat-arena').classList.add('active');
-      combatInterval = 1; // prevent pollCombat from scheduling itself
+      document.getElementById('start-btn').style.display = 'none';
+      document.getElementById('stop-btn').style.display = '';
+      combatInterval = 1;
       pollCombat();
+    } else if (state.finished) {
+      document.getElementById('combat-arena').classList.remove('active');
+      document.getElementById('start-btn').style.display = '';
+      document.getElementById('stop-btn').style.display = 'none';
     }
   })
   .catch(function() {});
@@ -1533,6 +1539,8 @@ setInterval(function() {
   if (tab.id === 'tab-equipment') loadEquipment();
   if (tab.id === 'tab-party') loadParty();
   if (tab.id === 'tab-crafting') loadCrafting();
+  // Re-check combat state if not already polling
+  if (!combatInterval) checkPartyCombat();
 }, 5000);
 
 // ─── Equipment ─────────────────────────────────────────────
