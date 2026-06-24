@@ -155,7 +155,6 @@ export function initSocketIO(server: HttpServer): Server {
       onlinePlayers.set(playerId, new Set());
     }
     onlinePlayers.get(playerId)!.add(socket.id);
-    io?.emit("player:online", { playerId, username: player.username });
 
     // Join party room (if in one)
     socket.on("hero:join", (heroId: string) => {
@@ -192,7 +191,6 @@ export function initSocketIO(server: HttpServer): Server {
         sockets.delete(socket.id);
         if (sockets.size === 0) {
           onlinePlayers.delete(playerId);
-          io?.emit("player:offline", { playerId });
 
           // Remove from party rooms
           for (const [partyId, members] of partyMembers) {

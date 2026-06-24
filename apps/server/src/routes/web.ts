@@ -559,6 +559,7 @@ if (!token) { window.location.href = '/game'; throw new Error('No token'); }
 var isLooping = false;
 var loopCount = 0;
 var totalGoldEarned = 0;
+var loopRetryCount = 0;
 var showingResult = false;
 var combatGen = 0;
 var currentParty = null;
@@ -894,7 +895,7 @@ async function animateTransition(prev, next) {
     if (totalDamage > 0) {
       await animSleep('animate-flash-red');
       var monEl3 = document.querySelector('.monster-card.is-focus') || document.querySelector('.monster-card:first-child');
-      if (monEl3) monEl3.classList.remove('animate-flash-red', 'animate-shake');
+      if (monEl3) monEl3.classList.remove('animate-flash-red', 'animate-shake', 'animate-hit-splat');
       if (anyCrit) {
         var arena = document.querySelector('.arena');
         if (arena) { arena.classList.add('animate-shake-screen'); setTimeout(function() { arena.classList.remove('animate-shake-screen'); }, getAnimDuration('animate-shake-screen') + 50); }
@@ -949,8 +950,6 @@ async function animateTransition(prev, next) {
         var casterEl = document.getElementById('hero-' + h5.heroId);
         if (casterEl) {
           casterEl.classList.add('animate-heal-cast');
-          var cr = casterEl.getBoundingClientRect();
-          floatText(cr.left + cr.width/2 - 20, cr.top - 10, '+' + Math.round(h5.healingDone), 'heal');
           await animSleep('animate-heal-cast');
           casterEl.classList.remove('animate-heal-cast');
         }
@@ -1308,6 +1307,15 @@ document.getElementById('stop-btn').addEventListener('click', function() {
 });
 
 function loopRetry() {
+  loopRetryCount++;
+  if (loopRetryCount > 10) {
+    isLooping = false;
+    loopRetryCount = 0;
+    updateLoopUI();
+    document.getElementById('start-btn').style.display = '';
+    addLog('kill', '[LOOP] Stopped after 10 consecutive failures');
+    return;
+  }
   // Reset arena for next run
   document.getElementById('combat-log').innerHTML = '';
   document.getElementById('boss-row').innerHTML = '';
@@ -1323,6 +1331,7 @@ function loopRetry() {
   })
   .then(function(res) { return res.json().then(function(d) { if (!res.ok) throw new Error(d.error || 'Failed'); return d; }); })
   .then(function() {
+    loopRetryCount = 0;
     combatGen++;
     showingResult = false;
     document.getElementById('combat-arena').classList.add('active');
@@ -1350,6 +1359,7 @@ function toggleLoop() {
     updateLoopUI();
     return;
   }
+  loopRetryCount = 0;
   updateLoopUI();
   // Auto-enter dungeon if not already showing combat
   if (!document.getElementById('combat-arena').classList.contains('active')) {
@@ -2235,6 +2245,10 @@ document.getElementById('log-toggle').addEventListener('click', function() {
 });
 
 // ─── Shake Toggle ───────────────────────────────────────────
+// Respect OS-level reduced motion preference
+if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+  document.body.classList.add('no-shake');
+}
 document.getElementById('shake-toggle').addEventListener('click', function() {
   document.body.classList.toggle('no-shake');
   this.textContent = document.body.classList.contains('no-shake') ? 'Shake:OFF' : 'Shake:ON';

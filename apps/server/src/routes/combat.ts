@@ -294,6 +294,7 @@ combatService.onTick = (runId: string, run: any) => {
     finished: run.floorCompleted || run.floorFailed,
     floorCompleted: run.floorCompleted,
     floorFailed: run.floorFailed,
+    partyCombat: !runId.startsWith("solo_"),
     monsters,
     round: lastRound ?? null,
   };

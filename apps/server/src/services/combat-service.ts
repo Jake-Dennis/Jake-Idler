@@ -514,9 +514,11 @@ class CombatService {
       }
 
       try {
-        void this.processKillRewards(run, currentMonster);
+        this.processKillRewards(run, currentMonster).catch((err) => {
+          console.error(`[Combat] Kill rewards failed for ${partyId}:`, err);
+        });
       } catch (err) {
-        console.error(`[Combat] Kill rewards failed for ${partyId}:`, err);
+        console.error(`[Combat] Kill rewards sync error for ${partyId}:`, err);
       }
     }
 
@@ -619,9 +621,9 @@ class CombatService {
       if (partySize >= 3) trashCount = 3 + (floorNumber % 2); // trio: 3-4
       if (partySize >= 4) trashCount = 3 + (floorNumber % 3); // full: 3-5
 
-      for (let i = 0; i < trashCount; i++) {
-        const m = floor.monsters[i % floor.monsters.length];
-        monsters.push(toFloorMonster(m));
+      // Pick unique trash monsters (avoid modulo wrap waste)
+      for (let i = 0; i < trashCount && i < floor.monsters.length; i++) {
+        monsters.push(toFloorMonster(floor.monsters[i]));
       }
       monsters.push(toFloorMonster(floor.floorBoss));
     }
