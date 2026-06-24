@@ -1487,14 +1487,28 @@ if (typeof lucide !== 'undefined') lucide.createIcons();
 var socket = null;
 if (typeof io !== 'undefined' && token) {
   socket = io({ auth: { token: token } });
-  socket.on('connect', function() { console.log('[Socket] Connected'); });
+  socket.on('connect', function() {
+    console.log('[Socket] Connected');
+    // Auto-check party and join room for combat updates
+    fetch('/api/party', { headers: { 'Authorization': 'Bearer ' + token } })
+      .then(function(r) { return r.json(); })
+      .then(function(d) {
+        if (d.party) {
+          socket.emit('party:join-room', d.party.id);
+          currentParty = d.party;
+        }
+      })
+      .catch(function() {});
+  });
   socket.on('party:formation', function() { if (currentParty) loadParty(); });
   socket.on('party:member-joined', function() { if (currentParty) loadParty(); });
   socket.on('party:member-left', function() { if (currentParty) loadParty(); });
   socket.on('party:role-changed', function() { if (currentParty) loadParty(); });
   socket.on('party:combat-update', function(state) {
-    if (!prevState) prevState = null;
+    // Show arena for party members who didn't call enterDungeon
+    document.getElementById('combat-arena').classList.add('active');
     // Treat incoming combat update as a poll response
+    if (!prevState) prevState = null;
     var fakeState = state;
     fakeState.floorCompleted = false;
     fakeState.floorFailed = false;
