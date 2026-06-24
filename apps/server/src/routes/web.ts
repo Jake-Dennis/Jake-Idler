@@ -1480,6 +1480,33 @@ setInterval(function() {
   if (tab.id === 'tab-crafting') loadCrafting();
 }, 5000);
 
+// ─── Combat status polling fallback (used when combat arena is active) ──
+// If the tick loop or socket fails to deliver updates, this ensures the
+// client still sees combat progress. Runs every 2s only when arena is active.
+setInterval(function() {
+  if (!document.getElementById('combat-arena').classList.contains('active')) return;
+  fetch('/api/heroes/' + hero.id + '/combat/status', {
+    headers: { 'Authorization': 'Bearer ' + token },
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(state) {
+    if (!state || !state.inCombat) return;
+    if (state.monsters && state.monsters.length > 0) {
+      // Check if monsters already rendered by comparing IDs
+      var existing = document.querySelector('.monster-card');
+      if (!existing) renderMonsters(state.monsters);
+      else updateMonsterBars(state.monsters);
+    }
+    if (state.round && state.round.partyHeroes) {
+      updateHeroBars(state.round.partyHeroes);
+    }
+    if (state.round) {
+      document.getElementById('round-counter').textContent = 'Round ' + state.round.round;
+    }
+  })
+  .catch(function() {});
+}, 2000);
+
 // ─── Equipment ─────────────────────────────────────────────
 var SLOT_NAMES = {
   rightHandWeapon: 'Main-Hand',
