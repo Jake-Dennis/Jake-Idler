@@ -1510,30 +1510,46 @@ if (typeof io !== 'undefined' && token) {
 // ─── Party Combat Polling (works with or without Socket.IO) ──
 var partyCombatInterval = null;
 var partyCombatActive = false;
+var partyPrevState = null;
+
+function renderCombatState(state) {
+  document.getElementById('combat-arena').classList.add('active');
+  // Animate transition if we have a previous round
+  if (state.round && partyPrevState && partyPrevState.round &&
+      state.round.round > partyPrevState.round.round) {
+    animateTransition(partyPrevState, state);
+  }
+  if (state.monsters) renderMonsters(state.monsters);
+  if (state.round && state.round.partyHeroes) {
+    updateHeroBars(state.round.partyHeroes);
+  }
+  if (state.round) {
+    document.getElementById('round-counter').textContent = 'Round ' + state.round.round;
+    partyPrevState = state;
+  }
+}
 
 function handleCombatState(state) {
   if (!state || !state.inCombat) {
     if (partyCombatActive && state && state.finished) {
+      // Do final animation before showing result
+      if (state.round && partyPrevState && partyPrevState.round &&
+          state.round.round > partyPrevState.round.round) {
+        animateTransition(partyPrevState, state);
+      }
       if (state.floorCompleted) {
         showResult({ floorCompleted: true, round: state.round, result: state.result || {} });
       } else if (state.floorFailed) {
         showResult({ floorCompleted: false, floorFailed: true, round: state.round, result: state.result || {} });
       }
       partyCombatActive = false;
+      partyPrevState = null;
       if (partyCombatInterval) { clearInterval(partyCombatInterval); partyCombatInterval = null; }
     }
     return;
   }
   partyCombatActive = true;
-  document.getElementById('combat-arena').classList.add('active');
-  if (state.monsters) renderMonsters(state.monsters);
-  if (state.round && state.round.partyHeroes) {
-    renderPartyHeroes(state.round.partyHeroes);
-    updateHeroBars(state.round.partyHeroes);
-  }
-  if (state.round) {
-    document.getElementById('round-counter').textContent = 'Round ' + state.round.round;
-  }
+  renderCombatState(state);
 }
 
 function pollPartyCombat() {
