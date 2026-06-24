@@ -295,6 +295,7 @@ router.get("/:id/combat/monster", requireAuth, async (req, res) => {
 // After each tick, broadcast combat state to all connected clients via Socket.IO.
 combatService.onTick = (runId: string, run: any) => {
   if (!run) return;
+  console.log(`[Combat] Tick: ${runId} round=${run.lastRound?.round} hp=${run.monsters?.[0]?.currentHp}`);
 
   const lastRound = run.lastRound;
   const currentMonster = run.monsters?.[run.currentMonsterIndex];
