@@ -1514,15 +1514,33 @@ var partyPrevState = null;
 
 function renderCombatState(state) {
   document.getElementById('combat-arena').classList.add('active');
+
+  // First render — create hero cards and monster cards
+  if (!partyPrevState && state.round && state.round.partyHeroes) {
+    renderPartyHeroes(state.round.partyHeroes);
+  }
+  if (!partyPrevState && state.monsters) {
+    renderMonsters(state.monsters);
+  }
+
   // Animate transition if we have a previous round
   if (state.round && partyPrevState && partyPrevState.round &&
       state.round.round > partyPrevState.round.round) {
     animateTransition(partyPrevState, state);
+  } else {
+    // No transition — just update HP bars and monster renders
+    if (state.monsters) {
+      if (partyPrevState && partyPrevState.monsters) {
+        updateMonsterBars(state.monsters);
+      } else {
+        renderMonsters(state.monsters);
+      }
+    }
+    if (state.round && state.round.partyHeroes) {
+      updateHeroBars(state.round.partyHeroes);
+    }
   }
-  if (state.monsters) renderMonsters(state.monsters);
-  if (state.round && state.round.partyHeroes) {
-    updateHeroBars(state.round.partyHeroes);
-  }
+
   if (state.round) {
     document.getElementById('round-counter').textContent = 'Round ' + state.round.round;
     partyPrevState = state;
