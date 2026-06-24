@@ -76,6 +76,23 @@ export function initDatabase(): void {
       created_at TEXT NOT NULL
     );
     CREATE UNIQUE INDEX IF NOT EXISTS uq_friends_player_friend ON friends(player_id, friend_id);
+    CREATE TABLE IF NOT EXISTS combat_events (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      run_id TEXT NOT NULL,
+      event_id INTEGER NOT NULL,
+      type TEXT NOT NULL,
+      payload TEXT NOT NULL,
+      created_at TEXT NOT NULL
+    );
+    CREATE UNIQUE INDEX IF NOT EXISTS uq_combat_events_run_event ON combat_events(run_id, event_id);
+    CREATE TABLE IF NOT EXISTS party_state (
+      run_id TEXT PRIMARY KEY,
+      party_id TEXT NOT NULL,
+      state TEXT NOT NULL,
+      tick_count INTEGER NOT NULL,
+      finished_at INTEGER,
+      updated_at TEXT NOT NULL
+    );
   `);
   console.log("[DB] Schema initialized");
 }

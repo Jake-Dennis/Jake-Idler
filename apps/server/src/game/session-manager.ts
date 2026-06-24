@@ -1,4 +1,3 @@
-import { randomUUID } from "node:crypto";
 import type { Monster, CombatPosition, CombatRole } from "@jake-idler/game";
 import { createChildLogger } from "../observability/logger.js";
 import { gameEvents } from "./event-bus.js";
@@ -111,7 +110,7 @@ export class SessionManager {
     totalMonsters: number,
     floorGoldValue: number,
   ): PartyFloorRunState {
-    const runId = randomUUID();
+    const runId = partyId;
     const run: PartyFloorRunState = {
       partyId,
       initiatorHeroId,

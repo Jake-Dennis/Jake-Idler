@@ -11,6 +11,12 @@ import {
 } from "@jake-idler/game";
 import type { Equipment, Monster, CombatPosition, CombatRole } from "@jake-idler/game";
 import { lootService } from "./loot-service.js";
+import { createChildLogger } from "../observability/logger.js";
+import { sessionManager } from "../game/session-manager.js";
+import { combatScheduler } from "../game/tick-scheduler.js";
+import { gameEvents } from "../game/event-bus.js";
+import { combatSerializer } from "../game/serializers/combat-serializer.js";
+import { getIO } from "../socket/index.js";
 
 // ─── Exported Types ────────────────────────────────────────────
 
@@ -125,22 +131,19 @@ const HEAL_PRIORITY: CombatRole[] = [
 ];
 
 class CombatService {
-  private partyFloors: Map<string, PartyFloorRunState> = new Map();
-  public tickInterval: ReturnType<typeof setInterval> | null = null;
-  public onTick: ((runId: string, run: PartyFloorRunState) => void) | null = null;
+  private log = createChildLogger("combat");
 
-  startTickLoop(): void {
-    if (this.tickInterval) return;
-    this.tickInterval = setInterval(() => this.tick(), 1000);
-    console.log('[Combat] Tick loop started');
-  }
-
-  stopTickLoop(): void {
-    if (this.tickInterval) {
-      clearInterval(this.tickInterval);
-      this.tickInterval = null;
-      console.log('[Combat] Tick loop stopped');
-    }
+  constructor() {
+    gameEvents.on("round:processed", (payload) => {
+      const run = sessionManager.getRun(payload.runId);
+      if (!run) return;
+      const room = run.partyId.startsWith("solo_")
+        ? `hero:${run.initiatorHeroId}`
+        : `party:${run.partyId}`;
+      try {
+        getIO().to(room).emit("party:combat-update", combatSerializer.toView(run, null));
+      } catch (_) {}
+    });
   }
 
   isInCombat(heroId: string): boolean {
@@ -149,23 +152,12 @@ class CombatService {
 
   /** Find an active (not completed/failed) run for a hero. */
   private getActivePartyIdForHero(heroId: string): string | null {
-    for (const [partyId, run] of this.partyFloors) {
-      if (!run.floorCompleted && !run.floorFailed && run.heroes.some((h) => h.heroId === heroId)) {
-        return partyId;
-      }
-    }
-    return null;
+    return sessionManager.getActivePartyIdForHero(heroId);
   }
 
   /** Find any run (active OR recently completed) for a hero — used by status route. */
   getPartyIdForHero(heroId: string): string | null {
-    for (const [partyId, run] of this.partyFloors) {
-      if (run.finishedAt !== null && Date.now() - run.finishedAt > 60000) continue; // cleaned up
-      if (run.heroes.some((h) => h.heroId === heroId)) {
-        return partyId;
-      }
-    }
-    return null;
+    return sessionManager.getPartyIdForHero(heroId);
   }
 
   // ─── Start Combat ─────────────────────────────────────────
@@ -239,31 +231,19 @@ class CombatService {
       });
     }
 
-    const run: PartyFloorRunState = {
+    const floorGoldValue = monsters.reduce((sum, m) => sum + m.goldReward, 0);
+    const run = sessionManager.createRun(
       partyId,
       initiatorHeroId,
       floorNumber,
-      heroes: heroes_,
+      heroes_,
       monsters,
-      currentMonsterIndex: 0,
-      totalMonsters: monsters.length,
-      monstersDefeated: 0,
-      floorCompleted: false,
-      floorFailed: false,
-      tickCount: 0,
-      roundIndex: 0,
-      lastRound: null,
-      totalGoldRewarded: 0,
-      floorGoldValue: monsters.reduce((sum, m) => sum + m.goldReward, 0),
-      shardsEarned: {},
-      finishedAt: null,
-      events: [],
-    };
-
-    this.partyFloors.set(partyId, run);
+      monsters.length,
+      floorGoldValue,
+    );
 
     return {
-      totalMonsters: monsters.length,
+      totalMonsters: run.totalMonsters,
       isBracketBossFloor: floorNumber % 10 === 0,
       monsters: monsters.map(m => ({
         id: m.data.id,
@@ -288,37 +268,34 @@ class CombatService {
   }
 
   getPartyFloorRun(partyId: string): PartyFloorRunState | undefined {
-    return this.partyFloors.get(partyId);
+    return sessionManager.getRun(partyId);
   }
 
   isPartyInCombat(partyId: string): boolean {
-    const run = this.partyFloors.get(partyId);
+    const run = sessionManager.getRun(partyId);
     return run !== undefined && !run.floorCompleted && !run.floorFailed;
   }
 
   // ─── Tick Loop ─────────────────────────────────────────────
 
   async tick(): Promise<void> {
-    for (const [partyId, run] of this.partyFloors) {
+    for (const run of sessionManager.listActiveRuns()) {
       if (run.floorCompleted || run.floorFailed) continue;
       try {
-        await this.processRound(partyId, run);
-        if (this.onTick) this.onTick(partyId, run);
+        await this.processRound(run.partyId, run);
+        if (run.lastRound) {
+          gameEvents.emit("round:processed", {
+            runId: run.partyId,
+            round: run.tickCount,
+            state: run.lastRound,
+          });
+        }
       } catch (err) {
-        console.error(`[Combat] Error processing ${partyId}:`, err);
+        this.log.error({ partyId: run.partyId, err }, "Error processing run");
       }
     }
 
-    this.cleanupOldRuns();
-  }
-
-  private cleanupOldRuns(): void {
-    const now = Date.now();
-    for (const [partyId, run] of this.partyFloors) {
-      if (run.finishedAt !== null && now - run.finishedAt > 60000) {
-        this.partyFloors.delete(partyId);
-      }
-    }
+    sessionManager.cleanupOldRuns();
   }
 
   // ─── Round Processing ──────────────────────────────────────
@@ -515,10 +492,10 @@ class CombatService {
 
       try {
         this.processKillRewards(run, currentMonster).catch((err) => {
-          console.error(`[Combat] Kill rewards failed for ${partyId}:`, err);
+          this.log.error({ partyId, err }, "Kill rewards failed");
         });
       } catch (err) {
-        console.error(`[Combat] Kill rewards sync error for ${partyId}:`, err);
+        this.log.error({ partyId, err }, "Kill rewards sync error");
       }
     }
 
@@ -685,3 +662,7 @@ class CombatService {
 
 export const combatService = new CombatService();
 
+export function initCombatTick(): void {
+  combatScheduler.start();
+  combatScheduler.subscribe(() => combatService.tick(), "combat");
+}

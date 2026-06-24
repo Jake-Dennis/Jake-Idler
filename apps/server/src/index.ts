@@ -14,6 +14,7 @@ import leaderboardRoutes from "./routes/leaderboard.js";
 import webRoutes from "./routes/web.js";
 import { initSocketIO } from "./socket/index.js";
 import { initDatabase } from "./db/connection.js";
+import { initCombatTick } from "./services/combat-service.js";
 
 const app = express();
 const server = createServer(app);
@@ -62,6 +63,7 @@ app.use("/game", webRoutes);
 
 // Socket.IO
 initSocketIO(server);
+initCombatTick();
 
 server.listen(PORT, () => {
   initDatabase();

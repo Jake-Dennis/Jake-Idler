@@ -8,6 +8,9 @@ import { heroes } from "../db/schema/index.js";
 import { eq, sql } from "drizzle-orm";
 import { getIO } from "../socket/index.js";
 import { combatSerializer } from "../game/serializers/combat-serializer.js";
+import { createChildLogger } from "../observability/logger.js";
+
+const log = createChildLogger("combat-route");
 
 const router = Router();
 
@@ -129,7 +132,9 @@ router.get("/:id/combat/status", requireAuth, async (req, res) => {
   if (isPartyCombat) {
     try {
       getIO().to(`party:${runId}`).emit('party:combat-update', combatSerializer.toView(run, null));
-    } catch (_) {}
+    } catch (err) {
+      log.error({ runId, err }, "party:combat-update emit failed");
+    }
   }
 
   res.json({
@@ -162,19 +167,5 @@ router.get("/:id/combat/monster", requireAuth, async (req, res) => {
     },
   });
 });
-
-// ─── Server-authoritative tick loop ─────────────────────────
-// After each tick, broadcast combat state to all connected clients via Socket.IO.
-combatService.onTick = (runId, run) => {
-  if (!run) return;
-  console.log(`[Combat] Tick: ${runId} round=${run.lastRound?.round} hp=${run.monsters?.[0]?.currentHp}`);
-
-  try {
-    const room = runId.startsWith("solo_") ? `hero:${run.initiatorHeroId}` : `party:${runId}`;
-    getIO().to(room).emit("party:combat-update", combatSerializer.toView(run, null));
-  } catch (_) {}
-};
-
-combatService.startTickLoop();
 
 export default router;

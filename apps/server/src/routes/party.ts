@@ -8,9 +8,16 @@ import { heroes } from "../db/schema/index.js";
 import { eq } from "drizzle-orm";
 import type { CombatRole } from "@jake-idler/game";
 import { getIO } from "../socket/index.js";
+import { createChildLogger } from "../observability/logger.js";
+
+const log = createChildLogger("party-route");
 
 function emitPartyUpdate(partyId: string) {
-  try { getIO().to(`party:${partyId}`).emit('party:formation', { t: Date.now() }); } catch (_) {}
+  try {
+    getIO().to(`party:${partyId}`).emit('party:formation', { t: Date.now() });
+  } catch (err) {
+    log.error({ partyId, err }, "party:formation emit failed");
+  }
 }
 
 const router = Router();

@@ -3,6 +3,20 @@ import { Server, Socket } from "socket.io";
 import { WebSocketServer, WebSocket } from "ws";
 import { verifyToken, type JwtPayload } from "../auth/jwt.js";
 import { URL } from "url";
+import { gameEvents } from "../game/event-bus.js";
+import { combatSerializer } from "../game/serializers/combat-serializer.js";
+import {
+  parseSocketEvent,
+  SocketValidationError,
+  heroJoinSchema,
+  partyJoinRoomSchema,
+  partyLeaveRoomSchema,
+  partyUpdateRoleSchema,
+  partyChatSchema,
+} from "../game/validators/socket.js";
+import { createChildLogger } from "../observability/logger.js";
+
+const log = createChildLogger("socket");
 
 /**
  * Map of online players: playerId → set of socket IDs.
@@ -46,7 +60,7 @@ export function initGodotWebSocket(server: HttpServer): void {
     const playerId = payload.id;
     const username = payload.username;
     godotClients.set(playerId, ws);
-    console.log(`[Godot WS] ${username} (${playerId}) connected`);
+    log.info({ playerId, username }, "Godot WS connected");
 
     // Track online
     if (!onlinePlayers.has(playerId)) {
@@ -55,10 +69,10 @@ export function initGodotWebSocket(server: HttpServer): void {
     onlinePlayers.get(playerId)!.add(playerId);
     io?.emit("player:online", { playerId, username });
 
-    ws.on("message", (raw) => {
+    ws.on("message", async (raw) => {
       try {
         const msg = JSON.parse(raw.toString());
-        handleGodotMessage(playerId, username, ws, msg);
+        await handleGodotMessage(playerId, username, ws, msg);
       } catch (e) {
         // ignore invalid JSON
       }
@@ -71,36 +85,49 @@ export function initGodotWebSocket(server: HttpServer): void {
         onlinePlayers.delete(playerId);
         io?.emit("player:offline", { playerId });
       }
-      console.log(`[Godot WS] ${username} disconnected`);
+      log.info({ playerId, username }, "Godot WS disconnected");
     });
   });
 }
 
-function handleGodotMessage(playerId: string, username: string, ws: WebSocket, msg: any) {
-  switch (msg.type) {
-    case "party:join":
-      for (const [pid, members] of partyMembers) {
-        if (members.has(playerId)) {
-          // Already in a party — send current party
-          ws.send(JSON.stringify({ type: "party:state", partyId: pid }));
+async function handleGodotMessage(playerId: string, username: string, ws: WebSocket, msg: any) {
+  try {
+    switch (msg.type) {
+      case "party:join":
+        for (const [pid, members] of partyMembers) {
+          if (members.has(playerId)) {
+            // Already in a party — send current party
+            ws.send(JSON.stringify({ type: "party:state", partyId: pid }));
+            return;
+          }
+        }
+        break;
+
+      case "party:update-role": {
+        const { partyId, role } = parseSocketEvent("party:update-role", msg, partyUpdateRoleSchema);
+        const { partyService } = await import("../services/party-service.js");
+        const party = partyService.getPartyByPlayer(playerId);
+        if (!party || party.leaderId !== playerId) {
+          ws.send(JSON.stringify({ type: "error", event: "party:update-role", reason: "not_leader" }));
           return;
         }
+        io?.to(`party:${partyId}`).emit("party:role-changed", {
+          playerId, username, role,
+        });
+        break;
       }
-      break;
 
-    case "party:update-role": {
-      const { partyId, role } = msg;
-      io?.to(`party:${partyId}`).emit("party:role-changed", {
-        playerId, username, role,
-      });
-      break;
+      case "party:chat": {
+        const { partyId, text } = parseSocketEvent("party:chat", msg, partyChatSchema);
+        sendToParty(partyId, { type: "party:chat", playerId, username, text });
+        break;
+      }
     }
-
-    case "party:chat": {
-      const { partyId, text } = msg;
-      sendToParty(partyId, { type: "party:chat", playerId, username, text });
-      break;
+  } catch (err) {
+    if (err instanceof SocketValidationError) {
+      ws.send(JSON.stringify({ type: "error", event: err.event, reason: err.message }));
     }
+    // ignore other errors
   }
 }
 
@@ -148,7 +175,7 @@ export function initSocketIO(server: HttpServer): Server {
     const player = (socket as any).player as JwtPayload;
     const playerId = player.id;
 
-    console.log(`[Socket] ${player.username} (${playerId}) connected`);
+    log.info({ playerId, username: player.username }, "Socket connected");
 
     // Track online status
     if (!onlinePlayers.has(playerId)) {
@@ -156,35 +183,63 @@ export function initSocketIO(server: HttpServer): Server {
     }
     onlinePlayers.get(playerId)!.add(socket.id);
 
-    // Join party room (if in one)
-    socket.on("hero:join", (heroId: string) => {
-      socket.join(`hero:${heroId}`);
-    });
-
-    socket.on("party:join-room", (partyId: string) => {
-      socket.join(`party:${partyId}`);
-      if (!partyMembers.has(partyId)) {
-        partyMembers.set(partyId, new Set());
+    // Join hero room
+    socket.on("hero:join", (heroId: unknown) => {
+      try {
+        const { heroId: validatedHeroId } = parseSocketEvent("hero:join", { heroId }, heroJoinSchema);
+        socket.join(`hero:${validatedHeroId}`);
+      } catch (err) {
+        if (err instanceof SocketValidationError) {
+          socket.emit("error", { event: err.event, reason: err.message });
+        }
       }
-      partyMembers.get(partyId)!.add(playerId);
-      io?.to(`party:${partyId}`).emit("party:member-joined", {
-        playerId,
-        username: player.username,
-      });
     });
 
-    socket.on("party:leave-room", (partyId: string) => {
-      socket.leave(`party:${partyId}`);
-      partyMembers.get(partyId)?.delete(playerId);
-      io?.to(`party:${partyId}`).emit("party:member-left", {
-        playerId,
-        username: player.username,
-      });
+    // Join party room
+    socket.on("party:join-room", async (partyId: unknown) => {
+      try {
+        const { partyId: validatedPartyId } = parseSocketEvent("party:join-room", { partyId }, partyJoinRoomSchema);
+        const { partyService } = await import("../services/party-service.js");
+        const party = partyService.getPartyByPlayer(playerId);
+        if (!party || party.id !== validatedPartyId) {
+          return socket.emit("error", { event: "party:join-room", reason: "not_a_member" });
+        }
+        socket.join(`party:${validatedPartyId}`);
+        if (!partyMembers.has(validatedPartyId)) {
+          partyMembers.set(validatedPartyId, new Set());
+        }
+        partyMembers.get(validatedPartyId)!.add(playerId);
+        io?.to(`party:${validatedPartyId}`).emit("party:member-joined", {
+          playerId,
+          username: player.username,
+        });
+      } catch (err) {
+        if (err instanceof SocketValidationError) {
+          socket.emit("error", { event: err.event, reason: err.message });
+        }
+      }
+    });
+
+    // Leave party room
+    socket.on("party:leave-room", (partyId: unknown) => {
+      try {
+        const { partyId: validatedPartyId } = parseSocketEvent("party:leave-room", { partyId }, partyLeaveRoomSchema);
+        socket.leave(`party:${validatedPartyId}`);
+        partyMembers.get(validatedPartyId)?.delete(playerId);
+        io?.to(`party:${validatedPartyId}`).emit("party:member-left", {
+          playerId,
+          username: player.username,
+        });
+      } catch (err) {
+        if (err instanceof SocketValidationError) {
+          socket.emit("error", { event: err.event, reason: err.message });
+        }
+      }
     });
 
     // Handle disconnect
     socket.on("disconnect", () => {
-      console.log(`[Socket] ${player.username} disconnected`);
+      log.info({ playerId, username: player.username }, "Socket disconnected");
 
       const sockets = onlinePlayers.get(playerId);
       if (sockets) {
@@ -207,7 +262,7 @@ export function initSocketIO(server: HttpServer): Server {
     });
   });
 
-  console.log("[Socket.IO] Initialized");
+  log.info("Socket.IO initialized");
   return io;
 }
 
