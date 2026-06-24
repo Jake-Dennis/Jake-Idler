@@ -1502,15 +1502,23 @@ setInterval(function() {
   if (tab.id === 'tab-crafting') loadCrafting();
 }, 5000);
 
-// ─── Combat status polling — state sync only (no animations) ──
+// ─── Combat status polling — state sync + animations ──
+var pollCombatState = null;
 var pollInterval = setInterval(function() {
-  if (!document.getElementById('combat-arena').classList.contains('active')) { clearInterval(pollInterval); return; }
+  if (!document.getElementById('combat-arena').classList.contains('active')) return;
   fetch('/api/heroes/' + hero.id + '/combat/status', {
     headers: { 'Authorization': 'Bearer ' + token },
   })
   .then(function(r) { return r.json(); })
   .then(function(state) {
     if (!state || !state.round) return;
+
+    // Animate on round advance
+    if (pollCombatState && state.round.round > pollCombatState.round.round) {
+      animateTransition(pollCombatState, state);
+    }
+    pollCombatState = state;
+
     if (state.monsters) {
       if (document.querySelector('.monster-card')) updateMonsterBars(state.monsters);
       else renderMonsters(state.monsters);
