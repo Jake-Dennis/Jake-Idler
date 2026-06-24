@@ -1526,11 +1526,13 @@ if (typeof io !== 'undefined' && token) {
   .catch(function() {});
 })();
 
-// ─── Periodic party refresh (fallback if socket.io not connected) ──
+// ─── Periodic tab refresh (keeps all tabs in sync with server state) ──
 setInterval(function() {
-  if (document.getElementById('tab-party').classList.contains('active')) {
-    loadParty();
-  }
+  var tab = document.querySelector('.tab-content.active');
+  if (!tab) return;
+  if (tab.id === 'tab-equipment') loadEquipment();
+  if (tab.id === 'tab-party') loadParty();
+  if (tab.id === 'tab-crafting') loadCrafting();
 }, 5000);
 
 // ─── Equipment ─────────────────────────────────────────────
