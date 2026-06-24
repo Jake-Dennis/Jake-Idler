@@ -19,6 +19,14 @@ const app = express();
 const server = createServer(app);
 const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 
+// Global error handlers to prevent crashes from unhandled rejections
+process.on('unhandledRejection', (reason) => {
+  console.error('[Unhandled Rejection]', reason);
+});
+process.on('uncaughtException', (err) => {
+  console.error('[Uncaught Exception]', err);
+});
+
 // Middleware
 app.use(cors({ origin: "*", credentials: true }));
 app.use(express.json());
