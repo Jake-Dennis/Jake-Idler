@@ -1481,27 +1481,50 @@ setInterval(function() {
 }, 5000);
 
 // ─── Combat status polling fallback (used when combat arena is active) ──
-// If the tick loop or socket fails to deliver updates, this ensures the
-// client still sees combat progress. Runs every 2s only when arena is active.
+var pollFallbackState = null;
 setInterval(function() {
   if (!document.getElementById('combat-arena').classList.contains('active')) return;
   fetch('/api/heroes/' + hero.id + '/combat/status', {
     headers: { 'Authorization': 'Bearer ' + token },
   })
   .then(function(r) { return r.json(); })
-  .then(function(state) {
+  .then(async function(state) {
     if (!state || !state.inCombat) return;
-    if (state.monsters && state.monsters.length > 0) {
-      // Check if monsters already rendered by comparing IDs
-      var existing = document.querySelector('.monster-card');
-      if (!existing) renderMonsters(state.monsters);
-      else updateMonsterBars(state.monsters);
+    
+    // Animate if round advanced
+    if (pollFallbackState && state.round && state.round.round > (pollFallbackState.round?.round || 0)) {
+      await animateTransition(pollFallbackState, state);
+    } else {
+      // First state or no change — just render
+      if (state.monsters && state.monsters.length > 0) {
+        var existing = document.querySelector('.monster-card');
+        if (!existing) renderMonsters(state.monsters);
+        else updateMonsterBars(state.monsters);
+      }
+      if (state.round && state.round.partyHeroes) {
+        if (!document.querySelector('.hero-card')) {
+          renderPartyHeroes(state.round.partyHeroes);
+        }
+        updateHeroBars(state.round.partyHeroes);
+      }
     }
-    if (state.round && state.round.partyHeroes) {
-      updateHeroBars(state.round.partyHeroes);
-    }
+    
     if (state.round) {
       document.getElementById('round-counter').textContent = 'Round ' + state.round.round;
+      pollFallbackState = state;
+    }
+
+    if (state.finished) {
+      document.getElementById('combat-arena').classList.remove('active');
+      document.getElementById('start-btn').style.display = '';
+      document.getElementById('stop-btn').style.display = 'none';
+      showResult({
+        floorCompleted: state.floorCompleted,
+        floorFailed: state.floorFailed,
+        round: state.round,
+        result: state.result || {},
+      });
+      pollFallbackState = null;
     }
   })
   .catch(function() {});
