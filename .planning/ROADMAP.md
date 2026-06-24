@@ -49,7 +49,11 @@ Plans:
   3. Each entity follows an animation state machine (IDLE → WINDUP → ATTACK → IMPACT → RECOVERY → IDLE) preventing overlapping animations on the same entity
   4. Animation durations are driven by CSS `animation-duration` and propagated to JS via `animationend` events — no hardcoded magic numbers
   5. Existing combat functionality works identically (regression-free transition)
-**Plans**: TBD
+**Plans**: 2 plans
+
+Plans:
+- [ ] 02-01-PLAN.md — Create CombatDiff, AnimationQueue, and EntityAnimFSM modules with tests
+- [ ] 02-02-PLAN.md — Refactor web.ts to use new pipeline, remove setTimeout chains, CSS timing sync
 
 ### Phase 3: Critical Hits & Screen Effects
 **Mode:** mvp
@@ -134,7 +138,7 @@ Plans:
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Foundation — Asset Extraction | 0/1 | Planned | - |
-| 2. Animation Pipeline | 0/0 | Not started | - |
+| 2. Animation Pipeline | 0/2 | Planned | - |
 | 3. Critical Hits & Screen Effects | 0/0 | Not started | - |
 | 4. Hero Combat Feedback | 0/0 | Not started | - |
 | 5. Enemy Combat Feedback | 0/0 | Not started | - |
