@@ -7,6 +7,11 @@ import { db } from "../db/connection.js";
 import { heroes } from "../db/schema/index.js";
 import { eq } from "drizzle-orm";
 import type { CombatRole } from "@jake-idler/game";
+import { getIO } from "../socket/index.js";
+
+function emitPartyUpdate(partyId: string) {
+  try { getIO().to(`party:${partyId}`).emit('party:formation', { t: Date.now() }); } catch (_) {}
+}
 
 const router = Router();
 
@@ -50,6 +55,7 @@ router.post("/invite", requireAuth, async (req, res) => {
     }
 
     const party = partyService.invite(req.player!.id, targetPlayer.id);
+    emitPartyUpdate(party.id);
     const playerNames: Record<string, string> = { [req.player!.id]: req.player!.username };
     for (const mid of party.memberIds) {
       const p = await playerStore.findById(mid);
@@ -75,6 +81,7 @@ router.post("/join", requireAuth, async (req, res) => {
     }
 
     const party = partyService.join(req.player!.id, parsed.data.partyId);
+    emitPartyUpdate(party.id);
     const playerNames: Record<string, string> = {};
     for (const mid of party.memberIds) {
       const p = await playerStore.findById(mid);
@@ -89,7 +96,10 @@ router.post("/join", requireAuth, async (req, res) => {
 // POST /api/party/leave — leave current party
 router.post("/leave", requireAuth, async (req, res) => {
   try {
+    const oldParty = partyService.getPartyByPlayer(req.player!.id);
+    const pid = oldParty?.id;
     partyService.leave(req.player!.id);
+    if (pid) emitPartyUpdate(pid);
     res.json({ success: true });
   } catch (err: any) {
     res.status(400).json({ error: err.message });
@@ -151,6 +161,7 @@ router.post("/bot", requireAuth, async (req, res) => {
       res.status(400).json({ error: "No party found" });
       return;
     }
+    emitPartyUpdate(party.id);
     const playerNames: Record<string, string> = { [req.player!.id]: req.player!.username };
     res.json({ party: await partyService.getPartyResponse(party, playerNames) });
   } catch (err: any) {
@@ -168,6 +179,7 @@ router.delete("/bot/:botId", requireAuth, async (req, res) => {
       res.json({ success: true, party: null });
       return;
     }
+    emitPartyUpdate(party.id);
     const playerNames: Record<string, string> = { [req.player!.id]: req.player!.username };
     res.json({ success: true, party: await partyService.getPartyResponse(party, playerNames) });
   } catch (err: any) {
@@ -184,6 +196,7 @@ router.put("/role", requireAuth, async (req, res) => {
     if (!party) { res.status(404).json({ error: "Not in a party" }); return; }
 
     partyService.setMemberRole(party.id, req.player!.id, role as CombatRole);
+    emitPartyUpdate(party.id);
     const playerNames: Record<string, string> = { [req.player!.id]: req.player!.username };
     res.json({ success: true, party: await partyService.getPartyResponse(party, playerNames) });
   } catch (err: any) {
