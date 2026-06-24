@@ -806,6 +806,10 @@ async function animateTransition(prev, next) {
   if (!next.round || !prev.round) return;
   if (next.round.round <= prev.round.round) return;
 
+  // Vignette flash on round transition
+  var vf = document.getElementById('vignette-flash');
+  if (vf) { vf.classList.add('flash'); setTimeout(function() { vf.classList.remove('flash'); }, 200); }
+
   // Compare hero data between rounds and play animations
   if (next.round.partyHeroes && prev.round.partyHeroes) {
     // Phase 1: Fire all hero attack animations simultaneously
@@ -858,9 +862,9 @@ async function animateTransition(prev, next) {
               await sleep(getAnimDuration(animClass) + 50);
               el.classList.remove(animClass);
               if (monEl) {
-                monEl.classList.add('animate-hit-stop');
-                await animSleep('animate-hit-stop');
-                monEl.classList.remove('animate-hit-stop');
+                monEl.style.animationPlayState = 'paused';
+                await sleep(80);
+                monEl.style.animationPlayState = '';
               }
             }
           })());
@@ -1079,6 +1083,7 @@ function createProjectile(fromEl, toEl, color, isArc) {
 
   // Particle trail
   var trailInterval = setInterval(function() {
+    if (!proj.parentNode) { clearInterval(trailInterval); return; }
     var trail = document.createElement('div');
     trail.className = 'projectile-trail';
     trail.style.background = color;
@@ -1488,8 +1493,8 @@ setInterval(function() {
 }, 5000);
 
 // ─── Combat status polling — state sync only (no animations) ──
-setInterval(function() {
-  if (!document.getElementById('combat-arena').classList.contains('active')) return;
+var pollInterval = setInterval(function() {
+  if (!document.getElementById('combat-arena').classList.contains('active')) { clearInterval(pollInterval); return; }
   fetch('/api/heroes/' + hero.id + '/combat/status', {
     headers: { 'Authorization': 'Bearer ' + token },
   })
@@ -1506,6 +1511,7 @@ setInterval(function() {
     }
     document.getElementById('round-counter').textContent = 'Round ' + state.round.round;
     if (state.finished) {
+      clearInterval(pollInterval);
       document.getElementById('combat-arena').classList.remove('active');
       document.getElementById('start-btn').style.display = '';
       document.getElementById('stop-btn').style.display = 'none';

@@ -22,13 +22,7 @@ export interface HeroResponse {
   currentFloor: number;
   equipped: Record<string, Equipment | null>;
   inventory: Equipment[];
-  shards: {
-    common: number;
-    uncommon: number;
-    rare: number;
-    epic: number;
-    legendary: number;
-  };
+  shards: Record<string, number>;
   stats: { atk: number; def: number; hp: number; healing: number };
   photoUrl: string | null;
   createdAt: string;

@@ -138,7 +138,7 @@ svg[data-lucide]{display:inline;vertical-align:middle}
 .animate-shield{animation:shieldGlow .5s ease;animation-duration:.5s}
 @keyframes shieldGlow{0%,100%{box-shadow:0 0 0 transparent}50%{box-shadow:0 0 20px rgba(50,40,80,.5),inset 0 0 10px rgba(50,40,80,.1)}}
 .animate-explode{animation:explode .4s ease forwards;animation-duration:.4s}
-@keyframes explode{0%{transform:scale(1);opacity:1}100%{transform:scale(3);opacity:0}}
+@keyframes explode{0%{transform:translate(0,0) scale(1);opacity:1}100%{transform:translate(var(--tx,0),var(--ty,0)) scale(0.3);opacity:0}}
 .animate-windup{animation:windup .15s ease;animation-duration:.15s}
 @keyframes windup{0%{transform:scale(1)}50%{transform:scale(.85)}100%{transform:scale(1)}}
 .animate-fade-in{animation:fadeIn .4s ease;animation-duration:.4s}
@@ -150,7 +150,7 @@ svg[data-lucide]{display:inline;vertical-align:middle}
 .animate-shake-screen.crit{animation-duration:.5s}
 @keyframes screenShake{0%{transform:translate3d(0,0,0)}10%{transform:translate3d(-4px,-2px,0)}20%{transform:translate3d(4px,2px,0)}30%{transform:translate3d(-3px,1px,0)}40%{transform:translate3d(3px,-1px,0)}50%{transform:translate3d(-2px,0,0)}60%{transform:translate3d(2px,0,0)}100%{transform:translate3d(0,0,0)}}
 .animate-hit-stop{animation:hitStop .08s ease;animation-duration:.08s}
-@keyframes hitStop{0%,100%{animation-play-state:running}50%{animation-play-state:paused}}
+@keyframes hitStop{0%,100%{transform:scale(1)}50%{transform:scale(0.95)}}
 .vignette-flash{position:absolute;inset:0;pointer-events:none;z-index:10;border-radius:6px;opacity:0;transition:opacity .6s ease}
 .vignette-flash.show{opacity:1}
 .vignette-flash.crit{background:radial-gradient(ellipse at center,transparent 50%,rgba(139,26,26,.4) 100%)}

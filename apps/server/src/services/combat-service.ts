@@ -312,17 +312,6 @@ class CombatService {
     this.cleanupOldRuns();
   }
 
-  // ─── Poll-and-Advance ─────────────────────────────────────
-
-  processOneRound(partyId: string): boolean {
-    const run = this.partyFloors.get(partyId);
-    if (!run) return false;
-    if (run.floorCompleted || run.floorFailed) return false;
-    this.processRound(partyId, run);
-    this.cleanupOldRuns();
-    return true;
-  }
-
   private cleanupOldRuns(): void {
     const now = Date.now();
     for (const [partyId, run] of this.partyFloors) {
@@ -347,7 +336,7 @@ class CombatService {
     if (aliveHeroes.length === 0) {
       run.floorFailed = true;
       run.finishedAt = Date.now();
-      this.finaliseRound(run, currentMonster, 0, false, 0, false, 0, [], true);
+      this.finaliseRound(run, currentMonster, 0, false, 0, false, 0, []);
       return;
     }
 
@@ -482,7 +471,7 @@ class CombatService {
     const monsterDied = currentMonster.currentHp <= 0;
 
     // ─── 5. Finalise round state ─────────────────────────────
-    this.finaliseRound(run, currentMonster, totalDpsDamage, lastDpsCrit, totalMonsterDamage, anyMonsterCrit, totalHealingDone, heroData, false);
+    this.finaliseRound(run, currentMonster, totalDpsDamage, lastDpsCrit, totalMonsterDamage, anyMonsterCrit, totalHealingDone, heroData);
 
     // ─── 6. Monster died handling ────────────────────────────
     if (monsterDied && aliveHeroes.length > 0) {
@@ -581,7 +570,6 @@ class CombatService {
     monsterCrit: boolean,
     totalHealing: number,
     heroData: PartyHeroRoundData[],
-    _wipe: boolean,
   ): void {
     run.roundIndex++;
     const monsterDied = monster.currentHp <= 0;
