@@ -21,6 +21,7 @@ const HTML = `<!DOCTYPE html>
   <title>JAKE IDLER</title>
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700;800&display=swap" rel="stylesheet">
   <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
   <link rel="stylesheet" href="/static/css/login.css" />
 </head>
 <body>
@@ -1482,6 +1483,18 @@ var loopInfoEl = document.getElementById('loop-info');
 console.log('[Game] Loaded hero: ' + hero.name + ' (Lv.' + hero.level + ')');
 if (typeof lucide !== 'undefined') lucide.createIcons();
 
+// ─── Socket.IO ──────────────────────────────────────────────
+var socket = null;
+if (typeof io !== 'undefined' && token) {
+  socket = io({ auth: { token: token } });
+  socket.on('connect', function() { console.log('[Socket] Connected'); });
+  socket.on('party:formation', function() { if (currentParty) loadParty(); });
+  socket.on('party:member-joined', function() { if (currentParty) loadParty(); });
+  socket.on('party:member-left', function() { if (currentParty) loadParty(); });
+  socket.on('party:role-changed', function() { if (currentParty) loadParty(); });
+  socket.on('connect_error', function(err) { console.error('[Socket] Error:', err.message); });
+}
+
 // ─── Equipment ─────────────────────────────────────────────
 var SLOT_NAMES = {
   rightHandWeapon: 'Main-Hand',
@@ -1717,11 +1730,13 @@ function loadParty() {
   .then(function(res) { return res.json(); })
   .then(function(data) {
     if (!data.party) {
+      if (socket && currentParty) socket.emit('party:leave-room', currentParty.id);
       showPartyNotInParty();
       return;
     }
     currentParty = data.party;
     showPartyInParty(data.party);
+    if (socket) socket.emit('party:join-room', data.party.id);
   })
   .catch(function() {
     showPartyNotInParty();
@@ -1810,8 +1825,10 @@ function joinParty() {
   .then(function(res) { return res.json().then(function(d) { if (!res.ok) throw new Error(d.error || 'Failed'); return d; }); })
   .then(function(data) {
     document.getElementById('party-join-input').value = '';
+    if (socket && currentParty) socket.emit('party:leave-room', currentParty.id);
     currentParty = data.party;
     showPartyInParty(data.party);
+    if (socket) socket.emit('party:join-room', data.party.id);
   })
   .catch(function(err) { alert(err.message); });
 }
@@ -1949,8 +1966,10 @@ function acceptInvite(partyId) {
   })
   .then(function(res) { return res.json().then(function(d) { if (!res.ok) throw new Error(d.error || 'Failed'); return d; }); })
   .then(function(data) {
+    if (socket && currentParty) socket.emit('party:leave-room', currentParty.id);
     currentParty = data.party;
     showPartyInParty(data.party);
+    if (socket) socket.emit('party:join-room', data.party.id);
   })
   .catch(function(err) { alert(err.message); });
 }
