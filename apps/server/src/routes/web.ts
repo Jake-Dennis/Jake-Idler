@@ -1480,39 +1480,42 @@ setInterval(function() {
   if (tab.id === 'tab-crafting') loadCrafting();
 }, 5000);
 
-// ─── Combat status polling fallback (used when combat arena is active) ──
-var pollFallbackState = null;
-setInterval(function() {
-  if (!document.getElementById('combat-arena').classList.contains('active')) return;
-  fetch('/api/heroes/' + hero.id + '/combat/status', {
-    headers: { 'Authorization': 'Bearer ' + token },
-  })
-  .then(function(r) { return r.json(); })
-  .then(async function(state) {
-    if (!state || !state.inCombat) return;
-    
-    // Animate if round advanced
-    if (pollFallbackState && state.round && state.round.round > (pollFallbackState.round?.round || 0)) {
-      await animateTransition(pollFallbackState, state);
-    } else {
-      // First state or no change — just render
-      if (state.monsters && state.monsters.length > 0) {
-        var existing = document.querySelector('.monster-card');
-        if (!existing) renderMonsters(state.monsters);
-        else updateMonsterBars(state.monsters);
+// ─── Combat status polling — drives animations from server tick state (500ms) ──
+var pollState = null;
+setInterval(async function() {
+  if (!document.getElementById('combat-arena').classList.contains('active')) {
+    pollState = null;
+    return;
+  }
+  try {
+    var resp = await fetch('/api/heroes/' + hero.id + '/combat/status', {
+      headers: { 'Authorization': 'Bearer ' + token },
+    });
+    var state = await resp.json();
+    if (!state || !state.round) { pollState = null; return; }
+
+    // New round — animate from previous state
+    if (pollState && state.round.round > (pollState.round?.round || 0)) {
+      await animateTransition(pollState, state);
+    } else if (!pollState) {
+      // First state — render initial
+      if (state.monsters && !document.querySelector('.monster-card')) renderMonsters(state.monsters);
+      if (state.round && state.round.partyHeroes && !document.querySelector('.hero-card')) {
+        renderPartyHeroes(state.round.partyHeroes);
       }
-      if (state.round && state.round.partyHeroes) {
-        if (!document.querySelector('.hero-card')) {
-          renderPartyHeroes(state.round.partyHeroes);
-        }
-        updateHeroBars(state.round.partyHeroes);
+      if (state.round && state.round.currentMonsterName) {
+        addLog('info', state.round.currentMonsterName + ' appears!');
       }
     }
-    
-    if (state.round) {
-      document.getElementById('round-counter').textContent = 'Round ' + state.round.round;
-      pollFallbackState = state;
+
+    // Always update bars and counter
+    if (state.round && state.round.partyHeroes) updateHeroBars(state.round.partyHeroes);
+    if (state.monsters) {
+      if (document.querySelector('.monster-card')) updateMonsterBars(state.monsters);
+      else renderMonsters(state.monsters);
     }
+    document.getElementById('round-counter').textContent = 'Round ' + state.round.round;
+    pollState = state;
 
     if (state.finished) {
       document.getElementById('combat-arena').classList.remove('active');
@@ -1524,11 +1527,10 @@ setInterval(function() {
         round: state.round,
         result: state.result || {},
       });
-      pollFallbackState = null;
+      pollState = null;
     }
-  })
-  .catch(function() {});
-}, 2000);
+  } catch (_) {}
+}, 500);
 
 // ─── Equipment ─────────────────────────────────────────────
 var SLOT_NAMES = {
