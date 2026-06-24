@@ -27,6 +27,9 @@ app.use(express.json());
 // Serve uploaded hero photos statically
 app.use("/uploads", express.static(path.resolve(import.meta.dirname, "..", "uploads")));
 
+// Serve static CSS files
+app.use("/static", express.static(path.resolve(import.meta.dirname, "..", "static")));
+
 // Routes
 // Redirect root to game
 app.get("/", (_req, res) => {

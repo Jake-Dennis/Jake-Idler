@@ -19,313 +19,9 @@ const HTML = `<!DOCTYPE html>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>JAKE IDLER</title>
-  <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
-    body {
-      font-family: system-ui, -apple-system, sans-serif;
-      background: #0a0a14;
-      color: #e0e0e0;
-      min-height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-
-    /* ── Screens ───────────────────────────────────────── */
-    .screen {
-      display: none;
-      width: 100%;
-      max-width: 960px;
-      padding: 24px;
-      animation: fadeIn 0.3s ease;
-    }
-    .screen.active { display: block; }
-
-    @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(12px); }
-      to   { opacity: 1; transform: translateY(0); }
-    }
-
-    /* ── Cards ─────────────────────────────────────────── */
-    .card {
-      background: #12122a;
-      border: 1px solid #1a1a3e;
-      border-radius: 12px;
-      padding: 32px;
-      box-shadow: 0 8px 32px rgba(0,0,0,0.5);
-    }
-    .card-centered {
-      max-width: 400px;
-      margin: 0 auto;
-      text-align: center;
-    }
-
-    h1 {
-      font-size: 2rem;
-      font-weight: 800;
-      letter-spacing: -0.02em;
-      margin-bottom: 8px;
-    }
-    h1 .gold   { color: #fbbf24; }
-    h1 .purple { color: #7c3aed; }
-    .subtitle {
-      color: #8888aa;
-      margin-bottom: 28px;
-      font-size: 0.9rem;
-    }
-
-    /* ── Form ──────────────────────────────────────────── */
-    .form-group {
-      margin-bottom: 16px;
-      text-align: left;
-    }
-    .form-group label {
-      display: block;
-      font-size: 0.8rem;
-      font-weight: 600;
-      color: #a0a0c0;
-      text-transform: uppercase;
-      letter-spacing: 0.06em;
-      margin-bottom: 6px;
-    }
-    .form-group input {
-      width: 100%;
-      padding: 12px 14px;
-      background: #0d0d1f;
-      border: 1px solid #1a1a3e;
-      border-radius: 8px;
-      color: #e0e0e0;
-      font-size: 1rem;
-      outline: none;
-      transition: border-color 0.2s, box-shadow 0.2s;
-    }
-    .form-group input:focus {
-      border-color: #7c3aed;
-      box-shadow: 0 0 0 3px rgba(124,58,237,0.25);
-    }
-    .form-group input::placeholder {
-      color: #555577;
-    }
-
-    /* ── Buttons ───────────────────────────────────────── */
-    .btn {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: 6px;
-      padding: 12px 24px;
-      border: none;
-      border-radius: 8px;
-      font-size: 0.95rem;
-      font-weight: 600;
-      cursor: pointer;
-      transition: all 0.2s;
-      text-decoration: none;
-      width: 100%;
-    }
-    .btn:active { transform: scale(0.97); }
-
-    .btn-primary {
-      background: #7c3aed;
-      color: #fff;
-    }
-    .btn-primary:hover {
-      background: #6d28d9;
-      box-shadow: 0 4px 20px rgba(124,58,237,0.35);
-    }
-
-    .btn-gold {
-      background: #fbbf24;
-      color: #0a0a14;
-    }
-    .btn-gold:hover {
-      background: #f59e0b;
-      box-shadow: 0 4px 20px rgba(251,191,36,0.35);
-    }
-
-    .btn-danger {
-      background: transparent;
-      color: #ef4444;
-      border: 1px solid #ef4444;
-    }
-    .btn-danger:hover {
-      background: #ef4444;
-      color: #fff;
-    }
-
-    .btn-ghost {
-      background: transparent;
-      color: #8888aa;
-      border: 1px solid #1a1a3e;
-      width: auto;
-      padding: 8px 16px;
-    }
-    .btn-ghost:hover {
-      background: #1a1a3e;
-      color: #e0e0e0;
-    }
-
-    .btn-sm {
-      padding: 6px 14px;
-      font-size: 0.8rem;
-      width: auto;
-    }
-
-    .btn-group {
-      display: flex;
-      gap: 10px;
-      margin-top: 20px;
-    }
-    .btn-group .btn { flex: 1; }
-
-    /* ── Alerts ────────────────────────────────────────── */
-    .alert {
-      padding: 10px 14px;
-      border-radius: 8px;
-      font-size: 0.85rem;
-      margin-bottom: 16px;
-      display: none;
-    }
-    .alert.show { display: block; }
-    .alert-error {
-      background: rgba(239,68,68,0.12);
-      border: 1px solid rgba(239,68,68,0.3);
-      color: #f87171;
-    }
-    .alert-success {
-      background: rgba(34,197,94,0.12);
-      border: 1px solid rgba(34,197,94,0.3);
-      color: #4ade80;
-    }
-
-    /* ── Hero Select Layout ────────────────────────────── */
-    .hero-layout {
-      display: grid;
-      grid-template-columns: 1fr 320px;
-      gap: 24px;
-    }
-
-    .hero-list-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin-bottom: 20px;
-    }
-    .hero-list-header h2 {
-      font-size: 1.3rem;
-      font-weight: 700;
-    }
-
-    .hero-row {
-      display: flex !important;
-      flex-direction: column !important;
-      align-items: stretch;
-      justify-content: flex-start;
-      gap: 4px;
-      padding: 10px 18px;
-      background: #0d0d1f;
-      border: 1px solid #1a1a3e;
-      border-radius: 10px;
-      margin-bottom: 10px;
-      transition: border-color 0.2s, box-shadow 0.2s;
-    }
-    .hero-row:hover {
-      border-color: #7c3aed;
-      box-shadow: 0 0 0 1px rgba(124,58,237,0.15);
-    }
-
-    .role-divider {
-      width: 100%;
-      text-align: center;
-      padding: 4px 0;
-      margin: 4px 0;
-      border-top: 1px solid #1a1a3e;
-    }
-    .role-label {
-      font-size: 0.7rem;
-      font-weight: 700;
-      letter-spacing: 1px;
-      text-transform: uppercase;
-    }
-
-    .role-heroes-row {
-      display: flex;
-      justify-content: center;
-      gap: 12px;
-      flex-wrap: wrap;
-      align-items: center;
-    }
-
-    .hero-card-name { font-size: 0.7rem; color: #8888aa; margin-bottom: 2px; }
-    .hero-hp { font-size: 0.65rem; color: #aaa; margin-top: 2px; }
-
-    .hero-info {
-      display: flex;
-      flex-direction: column;
-      gap: 2px;
-    }
-    .hero-name {
-      font-weight: 700;
-      font-size: 1.05rem;
-      color: #e0e0e0;
-    }
-    .hero-meta {
-      display: flex;
-      gap: 12px;
-      font-size: 0.8rem;
-      color: #8888aa;
-    }
-    .hero-meta span { display: flex; align-items: center; gap: 4px; }
-    .hero-meta .stat-atk { color: #fbbf24; }
-    .hero-meta .stat-def { color: #7c3aed; }
-    .hero-meta .stat-hp  { color: #22c55e; }
-
-    .hero-actions {
-      display: flex;
-      gap: 8px;
-    }
-
-    .empty-heroes {
-      text-align: center;
-      padding: 48px 0;
-      color: #555577;
-    }
-    .empty-heroes p { font-size: 0.95rem; }
-
-    /* ── Create Hero ───────────────────────────────────── */
-    .create-hero-card h3 {
-      font-size: 1.1rem;
-      font-weight: 700;
-      margin-bottom: 16px;
-    }
-
-    .loading {
-      text-align: center;
-      padding: 40px 0;
-      color: #555577;
-    }
-    .loading::after {
-      content: "";
-      display: inline-block;
-      width: 24px;
-      height: 24px;
-      border: 3px solid #1a1a3e;
-      border-top-color: #7c3aed;
-      border-radius: 50%;
-      animation: spin 0.8s linear infinite;
-      margin-top: 8px;
-    }
-    @keyframes spin { to { transform: rotate(360deg); } }
-
-    /* ── Responsive ────────────────────────────────────── */
-    @media (max-width: 768px) {
-      .hero-layout {
-        grid-template-columns: 1fr;
-      }
-      .card { padding: 20px; }
-    }
-  </style>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <link rel="stylesheet" href="/static/css/login.css" />
 </head>
 <body>
 
@@ -522,9 +218,9 @@ const HTML = `<!DOCTYPE html>
                 '<div class="hero-name">' + escHtml(h.name) + '</div>' +
                 '<div class="hero-meta">' +
                   '<span>Lv.' + (h.level ?? 0) + '</span>' +
-                  '<span class="stat-hp">❤ ' + (st.hp ?? 0) + '</span>' +
-                  '<span class="stat-atk">⚔ ' + (st.atk ?? 0) + '</span>' +
-                  '<span class="stat-def">🛡 ' + (st.def ?? 0) + '</span>' +
+                  '<span class="stat-hp"><i data-lucide="heart" style="width:12px;height:12px"></i> ' + (st.hp ?? 0) + '</span>' +
+                  '<span class="stat-atk"><i data-lucide="sword" style="width:12px;height:12px"></i> ' + (st.atk ?? 0) + '</span>' +
+                  '<span class="stat-def"><i data-lucide="shield" style="width:12px;height:12px"></i> ' + (st.def ?? 0) + '</span>' +
                 '</div>' +
               '</div>' +
               '<div class="hero-actions">' +
@@ -533,6 +229,7 @@ const HTML = `<!DOCTYPE html>
               '</div>' +
             '</div>';
           }).join('');
+          if (typeof lucide !== 'undefined') lucide.createIcons();
 
           // Attach delete handlers
           heroesList.querySelectorAll('[data-hero-id]').forEach(btn => {
@@ -652,170 +349,9 @@ function generateGameHtml(hero: HeroResponse): string {
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>${safeName} - JAKE IDLER</title>
-<style>
-*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-body{font-family:system-ui,-apple-system,sans-serif;background:#0a0a14;color:#e0e0e0;min-height:100vh}
-.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:10px 20px;border:none;border-radius:8px;font-size:0.9rem;font-weight:600;cursor:pointer;transition:all .2s;text-decoration:none}
-.btn:active{transform:scale(.97)}
-.btn-primary{background:#7c3aed;color:#fff}
-.btn-primary:hover{background:#6d28d9;box-shadow:0 4px 20px rgba(124,58,237,.35)}
-.btn-primary:disabled{opacity:.5;cursor:not-allowed}
-.btn-ghost{background:transparent;color:#8888aa;border:1px solid #1a1a3e}
-.btn-ghost:hover{background:#1a1a3e;color:#e0e0e0}
-.btn-loop{background:transparent;color:#22c55e;border:1px solid #22c55e}
-.btn-loop.active{background:#22c55e;color:#0a0a14}
-.btn-sm{padding:6px 14px;font-size:.8rem}
-.btn-group{display:flex;gap:10px}
-.btn-group .btn{flex:1}
-
-/* ── Hero Bar ── */
-.hero-bar{position:sticky;top:0;z-index:100;background:#12122a;border-bottom:1px solid #1a1a3e;padding:10px 20px;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
-.hero-bar .h-name{font-size:1.15rem;font-weight:700;color:#fbbf24}
-.hero-bar .h-stat{font-size:.8rem;color:#a0a0c0;display:flex;align-items:center;gap:4px}
-.hero-bar .h-stat .h-val{color:#e0e0e0;font-weight:600}
-.hp-bar-outer{width:100px;height:8px;background:#1a1a3e;border-radius:4px;overflow:hidden}
-.hp-bar-inner{height:100%;border-radius:4px;transition:width .4s ease}
-.hp-green{background:#22c55e}
-.hp-yellow{background:#eab308}
-.hp-red{background:#ef4444}
-
-/* ── Tabs ── */
-.tab-bar{display:flex;border-bottom:1px solid #1a1a3e;background:#0d0d1f}
-.tab{padding:12px 24px;border:none;background:transparent;color:#8888aa;font-size:.9rem;font-weight:600;cursor:pointer;transition:all .2s;border-bottom:2px solid transparent}
-.tab:hover{color:#e0e0e0;background:rgba(124,58,237,.05)}
-.tab.active{color:#7c3aed;border-bottom-color:#7c3aed}
-.tab-content{display:none;padding:20px;max-width:960px;margin:0 auto}
-.tab-content.active{display:block}
-
-/* ── Dungeon Setup ── */
-.dungeon-setup{text-align:center;padding:20px}
-.floor-selector{margin-bottom:16px}
-.floor-selector select{padding:8px 14px;background:#0d0d1f;border:1px solid #1a1a3e;border-radius:8px;color:#e0e0e0;font-size:.95rem;outline:none}
-.floor-selector select:focus{border-color:#7c3aed}
-.monster-preview{background:#0d0d1f;border:1px solid #1a1a3e;border-radius:10px;padding:20px;margin-bottom:16px;color:#8888aa;font-size:.9rem}
-.monster-preview strong{color:#e0e0e0}
-
-/* ── Combat Arena ── */
-#combat-arena{display:none}
-#combat-arena.active{display:block}
-.round-counter{text-align:center;font-size:1.1rem;font-weight:700;margin-bottom:12px;color:#fbbf24}
-.arena{display:grid;grid-template-rows:auto auto auto;gap:12px;padding:16px;background:#0d0d1f;border:1px solid #1a1a3e;border-radius:12px;min-height:320px;position:relative}
-.arena-row{display:flex;justify-content:center;gap:12px;flex-wrap:wrap;align-items:center}
-.monster-card,.hero-card{background:#12122a;border:1px solid #1a1a3e;border-radius:10px;padding:10px 14px;text-align:center;min-width:110px;position:relative;transition:transform .2s,box-shadow .2s}
-    .monster-card.boss{min-width:180px;padding:16px 24px;border-color:#fbbf24}
-    .monster-card.boss .monster-icon{font-size:2.5rem}
-    .monster-card.is-focus{border-color:#a855f7;box-shadow:0 0 15px rgba(168,85,247,.3)}
-    .monster-icon{font-size:1.8rem;margin-bottom:4px}
-    .monster-name,.hero-card-name{font-size:.8rem;font-weight:600;color:#e0e0e0;margin-bottom:4px}
-    .monster-hp,.hero-hp{font-size:.75rem;color:#8888aa;margin-top:2px}
-    .hero-role-icon{font-size:1.3rem;margin-bottom:2px}
-    .hero-card{border:1px solid #1a1a3e;min-width:130px;max-width:170px}
-    .hero-card.role-tank{border-color:#f97316}
-    .hero-card.role-dps{border-color:#ef4444}
-    .hero-card.role-healer{border-color:#22c55e}
-
-/* ── Combat Log ── */
-.combat-log{max-height:180px;overflow-y:auto;background:#0d0d1f;border:1px solid #1a1a3e;border-radius:8px;padding:10px;margin-top:12px;font-size:.78rem;line-height:1.5}
-.log-entry{padding:1px 0;border-bottom:1px solid rgba(26,26,62,.5)}
-.log-entry:last-child{border-bottom:none}
-.log-entry.damage{color:#ef4444}
-.log-entry.heal{color:#22c55e}
-.log-entry.crit{color:#fbbf24;font-weight:600}
-.log-entry.info{color:#8888aa}
-.log-entry.kill{color:#a855f7;font-weight:600}
-.log-entry.block{color:#3b82f6}
-
-/* ── Particle / Floating Text ── */
-.float-text{position:fixed;pointer-events:none;z-index:600;font-weight:700;font-size:1rem;animation:floatUp .8s ease-out forwards}
-.float-text.heal{color:#22c55e}
-.float-text.crit{color:#fbbf24}
-.float-text.block{color:#3b82f6}
-@keyframes floatUp{0%{opacity:1;transform:translateY(0)}100%{opacity:0;transform:translateY(-40px)}}
-
-.projectile{position:fixed;pointer-events:none;z-index:500;border-radius:50%;width:12px;height:12px}
-.projectile-trail{position:fixed;pointer-events:none;z-index:499;border-radius:50%}
-
-/* ── Overlay ── */
-.overlay{position:fixed;inset:0;background:rgba(0,0,0,.75);display:none;align-items:center;justify-content:center;z-index:1000;animation:fadeIn .3s ease}
-.overlay.show{display:flex}
-.overlay-card{background:#12122a;border:1px solid #1a1a3e;border-radius:12px;padding:32px;text-align:center;max-width:380px;width:90%}
-.overlay-card h2{font-size:1.6rem;margin-bottom:8px}
-.overlay-card .victory{color:#22c55e}
-.overlay-card .defeat{color:#ef4444}
-.overlay-card p{color:#a0a0c0;margin-bottom:8px;font-size:.9rem}
-.overlay-card .big-num{font-size:2rem;font-weight:800;color:#fbbf24;margin:8px 0}
-
-/* ── Loop Info ── */
-.loop-info{text-align:center;padding:8px;background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.3);border-radius:8px;margin-top:12px;display:none;font-size:.85rem;color:#4ade80}
-.loop-info.show{display:block}
-
-/* ── Animations ── */
-.animate-lunge{animation:lunge .45s ease}
-@keyframes lunge{0%{transform:translateX(0)}35%{transform:translateX(45px)}55%{transform:translateX(45px)}100%{transform:translateX(0)}}
-.animate-flash-white{animation:flashWhite .35s ease}
-@keyframes flashWhite{0%,100%{box-shadow:0 0 0 transparent}50%{box-shadow:0 0 30px rgba(255,255,255,.8),0 0 60px rgba(255,255,255,.3)}}
-.animate-flash-red{animation:flashRed .4s ease}
-@keyframes flashRed{0%,100%{background-color:transparent}25%{background-color:rgba(239,68,68,.25)}}
-.animate-pulse-green{animation:pulseGreen .5s ease}
-@keyframes pulseGreen{0%,100%{box-shadow:0 0 0 transparent}50%{box-shadow:0 0 20px rgba(34,197,94,.6)}}
-.animate-shake{animation:shake .3s ease}
-@keyframes shake{0%,100%{transform:translateX(0)}20%{transform:translateX(-4px)}40%{transform:translateX(4px)}60%{transform:translateX(-2px)}80%{transform:translateX(2px)}}
-.animate-fade-out{animation:fadeOut .6s ease forwards}
-@keyframes fadeOut{0%{opacity:1;transform:scale(1)}100%{opacity:0;transform:scale(.4)}}
-.animate-shield{animation:shieldGlow .5s ease}
-@keyframes shieldGlow{0%,100%{box-shadow:0 0 0 transparent}50%{box-shadow:0 0 25px rgba(59,130,246,.8),inset 0 0 15px rgba(59,130,246,.2)}}
-.animate-explode{animation:explode .4s ease forwards}
-@keyframes explode{0%{transform:scale(1);opacity:1}100%{transform:scale(3);opacity:0}}
-@keyframes fadeIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
-
-/* ── Party ── */
-#party-in{display:none}
-#party-in.active{display:block}
-#party-not-in{display:none}
-#party-not-in.active{display:block}
-.member-card{background:#12122a;border:1px solid #2a2a44;border-radius:8px;padding:10px;margin:6px 0}
-.member-card .role-badge{padding:2px 8px;border-radius:4px;font-size:11px;font-weight:bold;display:inline-block}
-.role-tank{color:#f97316;border:1px solid #f97316}
-.role-dps{color:#ef4444;border:1px solid #ef4444}
-.role-healer{color:#22c55e;border:1px solid #22c55e}
-.party-section{margin-bottom:16px}
-.party-section h2{font-size:1.15rem;font-weight:700;margin-bottom:8px;color:#e0e0e0}
-.party-section h3{font-size:.95rem;font-weight:600;margin-bottom:6px;color:#a0a0c0}
-.party-input{width:auto;padding:8px 12px;background:#0d0d1f;border:1px solid #1a1a3e;border-radius:6px;color:#e0e0e0;font-size:.85rem;outline:none;margin-right:6px}
-.party-input:focus{border-color:#7c3aed}
-.party-controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:8px 0}
-.party-title{font-size:1.3rem;font-weight:700;color:#fbbf24;margin-bottom:2px}
-.party-info{color:#8888aa;font-size:.85rem;margin-bottom:12px}
-
-/* ── Responsive ── */
-@media(max-width:600px){
-  .hero-bar{gap:8px;padding:8px 12px;font-size:.8rem}
-  .hero-bar .h-name{font-size:1rem}
-  .tab{padding:10px 14px;font-size:.8rem}
-  .tab-content{padding:12px}
-  .monster-card{min-width:80px;padding:8px}
-  .monster-card.boss{min-width:140px}
-  .arena{padding:10px;gap:8px}
-}
-
-/* ── Equipment ── */
-.equip-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:10px 0}
-.equip-slot{background:#1a1a30;border:1px solid #2a2a44;border-radius:8px;padding:10px;min-height:60px}
-.equip-slot .slot-label{font-size:11px;font-weight:600;color:#666688;text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px}
-.equip-slot .slot-empty{color:#555577;font-size:.82rem;font-style:italic}
-.equip-slot .slot-equipped{display:flex;flex-direction:column;gap:2px}
-.equip-slot .slot-equipped .item-icon{font-size:1.4rem}
-.equip-slot .slot-equipped .item-name{font-size:.85rem;font-weight:600}
-.equip-slot .slot-equipped .item-stat{font-size:.78rem}
-.equip-slot .slot-equipped .item-level{font-size:.72rem;color:#8888aa}
-.inv-item{background:#1e1e38;border:1px solid #2e2e48;border-radius:6px;padding:8px;margin:4px 0;display:flex;align-items:center;gap:10px}
-.inv-item .inv-icon{font-size:1.6rem;min-width:32px;text-align:center}
-.inv-item .inv-info{flex:1}
-.inv-item .inv-name{font-size:.85rem;font-weight:600}
-.inv-item .inv-stats{font-size:.78rem;color:#8888aa}
-.equip-section-title{font-size:1.05rem;font-weight:700;margin:16px 0 8px}
-.inv-count{font-size:.8rem;color:#8888aa;font-weight:400}
-</style>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700;800&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/lucide@latest"></script>
+<link rel="stylesheet" href="/static/css/game.css" />
 </head>
 <body>
 
@@ -823,22 +359,28 @@ body{font-family:system-ui,-apple-system,sans-serif;background:#0a0a14;color:#e0
 
 <!-- ═══════════ HERO BAR ═══════════ -->
 <div class="hero-bar" id="hero-bar">
+  <div class="hero-avatar" id="hero-avatar-wrap" title="Change photo">
+    <img id="hero-avatar-img" src="${hero.photoUrl || ''}" alt="${safeName}" style="${hero.photoUrl ? '' : 'display:none'}">
+    <div class="hero-avatar-placeholder" id="hero-avatar-placeholder" style="${hero.photoUrl ? 'display:none' : ''}">${safeName.charAt(0).toUpperCase()}</div>
+    <div class="hero-avatar-overlay"><i data-lucide="camera" style="width:14px;height:14px"></i></div>
+  </div>
+  <input type="file" id="hero-photo-input" accept="image/*" style="display:none">
   <span class="h-name" id="hero-bar-name">${safeName}</span>
   <span class="h-stat">Lv.<span class="h-val" id="hero-bar-level">${hero.level}</span></span>
-  <span class="h-stat">\u2694\uFE0F <span class="h-val" id="hero-bar-atk">${hero.stats.atk}</span></span>
-  <span class="h-stat">\uD83D\uDEE1\uFE0F <span class="h-val" id="hero-bar-def">${hero.stats.def}</span></span>
+  <span class="h-stat"><i data-lucide="sword" style="width:14px;height:14px"></i> <span class="h-val" id="hero-bar-atk">${hero.stats.atk}</span></span>
+  <span class="h-stat"><i data-lucide="shield" style="width:14px;height:14px"></i> <span class="h-val" id="hero-bar-def">${hero.stats.def}</span></span>
   <span class="h-stat">
-    \u2764\uFE0F <span class="hp-bar-outer"><span class="hp-bar-inner hp-green" id="hero-bar-hp-fill" style="width:100%"></span></span>
+    <i data-lucide="heart" style="width:14px;height:14px"></i> <span class="hp-bar-outer"><span class="hp-bar-inner hp-green" id="hero-bar-hp-fill" style="width:100%"></span></span>
     <span id="hero-bar-hp">${hero.stats.hp}</span>/<span id="hero-bar-maxhp">${hero.stats.hp}</span>
   </span>
-  <span class="h-stat">\uD83D\uDCB0 <span class="h-val" id="hero-bar-gold">${hero.gold}</span></span>
+  <span class="h-stat"><i data-lucide="coins" style="width:14px;height:14px"></i> <span class="h-val" id="hero-bar-gold">${hero.gold}</span></span>
 </div>
 
 <!-- ═══════════ TABS ═══════════ -->
 <div class="tab-bar">
-  <button class="tab active" data-tab="dungeon">\u2694\uFE0F Dungeon</button>
-  <button class="tab" data-tab="equipment">\uD83D\uDEE1\uFE0F Equipment</button>
-  <button class="tab" data-tab="party">\uD83D\uDC65 Party</button>
+  <button class="tab active" data-tab="dungeon"><i data-lucide="sword" style="width:16px;height:16px"></i> Dungeon</button>
+  <button class="tab" data-tab="equipment"><i data-lucide="shield" style="width:16px;height:16px"></i> Equipment</button>
+  <button class="tab" data-tab="party"><i data-lucide="users" style="width:16px;height:16px"></i> Party</button>
 </div>
 
 <!-- ═══════════ TAB: DUNGEON ═══════════ -->
@@ -846,7 +388,7 @@ body{font-family:system-ui,-apple-system,sans-serif;background:#0a0a14;color:#e0
 
   <div id="dungeon-setup" class="dungeon-setup">
     <div class="floor-selector">
-      <label for="floor-select" style="color:#a0a0c0;font-weight:600;font-size:.85rem;margin-right:8px">FLOOR</label>
+      <label for="floor-select" style="color:#4a454a;font-weight:700;font-size:.75rem;letter-spacing:2px;margin-right:8px">FLOOR</label>
       <select id="floor-select"></select>
     </div>
 
@@ -855,8 +397,8 @@ body{font-family:system-ui,-apple-system,sans-serif;background:#0a0a14;color:#e0
     </div>
 
     <div class="btn-group" style="justify-content:center;max-width:400px;margin:0 auto">
-      <button id="enter-btn" class="btn btn-primary">\u2694\uFE0F Enter Dungeon</button>
-      <button id="loop-btn" class="btn btn-loop">\uD83D\uDD04 LOOP</button>
+      <button id="enter-btn" class="btn btn-primary"><i data-lucide="sword" style="width:16px;height:16px"></i> Enter Dungeon</button>
+      <button id="loop-btn" class="btn btn-loop"><i data-lucide="refresh-cw" style="width:16px;height:16px"></i> LOOP</button>
     </div>
   </div>
 
@@ -866,7 +408,7 @@ body{font-family:system-ui,-apple-system,sans-serif;background:#0a0a14;color:#e0
     <div class="arena">
       <div class="arena-row" id="boss-row"></div>
       <div class="arena-row" id="monster-row"></div>
-      <div id="arena-divider" style="border-top:1px solid #1a1a3e;margin:4px 0"></div>
+      <div id="arena-divider" style="border-top:1px solid #1a1518;margin:6px 0"></div>
       <div class="hero-row" id="hero-row"></div>
     </div>
 
@@ -953,13 +495,13 @@ body{font-family:system-ui,-apple-system,sans-serif;background:#0a0a14;color:#e0
     <div id="result-icon" style="font-size:3rem;margin:8px 0"></div>
     <p id="result-details"></p>
     <div id="result-loop-summary" style="display:none;margin:12px 0;padding:12px;background:rgba(251,191,36,.1);border:1px solid rgba(251,191,36,.3);border-radius:8px">
-      <div style="font-size:.85rem;color:#fbbf24">\uD83D\uDD04 Loop Run #<span id="loop-run-count">0</span></div>
+      <div style="font-size:.85rem;color:#fbbf24"><i data-lucide="refresh-cw" style="width:14px;height:14px"></i> Loop Run #<span id="loop-run-count">0</span></div>
       <div class="big-num" id="loop-total-gold">0</div>
       <div style="font-size:.8rem;color:#a0a0c0">total gold earned</div>
     </div>
     <div class="btn-group" style="margin-top:16px;justify-content:center">
       <button id="result-btn" class="btn btn-primary">OK</button>
-      <button id="result-retry-btn" class="btn btn-ghost" style="display:none">\u2694\uFE0F Retry</button>
+      <button id="result-retry-btn" class="btn btn-ghost" style="display:none"><i data-lucide="sword" style="width:16px;height:16px"></i> Retry</button>
     </div>
   </div>
 </div>
@@ -1016,8 +558,9 @@ document.querySelectorAll('.tab').forEach(function(tab) {
     var preview = document.getElementById('monster-preview');
     var isBoss = floor % 10 === 0;
     preview.innerHTML = '<strong>Floor ' + floor + '</strong><br />' +
-      (isBoss ? '<span style="color:#fbbf24;font-weight:600">\\uD83D\\uDC7A BRACKET BOSS FLOOR</span>' : 'Difficulty scales with floor level.') +
+      (isBoss ? '<span style="color:#fbbf24;font-weight:600"><i data-lucide="crown" style="width:16px;height:16px"></i> BRACKET BOSS FLOOR</span>' : 'Difficulty scales with floor level.') +
       '<br /><span style="color:#8888aa;font-size:.8rem">' + (isBoss ? 'A powerful boss awaits!' : 'Defeat all monsters to face the floor boss.') + '</span>';
+    if (typeof lucide !== 'undefined') lucide.createIcons();
   });
   // Trigger initial preview
   sel.dispatchEvent(new Event('change'));
@@ -1073,7 +616,7 @@ function renderMonsters(monsters) {
     card.className = 'monster-card' + (m.isBoss ? ' boss' : '') + (m.isCurrentFocus ? ' is-focus' : '');
     card.id = 'monster-' + m.id;
     var pct = m.maxHp > 0 ? (m.hp / m.maxHp) * 100 : 0;
-    var icon = m.isBoss ? '\\uD83D\\uDC79' : '\\uD83D\\uDC7E';
+    var icon = m.isBoss ? '<i data-lucide="skull" style="width:28px;height:28px"></i>' : '<i data-lucide="bug" style="width:22px;height:22px"></i>';
     card.innerHTML = '<div class="monster-icon">' + icon + '</div>' +
       '<div class="monster-name">' + escHtml(m.name) + '</div>' +
       '<div class="hp-bar-outer" style="width:100%"><div class="hp-bar-inner ' + hpColorClass(m.hp, m.maxHp) + '" style="width:' + pct + '%"></div></div>' +
@@ -1081,25 +624,19 @@ function renderMonsters(monsters) {
     if (m.isBoss) bossRow.appendChild(card);
     else monsterRow.appendChild(card);
   });
+  if (typeof lucide !== 'undefined') lucide.createIcons();
 }
 
 // ─── Render Party Heroes ───────────────────────────────────
 function renderPartyHeroes(partyHeroes) {
   var row = document.getElementById('hero-row');
   row.innerHTML = '';
-  var icons = { tank: '\uD83D\uDEE1\uFE0F', dps: '\u2694\uFE0F', healer: '\uD83D\uDC9A' };
+  var icons = { tank: 'shield', dps: 'sword', healer: 'heart' };
   var roleOrder = ['tank', 'dps', 'healer'];
-  var roleLabels = { tank: 'TANK', dps: 'DPS', healer: 'HEALER' };
 
   roleOrder.forEach(function(role) {
     var heroes = partyHeroes.filter(function(h) { return h.role === role; });
     if (heroes.length === 0) return;
-
-    // Role divider
-    var divider = document.createElement('div');
-    divider.className = 'role-divider';
-    divider.innerHTML = '<span class="role-label">' + (icons[role] || '\u2694\uFE0F') + ' ' + roleLabels[role] + '</span>';
-    row.appendChild(divider);
 
     // Horizontal row for this role's heroes
     var heroRow = document.createElement('div');
@@ -1111,14 +648,24 @@ function renderPartyHeroes(partyHeroes) {
       card.id = 'hero-' + h.heroId;
       var pct = h.maxHp > 0 ? (h.hp / h.maxHp) * 100 : 0;
       var heroName = (h.heroId === hero.id) ? hero.name : (h.heroId.startsWith('bot_') ? h.heroId.substring(4, 12) + ' (Bot)' : h.heroId.substring(0, 10));
-      card.innerHTML = '<div class="hero-role-icon">' + (icons[role] || '\u2694\uFE0F') + '</div>' +
+      var photoUrl = (h.heroId === hero.id) ? hero.photoUrl : null;
+      var iconHtml;
+      if (photoUrl) {
+        iconHtml = '<img class="hero-card-photo" src="' + photoUrl + '" alt="">';
+      } else {
+        iconHtml = '<div class="hero-role-icon"><i data-lucide="' + (icons[role] || 'sword') + '" style="width:18px;height:18px"></i></div>';
+      }
+      card.innerHTML = iconHtml +
         '<div class="hero-card-name">' + heroName + '</div>' +
         '<div class="hp-bar-outer"><div class="hp-bar-inner ' + hpColorClass(h.hp, h.maxHp) + '" style="width:' + pct + '%"></div></div>' +
         '<div class="hero-hp">' + Math.round(h.hp) + '/' + Math.round(h.maxHp) + '</div>';
+      var img = card.querySelector('.hero-card-photo');
+      if (img) img.onerror = function() { this.style.display = 'none'; };
       heroRow.appendChild(card);
     });
     row.appendChild(heroRow);
   });
+  if (typeof lucide !== 'undefined') lucide.createIcons();
 }
 
 // ─── Update HP Bars ────────────────────────────────────────
@@ -1240,7 +787,7 @@ function playAttackAnimation(weaponType, heroId) {
         monsterEl.classList.remove('animate-flash-white');
         heroEl.classList.remove('animate-lunge');
       }, 400);
-    }, 220);
+    }, 330);
   } else if (weaponType === 'mage') {
     var colors = { fire: '#ff8800', ice: '#4488ff', arcane: '#aa44ff' };
     var color = colors.fire;
@@ -1442,7 +989,7 @@ function enterDungeon() {
   .catch(function(err) { alert(err.message); })
   .finally(function() {
     btn.disabled = false;
-    btn.textContent = '\\u2694\\uFE0F Enter Dungeon';
+    btn.innerHTML = '<i data-lucide="sword" style="width:16px;height:16px"></i> Enter Dungeon';
   });
 }
 
@@ -1510,7 +1057,8 @@ function showResult(state) {
   var won = state.floorCompleted;
   title.className = won ? 'victory' : 'defeat';
   title.textContent = won ? 'VICTORY!' : 'DEFEAT';
-  icon.textContent = won ? '\\uD83C\\uDFC6' : '\\uD83D\\uDC80';
+  icon.innerHTML = won ? '<i data-lucide="trophy" style="width:48px;height:48px"></i>' : '<i data-lucide="skull" style="width:48px;height:48px"></i>';
+  if (typeof lucide !== 'undefined') lucide.createIcons();
 
   var r = state.result || {};
   var roundInfo = state.round || {};
@@ -1616,14 +1164,15 @@ function updateLoopUI() {
   var info = document.getElementById('loop-info');
   if (isLooping) {
     btn.classList.add('active');
-    btn.textContent = '\\u23F9 STOP';
+    btn.innerHTML = '<i data-lucide="square" style="width:16px;height:16px"></i> STOP';
     info.classList.add('show');
-    info.innerHTML = '\\uD83D\\udd04 Looping | Runs: <strong id="run-count-display">' + loopCount + '</strong> | Gold: <strong id="gold-count-display">' + totalGoldEarned + '</strong>';
+    info.innerHTML = '<i data-lucide="refresh-cw" style="width:14px;height:14px"></i> Looping | Runs: <strong id="run-count-display">' + loopCount + '</strong> | Gold: <strong id="gold-count-display">' + totalGoldEarned + '</strong>';
   } else {
     btn.classList.remove('active');
-    btn.textContent = '\\uD83D\\udd04 LOOP';
+    btn.innerHTML = '<i data-lucide="refresh-cw" style="width:16px;height:16px"></i> LOOP';
     info.classList.remove('show');
   }
+  if (typeof lucide !== 'undefined') lucide.createIcons();
 }
 
 document.getElementById('loop-btn').addEventListener('click', toggleLoop);
@@ -1638,6 +1187,7 @@ function escHtml(s) {
 // ─── Init ──────────────────────────────────────────────────
 var loopInfoEl = document.getElementById('loop-info');
 console.log('[Game] Loaded hero: ' + hero.name + ' (Lv.' + hero.level + ')');
+if (typeof lucide !== 'undefined') lucide.createIcons();
 
 // ─── Equipment ─────────────────────────────────────────────
 var SLOT_NAMES = {
@@ -1664,13 +1214,13 @@ function getItemEmoji(slot, type) {
   var armorSlots = ['helmet','body','legs','boots','gloves'];
   var accessorySlots = ['necklace','leftRing','rightRing','leftEarring','rightEarring'];
   if (weaponSlots.indexOf(slot) !== -1) {
-    if (type === 'mage') return '\\uD83D\\uDD2E';
-    if (type === 'range') return '\\uD83C\\uDFF9';
-    return '\\uD83D\\uDDE1\\uFE0F';
+    if (type === 'mage') return 'wand';
+    if (type === 'range') return 'crosshair';
+    return 'sword';
   }
-  if (armorSlots.indexOf(slot) !== -1) return '\\uD83D\\uDEE1\\uFE0F';
-  if (accessorySlots.indexOf(slot) !== -1) return '\\uD83D\\uDC8D';
-  return '\\uD83D\\uDEE1\\uFE0F';
+  if (armorSlots.indexOf(slot) !== -1) return 'shield';
+  if (accessorySlots.indexOf(slot) !== -1) return 'gem';
+  return 'shield';
 }
 
 function getMainStat(item) {
@@ -1707,7 +1257,7 @@ function renderEquipmentSlots(equipped) {
       var content = document.createElement('div');
       content.className = 'slot-equipped';
       content.innerHTML =
-        '<div class="item-icon">' + getItemEmoji(slot, item.type) + '</div>' +
+        '<div class="item-icon"><i data-lucide="' + getItemEmoji(slot, item.type) + '" style="width:22px;height:22px"></i></div>' +
         '<div class="item-name" style="color:' + color + '">' + escHtml(item.name) + '</div>' +
         '<div class="item-stat" style="color:' + color + '">' + getMainStat(item) + '</div>' +
         '<div class="item-level">Lv.' + item.level + ' \\u00B7 ' + item.rarity.toUpperCase() + '</div>';
@@ -1728,6 +1278,7 @@ function renderEquipmentSlots(equipped) {
 
     grid.appendChild(div);
   }
+  if (typeof lucide !== 'undefined') lucide.createIcons();
 }
 
 function renderInventory(inventory) {
@@ -1749,7 +1300,7 @@ function renderInventory(inventory) {
 
     var icon = document.createElement('div');
     icon.className = 'inv-icon';
-    icon.textContent = getItemEmoji(item.slot, item.type);
+    icon.innerHTML = '<i data-lucide="' + getItemEmoji(item.slot, item.type) + '" style="width:24px;height:24px"></i>';
     card.appendChild(icon);
 
     var info = document.createElement('div');
@@ -1768,6 +1319,7 @@ function renderInventory(inventory) {
 
     container.appendChild(card);
   }
+  if (typeof lucide !== 'undefined') lucide.createIcons();
 }
 
 function equipItem(itemId, slot) {
@@ -1858,15 +1410,15 @@ function showPartyInParty(party) {
       '<span class="role-badge ' + roleClass + '">' + roleUpper + '</span>' +
       '</div>' +
       '<div style="display:flex;gap:12px;font-size:.8rem;color:#8888aa;margin-bottom:4px">' +
-      '<span style="color:#fbbf24">\\u2694\\uFE0F ' + (m.stats.atk ?? 0) + '</span>' +
-      '<span style="color:#7c3aed">\\uD83D\\uDEE1\\uFE0F ' + (m.stats.def ?? 0) + '</span>' +
-      '<span style="color:#22c55e">\\u2764\\uFE0F ' + (m.stats.hp ?? 0) + '</span>' +
+      '<span style="color:#fbbf24"><i data-lucide="sword" style="width:12px;height:12px"></i> ' + (m.stats.atk ?? 0) + '</span>' +
+      '<span style="color:#7c3aed"><i data-lucide="shield" style="width:12px;height:12px"></i> ' + (m.stats.def ?? 0) + '</span>' +
+      '<span style="color:#22c55e"><i data-lucide="heart" style="width:12px;height:12px"></i> ' + (m.stats.hp ?? 0) + '</span>' +
       '</div>' +
       '<div style="display:flex;gap:8px;align-items:center;font-size:.75rem">' +
-      (m.isOnline ? '<span style="color:#22c55e">\\u25CF Online</span>' : '<span style="color:#555577">\\u25CB Offline</span>');
+      (m.isOnline ? '<span style="color:#22c55e"><i data-lucide="circle" style="width:8px;height:8px;fill:#22c55e"></i> Online</span>' : '<span style="color:#555577"><i data-lucide="circle" style="width:8px;height:8px"></i> Offline</span>');
 
     if (m.isBot) {
-      html += '<button onclick="removeBot(&apos;' + m.playerId + '&apos;)" style="color:red;border:1px solid red;border-radius:4px;padding:2px 8px;font-size:.75rem;background:transparent;cursor:pointer;margin-left:auto">\\u2716 Remove Bot</button>';
+      html += '<button onclick="removeBot(&apos;' + m.playerId + '&apos;)" style="color:red;border:1px solid red;border-radius:4px;padding:2px 8px;font-size:.75rem;background:transparent;cursor:pointer;margin-left:auto"><i data-lucide="x" style="width:12px;height:12px"></i> Remove Bot</button>';
     }
 
     if (m.playerId === hero.playerId) {
@@ -1879,6 +1431,7 @@ function showPartyInParty(party) {
   }
 
   loadInvites();
+  if (typeof lucide !== 'undefined') lucide.createIcons();
 }
 
 function createParty() {
@@ -2055,6 +1608,32 @@ function acceptInvite(partyId) {
   })
   .catch(function(err) { alert(err.message); });
 }
+
+// ─── Photo Upload ──────────────────────────────────────────
+document.getElementById('hero-avatar-wrap').addEventListener('click', function() {
+  document.getElementById('hero-photo-input').click();
+});
+document.getElementById('hero-avatar-img').onerror = function() { this.style.display = 'none'; };
+document.getElementById('hero-photo-input').addEventListener('change', function(e) {
+  var file = e.target.files[0];
+  if (!file) return;
+  var formData = new FormData();
+  formData.append('photo', file);
+  fetch('/api/heroes/' + hero.id + '/photo', {
+    method: 'POST',
+    headers: { 'Authorization': 'Bearer ' + token },
+    body: formData
+  })
+  .then(function(res) { return res.json(); })
+  .then(function(data) {
+    if (data.error) { alert(data.error); return; }
+    var img = document.getElementById('hero-avatar-img');
+    img.src = data.photoUrl;
+    img.style.display = '';
+    document.getElementById('hero-avatar-placeholder').style.display = 'none';
+  })
+  .catch(function(err) { console.error('Photo upload failed:', err); });
+});
 
 </script>
 </body>
