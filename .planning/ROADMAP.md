@@ -33,7 +33,10 @@
   3. The game loads and runs identically to before extraction — zero behavioral regressions
   4. Directory structure exists for animation modules (`public/animations/`, `public/particles/`)
   5. Express routes are trimmed — `web.ts` only handles layout logic, not embedded CSS/HTML
-**Plans**: TBD
+**Plans**: 1 plan
+
+Plans:
+- [ ] 01-01-PLAN.md — Extract CSS to static files, wire express.static, replace inline `<style>` with `<link>` tags
 
 ### Phase 2: Animation Pipeline
 **Mode:** mvp
@@ -130,7 +133,7 @@
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Foundation — Asset Extraction | 0/0 | Not started | - |
+| 1. Foundation — Asset Extraction | 0/1 | Planned | - |
 | 2. Animation Pipeline | 0/0 | Not started | - |
 | 3. Critical Hits & Screen Effects | 0/0 | Not started | - |
 | 4. Hero Combat Feedback | 0/0 | Not started | - |
