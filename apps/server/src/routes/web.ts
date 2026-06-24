@@ -1814,17 +1814,38 @@ function showPartyInParty(party) {
     var roleUpper = m.role.toUpperCase();
     var roleClass = 'role-' + m.role;
 
-    var html = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">' +
+    // Photo or default icon
+    var photoHtml = m.photoUrl
+      ? '<img src="' + m.photoUrl + '" style="width:32px;height:32px;border-radius:50%;object-fit:cover;border:1px solid #2a2020;flex-shrink:0">'
+      : '<div style="width:32px;height:32px;border-radius:50%;background:#0a080a;border:1px solid #2a2020;display:flex;align-items:center;justify-content:center;font-size:.8rem;font-weight:700;color:#4a454a;flex-shrink:0">' + m.username.charAt(0).toUpperCase() + '</div>';
+
+    var html = '<div style="display:flex;gap:8px;align-items:center">' +
+      photoHtml +
+      '<div style="flex:1;min-width:0">' +
+      '<div style="display:flex;justify-content:space-between;align-items:center">' +
       '<span style="font-weight:600;color:#e0e0e0">' + escHtml(m.username) + '</span>' +
       '<span class="role-badge ' + roleClass + '">' + roleUpper + '</span>' +
       '</div>' +
-      '<div style="display:flex;gap:12px;font-size:.8rem;color:#8888aa;margin-bottom:4px">' +
-      '<span style="color:#fbbf24"><i data-lucide="sword" style="width:12px;height:12px"></i> ' + (m.stats.atk ?? 0) + '</span>' +
-      '<span style="color:#7c3aed"><i data-lucide="shield" style="width:12px;height:12px"></i> ' + (m.stats.def ?? 0) + '</span>' +
-      '<span style="color:#22c55e"><i data-lucide="heart" style="width:12px;height:12px"></i> ' + (m.stats.hp ?? 0) + '</span>' +
+      '<div style="display:flex;gap:8px;font-size:.75rem;color:#5a555a;margin-top:2px">';
+
+    // Equipped gear summary
+    if (m.equipped) {
+      var eq = m.equipped;
+      var mainHand = eq.rightHandWeapon || eq.leftHand;
+      if (mainHand) html += '<span><i data-lucide="sword" style="width:10px;height:10px"></i> ' + (mainHand.name || (mainHand.rarity ? mainHand.rarity.charAt(0).toUpperCase() + mainHand.rarity.slice(1) : '') + ' Weapon') + '</span>';
+    }
+
+    html += '</div>' +
+      '<div style="display:flex;gap:8px;font-size:.72rem;color:#8888aa;margin-top:2px">' +
+      '<span style="color:#fbbf24">ATK: ' + (m.stats.atk ?? 0) + '</span>' +
+      '<span style="color:#7c3aed">DEF: ' + (m.stats.def ?? 0) + '</span>' +
+      '<span style="color:#22c55e">HP: ' + (m.stats.hp ?? 0) + '</span>' +
       '</div>' +
-      '<div style="display:flex;gap:8px;align-items:center;font-size:.75rem">' +
-      (m.isOnline ? '<span style="color:#22c55e"><i data-lucide="circle" style="width:8px;height:8px;fill:#22c55e"></i> Online</span>' : '<span style="color:#555577"><i data-lucide="circle" style="width:8px;height:8px"></i> Offline</span>');
+      '<div style="display:flex;gap:8px;align-items:center;font-size:.72rem;margin-top:2px">' +
+      (m.isOnline ? '<span style="color:#22c55e"><i data-lucide="circle" style="width:8px;height:8px;fill:#22c55e"></i> Online</span>' : '<span style="color:#555577"><i data-lucide="circle" style="width:8px;height:8px"></i> Offline</span>') +
+      '</div>' +
+      '</div>' +
+      '</div>';
 
     if (m.isBot) {
       html += '<button onclick="removeBot(&apos;' + m.playerId + '&apos;)" style="color:red;border:1px solid red;border-radius:4px;padding:2px 8px;font-size:.75rem;background:transparent;cursor:pointer;margin-left:auto"><i data-lucide="x" style="width:12px;height:12px"></i> Remove Bot</button>';

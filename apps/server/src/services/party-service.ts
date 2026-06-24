@@ -277,6 +277,8 @@ class PartyService {
               hp: computed.hp.toNumber(),
             },
             isBot: true,
+            photoUrl: null,
+            equipped: bot.equipped,
           };
         }
 
@@ -302,6 +304,9 @@ class PartyService {
           };
         }
 
+        const rowEquipped = rows.length > 0 ? (rows[0].equipped as Record<string, Equipment | null>) : {};
+        const photoUrl = rows.length > 0 ? (rows[0].photoUrl as string) : null;
+
         return {
           playerId: id,
           username: playerNames[id] || "Unknown",
@@ -310,6 +315,8 @@ class PartyService {
           position,
           stats,
           isBot: false,
+          photoUrl,
+          equipped: rowEquipped,
         };
       }),
     );
