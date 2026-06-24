@@ -6,6 +6,7 @@ import { partyService } from "../services/party-service.js";
 import { db } from "../db/connection.js";
 import { heroes } from "../db/schema/index.js";
 import { eq, sql } from "drizzle-orm";
+import { getIO } from "../socket/index.js";
 
 const router = Router();
 
@@ -166,6 +167,27 @@ router.get("/:id/combat/status", requireAuth, async (req, res) => {
         maxHp: m.maxHp,
         isCurrentFocus: m === currentMonster,
       }));
+
+    // Broadcast combat state to party members via Socket.IO
+    if (isPartyCombat) {
+      try { getIO().to(`party:${runId}`).emit('party:combat-update', {
+        inCombat: true,
+        finished: false,
+        monsters,
+        round: lastRound ? {
+          round: lastRound.round,
+          heroDamage: lastRound.totalHeroDamage,
+          monsterDamage: lastRound.monsterDamage,
+          monsterHp: lastRound.monsterHp,
+          monsterMaxHp: lastRound.monsterMaxHp,
+          currentMonsterName: lastRound.currentMonsterName,
+          currentMonsterIsBoss: lastRound.currentMonsterIsBoss,
+          monsterJustKilled: lastRound.monsterJustKilled,
+          partyHeroes: lastRound.partyHeroes,
+        } : null,
+      }); } catch (_) {}
+    }
+
     res.json({
       inCombat: true,
       finished: false,

@@ -1492,6 +1492,23 @@ if (typeof io !== 'undefined' && token) {
   socket.on('party:member-joined', function() { if (currentParty) loadParty(); });
   socket.on('party:member-left', function() { if (currentParty) loadParty(); });
   socket.on('party:role-changed', function() { if (currentParty) loadParty(); });
+  socket.on('party:combat-update', function(state) {
+    if (!prevState) prevState = null;
+    // Treat incoming combat update as a poll response
+    var fakeState = state;
+    fakeState.floorCompleted = false;
+    fakeState.floorFailed = false;
+    fakeState.finished = false;
+    if (state.monsters) renderMonsters(state.monsters);
+    if (state.round && state.round.partyHeroes) {
+      renderPartyHeroes(state.round.partyHeroes);
+      updateHeroBars(state.round.partyHeroes);
+    }
+    if (state.round) {
+      document.getElementById('round-counter').textContent = 'Round ' + state.round.round;
+      prevState = state;
+    }
+  });
   socket.on('connect_error', function(err) { console.error('[Socket] Error:', err.message); });
 }
 
