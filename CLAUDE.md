@@ -1,7 +1,7 @@
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **Jake-Idler** (1143 symbols, 1537 relationships, 18 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **Jake-Idler** (537 symbols, 1164 relationships, 23 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > Index stale? Run `node .gitnexus/run.cjs analyze` from the project root — it auto-selects an available runner. No `.gitnexus/run.cjs` yet? `npx gitnexus analyze` (npm 11 crash → `npm i -g gitnexus`; #1939).
 
@@ -40,5 +40,13 @@ This project is indexed by GitNexus as **Jake-Idler** (1143 symbols, 1537 relati
 | Rename / extract / split / refactor | `.claude/skills/gitnexus/gitnexus-refactoring/SKILL.md` |
 | Tools, resources, schema reference | `.claude/skills/gitnexus/gitnexus-guide/SKILL.md` |
 | Index, status, clean, wiki CLI commands | `.claude/skills/gitnexus/gitnexus-cli/SKILL.md` |
+| Work in the Services area (32 symbols) | `.claude/skills/generated/services/SKILL.md` |
+| Work in the Animation area (14 symbols) | `.claude/skills/generated/animation/SKILL.md` |
+| Work in the Socket area (7 symbols) | `.claude/skills/generated/socket/SKILL.md` |
+| Work in the Cluster_62 area (6 symbols) | `.claude/skills/generated/cluster-62/SKILL.md` |
+| Work in the Cluster_60 area (4 symbols) | `.claude/skills/generated/cluster-60/SKILL.md` |
+| Work in the Cluster_61 area (4 symbols) | `.claude/skills/generated/cluster-61/SKILL.md` |
+| Work in the Cluster_67 area (4 symbols) | `.claude/skills/generated/cluster-67/SKILL.md` |
+| Work in the Cluster_68 area (4 symbols) | `.claude/skills/generated/cluster-68/SKILL.md` |
 
 <!-- gitnexus:end -->

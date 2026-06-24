@@ -26,7 +26,7 @@ const HTML = `<!DOCTYPE html>
 <body>
 
   <!-- ═══════════ LOGIN SCREEN ═══════════ -->
-  <div id="loginScreen" class="screen active">
+  <div id="loginScreen" class="screen">
     <div class="card card-centered">
       <h1><span class="gold">JAKE</span> <span class="purple">IDLER</span></h1>
       <p class="subtitle">An idle RPG adventure</p>
@@ -50,7 +50,7 @@ const HTML = `<!DOCTYPE html>
   </div>
 
   <!-- ═══════════ HERO SELECT SCREEN ═══════════ -->
-  <div id="heroScreen" class="screen">
+  <div id="heroScreen" class="screen active">
     <div class="card">
       <div class="hero-list-header">
         <h2>Select Hero</h2>
