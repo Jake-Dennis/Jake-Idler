@@ -114,23 +114,26 @@ svg[data-lucide]{display:inline;vertical-align:middle}
 .loop-info.show{display:block}
 
 /* ── Animations ── */
-.animate-lunge{animation:lunge .75s ease-in-out;z-index:50}
+.animate-lunge{animation:lunge .75s ease-in-out;animation-duration:.75s;z-index:50}
 @keyframes lunge{0%{transform:translate(0,0)}25%{transform:translate(40px,-32px)}45%{transform:translate(65px,0)}55%{transform:translate(65px,0)}80%{transform:translate(20px,-15px)}100%{transform:translate(0,0)}}
-.animate-flash-white{animation:flashWhite .35s ease}
+.animate-flash-white{animation:flashWhite .35s ease;animation-duration:.35s}
 @keyframes flashWhite{0%,100%{box-shadow:0 0 0 transparent}50%{box-shadow:0 0 20px rgba(90,80,40,.5),0 0 40px rgba(90,80,40,.2)}}
-.animate-flash-red{animation:flashRed .4s ease}
+.animate-flash-red{animation:flashRed .4s ease;animation-duration:.4s}
 @keyframes flashRed{0%,100%{background-color:transparent}25%{background-color:rgba(60,20,20,.2)}}
-.animate-pulse-green{animation:pulseGreen .5s ease}
+.animate-pulse-green{animation:pulseGreen .5s ease;animation-duration:.5s}
 @keyframes pulseGreen{0%,100%{box-shadow:0 0 0 transparent}50%{box-shadow:0 0 15px rgba(40,60,30,.5)}}
-.animate-shake{animation:shake .3s ease}
+.animate-shake{animation:shake .3s ease;animation-duration:.3s}
 @keyframes shake{0%,100%{transform:translateX(0)}20%{transform:translateX(-4px)}40%{transform:translateX(4px)}60%{transform:translateX(-2px)}80%{transform:translateX(2px)}}
-.animate-fade-out{animation:fadeOut .6s ease forwards}
+.animate-fade-out{animation:fadeOut .6s ease forwards;animation-duration:.6s}
 @keyframes fadeOut{0%{opacity:1;transform:scale(1)}100%{opacity:0;transform:scale(.4)}}
-.animate-shield{animation:shieldGlow .5s ease}
+.animate-shield{animation:shieldGlow .5s ease;animation-duration:.5s}
 @keyframes shieldGlow{0%,100%{box-shadow:0 0 0 transparent}50%{box-shadow:0 0 20px rgba(50,40,80,.5),inset 0 0 10px rgba(50,40,80,.1)}}
-.animate-explode{animation:explode .4s ease forwards}
+.animate-explode{animation:explode .4s ease forwards;animation-duration:.4s}
 @keyframes explode{0%{transform:scale(1);opacity:1}100%{transform:scale(3);opacity:0}}
-@keyframes fadeIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+.animate-windup{animation:windup .15s ease;animation-duration:.15s}
+@keyframes windup{0%{transform:scale(1)}50%{transform:scale(.85)}100%{transform:scale(1)}}
+.animate-fade-in{animation:fadeIn .4s ease;animation-duration:.4s}
+@keyframes fadeIn{0%{opacity:0;transform:translateY(12px)}100%{opacity:1;transform:translateY(0)}}
 @keyframes bossPulse{0%,100%{box-shadow:0 0 25px rgba(60,50,20,.15),inset 0 0 30px rgba(60,50,20,.05)}50%{box-shadow:0 0 40px rgba(60,50,20,.25),inset 0 0 50px rgba(60,50,20,.1)}}
 
 /* ── Party ── */

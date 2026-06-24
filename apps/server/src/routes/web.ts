@@ -699,117 +699,366 @@ function updateHeroBars(partyHeroes) {
   });
 }
 
-// ─── Animate Transition ────────────────────────────────────
-function animateTransition(prev, next) {
-  if (!next.round || !prev.round) return;
-  if (next.round.round <= prev.round.round) return; // skip duplicate
+// ─── Animation Pipeline (inlined from animation/*.ts) ──────
 
-  var round = next.round;
-  var prevRound = prev.round;
+// Effect → FSM state mapping
+var EFFECT_TO_FSM_STATE = {
+  ATTACK: 'ATTACKING',
+  HIT: 'IMPACT',
+  HEAL: 'RECOVERY',
+  BLOCK: 'RECOVERY',
+  DEATH: 'DEAD',
+  MONSTER_DEATH: 'DEAD',
+  MONSTER_APPEAR: 'IDLE'
+};
 
-  // Party hero state changes
-  if (round.partyHeroes && prevRound.partyHeroes) {
-    round.partyHeroes.forEach(function(h) {
+// Effect → CSS class(es) mapping
+var EFFECT_TO_CSS_CLASS = {
+  ATTACK: ['animate-lunge', 'animate-windup'],
+  HIT: ['animate-flash-red', 'animate-shake'],
+  HEAL: ['animate-pulse-green'],
+  BLOCK: ['animate-shield'],
+  DEATH: ['animate-fade-out'],
+  MONSTER_DEATH: ['animate-fade-out'],
+  MONSTER_APPEAR: ['animate-fade-in']
+};
+
+// ─── CombatDiff ────────────────────────────────────────────
+function computeAnimationSteps(prev, next) {
+  if (prev === null) return [];
+  if (next.round == null) return [];
+  if (next.round <= (prev.round != null ? prev.round : -1)) return [];
+
+  var steps = [];
+  var stepIndex = 0;
+
+  if (next.partyHeroes && prev.partyHeroes) {
+    for (var hi = 0; hi < next.partyHeroes.length; hi++) {
+      var h = next.partyHeroes[hi];
       var prevH = null;
-      for (var i = 0; i < prevRound.partyHeroes.length; i++) {
-        if (prevRound.partyHeroes[i].heroId === h.heroId) { prevH = prevRound.partyHeroes[i]; break; }
+      for (var pi = 0; pi < prev.partyHeroes.length; pi++) {
+        if (prev.partyHeroes[pi].heroId === h.heroId) { prevH = prev.partyHeroes[pi]; break; }
       }
-      if (!prevH) return;
+      if (!prevH) continue;
 
-      // Hero attacked
+      // Hero dealt damage
       if (h.damage > 0) {
-        var dmg = Math.round(h.damage);
         var wType = (h.heroId === hero.id) ? getWeaponType() : 'melee';
-        playAttackAnimation(wType, h.heroId);
-        var roleLabel = h.role.charAt(0).toUpperCase() + h.role.slice(1);
-        if (h.crit) addLog('crit', '[R' + round.round + '] ' + roleLabel + ' CRITS for ' + dmg + '!');
-        else addLog('damage', '[R' + round.round + '] ' + roleLabel + ' hits for ' + dmg);
+        steps.push({ type: 'ATTACK', entityId: 'hero-' + h.heroId, weaponType: wType, damage: Math.round(h.damage), isCrit: h.crit, stepIndex: stepIndex++ });
+
+        // Monster impact (monster-global)
+        steps.push({ type: 'HIT', entityId: null, damage: Math.round(h.damage), isCrit: h.crit, stepIndex: stepIndex++ });
       }
 
-      // Hero healed
+      // Hero received healing
       if (h.healingReceived > 0) {
-        var healAmt = Math.round(h.healingReceived);
-        playHealAnimation(h.heroId, healAmt);
-        addLog('heal', '[R' + round.round + '] +' + healAmt + ' HP healed');
+        steps.push({ type: 'HEAL', entityId: 'hero-' + h.heroId, healAmount: Math.round(h.healingReceived), stepIndex: stepIndex++ });
       }
 
       // Hero took damage
       if (h.damageTaken > 0) {
         var dmgTaken = Math.round(h.damageTaken);
-        playHitAnimation(h.heroId, dmgTaken);
+        steps.push({ type: 'HIT', entityId: 'hero-' + h.heroId, damage: dmgTaken, isCrit: h.monsterCrit, stepIndex: stepIndex++ });
+
         if (h.role === 'tank') {
-          playBlockAnimation(h.heroId, dmgTaken);
-          addLog('block', '[R' + round.round + '] Tank blocks ' + dmgTaken + ' damage!');
-        } else {
-          addLog('damage', '[R' + round.round + '] ' + (h.role.charAt(0).toUpperCase() + h.role.slice(1)) + ' takes ' + dmgTaken + (h.monsterCrit ? ' (CRIT!)' : ''));
+          steps.push({ type: 'BLOCK', entityId: 'hero-' + h.heroId, damage: dmgTaken, stepIndex: stepIndex++ });
         }
       }
 
       // Hero died
       if (!h.alive && prevH.alive) {
-        playDeathAnimation('hero-' + h.heroId);
-        addLog('kill', '[R' + round.round + '] ' + (h.role.charAt(0).toUpperCase() + h.role.slice(1)) + ' has fallen!');
+        steps.push({ type: 'DEATH', entityId: 'hero-' + h.heroId, stepIndex: stepIndex++ });
       }
-    });
+    }
   }
 
-  // Monster killed
-  if (round.monsterJustKilled && !prevRound.monsterJustKilled) {
-    playMonsterDeathAnimation();
-    addLog('kill', '[R' + round.round + '] ' + prevRound.currentMonsterName + ' defeated!');
+  // Monster was killed this round
+  if (next.monsterJustKilled && !prev.monsterJustKilled) {
+    steps.push({ type: 'MONSTER_DEATH', entityId: null, stepIndex: stepIndex++ });
   }
 
-  // Monster transition to next monster
-  if (round.monsterJustKilled && round.currentMonsterName !== prevRound.currentMonsterName) {
-    setTimeout(function() {
-      addLog('info', 'Next: ' + round.currentMonsterName + ' appears!');
-    }, 600);
+  // New monster appeared
+  if (next.currentMonsterName && next.currentMonsterName !== prev.currentMonsterName && !next.monsterJustKilled) {
+    steps.push({ type: 'MONSTER_APPEAR', entityId: null, stepIndex: stepIndex++ });
   }
 
-  // Update HP bars
-  if (next.monsters) updateMonsterBars(next.monsters);
-  if (round.partyHeroes) updateHeroBars(round.partyHeroes);
+  return steps;
 }
 
-// ─── Attack Animation ──────────────────────────────────────
-function playAttackAnimation(weaponType, heroId) {
-  var heroEl = document.getElementById('hero-' + heroId);
-  var monsterEl = document.querySelector('.monster-card.is-focus') || document.querySelector('.monster-card:first-child');
-  if (!heroEl || !monsterEl) return;
+// ─── EntityAnimFSM ─────────────────────────────────────────
+function EntityAnimFSM() {
+  this.states = {};
+}
 
-  if (weaponType === 'melee') {
-    heroEl.classList.add('animate-lunge');
-    setTimeout(function() {
-      monsterEl.classList.add('animate-flash-white');
-      var hr = monsterEl.getBoundingClientRect();
-      floatText(hr.left + hr.width/2 - 20, hr.top - 10, 'HIT!', 'crit');
-      setTimeout(function() {
-        monsterEl.classList.remove('animate-flash-white');
-        heroEl.classList.remove('animate-lunge');
-      }, 400);
-    }, 330);
-  } else if (weaponType === 'mage') {
-    var colors = { fire: '#ff8800', ice: '#4488ff', arcane: '#aa44ff' };
-    var color = colors.fire;
-    if (hero.equipped.rightHandWeapon && hero.equipped.rightHandWeapon.name) {
-      var n = hero.equipped.rightHandWeapon.name.toLowerCase();
-      if (n.indexOf('ice') !== -1 || n.indexOf('frost') !== -1) color = colors.ice;
-      else if (n.indexOf('arcane') !== -1 || n.indexOf('void') !== -1) color = colors.arcane;
-    }
-    createProjectile(heroEl, monsterEl, color, false);
-    setTimeout(function() {
-      createExplosion(monsterEl, color);
-    }, 400);
-  } else {
-    // Range: arc arrow
-    createProjectile(heroEl, monsterEl, '#88ccff', true);
-    setTimeout(function() {
-      monsterEl.classList.add('animate-flash-white');
-      var hr = monsterEl.getBoundingClientRect();
-      floatText(hr.left + hr.width/2 - 20, hr.top - 10, 'HIT!', 'damage');
-      setTimeout(function() { monsterEl.classList.remove('animate-flash-white'); }, 400);
-    }, 450);
+var LEGAL_TRANSITIONS = {
+  'IDLE→ATTACKING': true,
+  'ATTACKING→IMPACT': true,
+  'ATTACKING→DEAD': true,
+  'IMPACT→RECOVERY': true,
+  'IMPACT→DEAD': true,
+  'RECOVERY→IDLE': true,
+  'RECOVERY→DEAD': true,
+  'DEAD→IDLE': true
+};
+
+EntityAnimFSM.prototype.registerEntity = function(entityId) {
+  if (!this.states.hasOwnProperty(entityId)) {
+    this.states[entityId] = 'IDLE';
   }
+};
+
+EntityAnimFSM.prototype.getState = function(entityId) {
+  return this.states[entityId] || 'IDLE';
+};
+
+EntityAnimFSM.prototype.canTransition = function(entityId, targetState) {
+  var current = this.getState(entityId);
+  // Any → DEAD always allowed
+  if (targetState === 'DEAD') return true;
+  // DEAD entity: only DEAD→IDLE allowed
+  if (current === 'DEAD') return targetState === 'IDLE';
+  return LEGAL_TRANSITIONS[current + '→' + targetState] === true;
+};
+
+EntityAnimFSM.prototype.transitionTo = function(entityId, targetState) {
+  if (!this.canTransition(entityId, targetState)) return false;
+  this.states[entityId] = targetState;
+  return true;
+};
+
+EntityAnimFSM.prototype.isDead = function(entityId) {
+  return this.getState(entityId) === 'DEAD';
+};
+
+EntityAnimFSM.prototype.forceReset = function(entityId) {
+  this.states[entityId] = 'IDLE';
+};
+
+// ─── AnimationQueue ────────────────────────────────────────
+var DURATION_CACHE = {};
+var DEFAULT_DURATION_MS = 300;
+var TIMEOUT_GUARD_MS = 500;
+var MAX_STEPS = 100;
+
+function resolveAnimDuration(className) {
+  if (DURATION_CACHE[className] !== undefined) return DURATION_CACHE[className];
+
+  var el = document.createElement('div');
+  el.className = className;
+  el.style.cssText = 'position:absolute;left:-9999px;top:-9999px;width:1px;height:1px';
+  document.body.appendChild(el);
+
+  var ms = DEFAULT_DURATION_MS;
+  try {
+    var raw = getComputedStyle(el).animationDuration;
+    if (raw) {
+      if (raw.indexOf('ms') !== -1) { var v = parseFloat(raw); if (!isNaN(v)) ms = v; }
+      else if (raw.indexOf('s') !== -1) { var v = parseFloat(raw); if (!isNaN(v)) ms = v * 1000; }
+    }
+  } catch(e) {}
+  document.body.removeChild(el);
+
+  DURATION_CACHE[className] = ms;
+  return ms;
+}
+
+function AnimationQueue(fsm, getAnimDurationFn) {
+  this.fsm = fsm;
+  this.getAnimDuration = getAnimDurationFn || resolveAnimDuration;
+}
+
+AnimationQueue.prototype.playSteps = async function(steps) {
+  if (!steps || steps.length === 0) return;
+
+  if (steps.length > MAX_STEPS) {
+    console.warn('[AnimationQueue] Step count (' + steps.length + ') exceeds max (' + MAX_STEPS + '). Truncating to ' + MAX_STEPS + '.');
+    steps = steps.slice(0, MAX_STEPS);
+  }
+
+  for (var i = 0; i < steps.length; i++) {
+    await this._playStep(steps[i]);
+  }
+};
+
+AnimationQueue.prototype._playStep = async function(step) {
+  var entityId = this._resolveEntityId(step);
+  var targetState = EFFECT_TO_FSM_STATE[step.type];
+
+  // Guard: FSM check
+  if (!this.fsm.canTransition(entityId, targetState)) return;
+
+  // Lock FSM
+  this.fsm.transitionTo(entityId, targetState);
+
+  // Handle weapon-type-specific attacks (projectile systems)
+  if (step.type === 'ATTACK' && step.weaponType) {
+    if (step.weaponType === 'mage' || step.weaponType === 'range') {
+      var heroEl = document.getElementById(entityId);
+      var monsterEl = document.querySelector('.monster-card.is-focus') || document.querySelector('.monster-card:first-child');
+      if (heroEl && monsterEl) {
+        if (step.weaponType === 'mage') {
+          var colors = { fire: '#ff8800', ice: '#4488ff', arcane: '#aa44ff' };
+          var color = colors.fire;
+          if (hero.equipped && hero.equipped.rightHandWeapon) {
+            var n = (hero.equipped.rightHandWeapon.name || '').toLowerCase();
+            if (n.indexOf('ice') !== -1 || n.indexOf('frost') !== -1) color = colors.ice;
+            else if (n.indexOf('arcane') !== -1 || n.indexOf('void') !== -1) color = colors.arcane;
+          }
+          createProjectile(heroEl, monsterEl, color, false);
+          // Projectile flight delay
+          await new Promise(function(r) { setTimeout(r, 380); });
+          createExplosion(monsterEl, color);
+        } else {
+          // Range: arc arrow
+          createProjectile(heroEl, monsterEl, '#88ccff', true);
+          await new Promise(function(r) { setTimeout(r, 430); });
+          monsterEl.classList.add('animate-flash-white');
+          var hr = monsterEl.getBoundingClientRect();
+          floatText(hr.left + hr.width/2 - 20, hr.top - 10, 'HIT!', 'damage');
+          await new Promise(function(r) { setTimeout(r, 400); });
+          monsterEl.classList.remove('animate-flash-white');
+        }
+      }
+      // Advance FSM after projectile attack
+      if (targetState === 'ATTACKING') {
+        this.fsm.transitionTo(entityId, 'RECOVERY');
+        this.fsm.transitionTo(entityId, 'IDLE');
+      }
+      return;
+    }
+  }
+
+  // Standard CSS-class-based animation for all other step types
+  var classNames = EFFECT_TO_CSS_CLASS[step.type];
+
+  // Resolve DOM element
+  var el = document.getElementById(entityId);
+  if (!el) return;
+
+  if (!classNames || classNames.length === 0) return;
+
+  // Read CSS duration
+  var durationMs = this.getAnimDuration(classNames[0]);
+
+  // Apply CSS classes
+  el.classList.add.apply(el.classList, classNames);
+
+  // Await animationend with timeout fallback
+  await new Promise(function(resolve) {
+    var resolved = false;
+    function onEnd() {
+      if (!resolved) { resolved = true; el.removeEventListener('animationend', onEnd); resolve(); }
+    }
+    el.addEventListener('animationend', onEnd, { once: true });
+    setTimeout(function() {
+      if (!resolved) { resolved = true; el.removeEventListener('animationend', onEnd); resolve(); }
+    }, durationMs + TIMEOUT_GUARD_MS);
+  });
+
+  // Remove CSS classes
+  el.classList.remove.apply(el.classList, classNames);
+
+  // Advance FSM
+  if (targetState === 'DEAD') {
+    // Stay dead
+  } else if (targetState === 'ATTACKING') {
+    this.fsm.transitionTo(entityId, 'IMPACT');
+    this.fsm.transitionTo(entityId, 'RECOVERY');
+    this.fsm.transitionTo(entityId, 'IDLE');
+  } else {
+    this.fsm.transitionTo(entityId, 'RECOVERY');
+    this.fsm.transitionTo(entityId, 'IDLE');
+  }
+};
+
+AnimationQueue.prototype._resolveEntityId = function(step) {
+  if (step.entityId !== null) return step.entityId;
+  var focus = document.querySelector('.monster-card.is-focus');
+  if (focus && focus.id) return focus.id;
+  var first = document.querySelector('.monster-card');
+  if (first && first.id) return first.id;
+  return 'monster-focus';
+};
+
+// ─── Init Pipeline Globals ─────────────────────────────────
+var animFSM = new EntityAnimFSM();
+var animQueue = new AnimationQueue(animFSM);
+
+// ─── Combat Log (step-based) ───────────────────────────────
+function findPartyHero(partyHeroes, heroId) {
+  for (var i = 0; i < partyHeroes.length; i++) {
+    if (partyHeroes[i].heroId === heroId) return partyHeroes[i];
+  }
+  return null;
+}
+
+function addCombatLogEntry(step, next) {
+  var round = next.round;
+  if (!round) return;
+  var roleLabel;
+
+  switch (step.type) {
+    case 'ATTACK':
+      var heroData = findPartyHero(round.partyHeroes, step.entityId.replace('hero-', ''));
+      roleLabel = heroData ? heroData.role.charAt(0).toUpperCase() + heroData.role.slice(1) : 'Hero';
+      if (step.isCrit) addLog('crit', '[R' + round.round + '] ' + roleLabel + ' CRITS for ' + step.damage + '!');
+      else addLog('damage', '[R' + round.round + '] ' + roleLabel + ' hits for ' + step.damage);
+      break;
+    case 'HEAL':
+      addLog('heal', '[R' + round.round + '] +' + step.healAmount + ' HP healed');
+      break;
+    case 'BLOCK':
+      addLog('block', '[R' + round.round + '] Tank blocks ' + step.damage + ' damage!');
+      break;
+    case 'DEATH':
+      var deadHero = findPartyHero(round.partyHeroes, step.entityId.replace('hero-', ''));
+      roleLabel = deadHero ? deadHero.role.charAt(0).toUpperCase() + deadHero.role.slice(1) : 'Hero';
+      addLog('kill', '[R' + round.round + '] ' + roleLabel + ' has fallen!');
+      break;
+    case 'MONSTER_DEATH':
+      addLog('kill', '[R' + round.round + '] ' + (prevState && prevState.round ? prevState.round.currentMonsterName : 'Monster') + ' defeated!');
+      break;
+    case 'MONSTER_APPEAR':
+      addLog('info', 'Next: ' + round.currentMonsterName + ' appears!');
+      break;
+    case 'HIT':
+      // HIT steps on heroes produce damage logs; HIT steps on monsters are logged by ATTACK
+      if (step.entityId && step.entityId.indexOf('hero-') === 0) {
+        var hitHero = findPartyHero(round.partyHeroes, step.entityId.replace('hero-', ''));
+        if (hitHero && hitHero.role !== 'tank') {
+          roleLabel = hitHero.role.charAt(0).toUpperCase() + hitHero.role.slice(1);
+          addLog('damage', '[R' + round.round + '] ' + roleLabel + ' takes ' + step.damage + (step.isCrit ? ' (CRIT!)' : ''));
+        }
+      }
+      break;
+  }
+}
+
+// ─── Animate Transition (pipeline version) ─────────────────
+async function animateTransition(prev, next) {
+  if (!next.round || !prev.round) return;
+  if (next.round.round <= prev.round.round) return;
+
+  // Register entities in FSM
+  if (next.round.partyHeroes) {
+    next.round.partyHeroes.forEach(function(h) {
+      animFSM.registerEntity('hero-' + h.heroId);
+    });
+  }
+  animFSM.registerEntity('monster-focus');
+
+  // Compute animation steps from round data
+  var steps = computeAnimationSteps(prev.round, next.round);
+
+  // Play steps via AnimationQueue
+  await animQueue.playSteps(steps);
+
+  // Update HP bars after animations
+  if (next.monsters) updateMonsterBars(next.monsters);
+  if (next.round.partyHeroes) updateHeroBars(next.round.partyHeroes);
+
+  // Emit combat log entries from step metadata
+  steps.forEach(function(s) { addCombatLogEntry(s, next); });
 }
 
 // ─── Projectile System ─────────────────────────────────────
@@ -889,73 +1138,12 @@ function createExplosion(el, color) {
     spark.style.setProperty('--tx', Math.cos(i * Math.PI/4) * 30 + 'px');
     spark.style.setProperty('--ty', Math.sin(i * Math.PI/4) * 30 + 'px');
     document.body.appendChild(spark);
-    setTimeout(function() { spark.remove(); }, 400);
+    spark.addEventListener('animationend', function() { spark.remove(); }, { once: true });
   }
   el.classList.add('animate-flash-white');
   var rect2 = el.getBoundingClientRect();
   floatText(rect2.left + rect2.width/2 - 20, rect2.top - 15, 'BOOM!', 'crit');
-  setTimeout(function() { el.classList.remove('animate-flash-white'); }, 400);
-}
-
-// ─── Hit / Heal / Block / Death ────────────────────────────
-function playHitAnimation(heroId, damage) {
-  var el = document.getElementById('hero-' + heroId);
-  if (!el) return;
-  el.classList.add('animate-flash-red');
-  el.classList.add('animate-shake');
-  var rect = el.getBoundingClientRect();
-  floatText(rect.left + rect.width/2 - 15, rect.top - 5, '-' + damage, 'damage');
-  setTimeout(function() {
-    el.classList.remove('animate-flash-red');
-    el.classList.remove('animate-shake');
-  }, 400);
-}
-
-function playHealAnimation(heroId, amount) {
-  var el = document.getElementById('hero-' + heroId);
-  if (!el) return;
-  el.classList.add('animate-pulse-green');
-  var rect = el.getBoundingClientRect();
-  floatText(rect.left + rect.width/2 - 15, rect.top - 25, '+' + amount, 'heal');
-  setTimeout(function() { el.classList.remove('animate-pulse-green'); }, 500);
-}
-
-function playBlockAnimation(heroId, damage) {
-  var el = document.getElementById('hero-' + heroId);
-  if (!el) return;
-  el.classList.add('animate-shield');
-  var rect = el.getBoundingClientRect();
-  floatText(rect.left + rect.width/2 - 30, rect.top - 40, 'BLOCKED -' + damage, 'block');
-  setTimeout(function() { el.classList.remove('animate-shield'); }, 500);
-}
-
-function playDeathAnimation(elId) {
-  var el = document.getElementById(elId);
-  if (!el) return;
-  el.classList.add('animate-fade-out');
-  el.style.opacity = '0';
-}
-
-function playMonsterDeathAnimation() {
-  var el = document.querySelector('.monster-card.is-focus') || document.querySelector('.monster-card:first-child');
-  if (!el) return;
-  el.classList.add('animate-fade-out');
-  var rect = el.getBoundingClientRect();
-  // Particle burst
-  for (var i = 0; i < 12; i++) {
-    var p = document.createElement('div');
-    p.className = 'projectile-trail animate-explode';
-    p.style.background = ['#ef4444','#f97316','#a855f7','#fbbf24'][i % 4];
-    p.style.width = '5px';
-    p.style.height = '5px';
-    p.style.left = (rect.left + rect.width/2 - 2.5) + 'px';
-    p.style.top = (rect.top + rect.height/2 - 2.5) + 'px';
-    document.body.appendChild(p);
-    setTimeout(function() { p.remove(); }, 400);
-  }
-  setTimeout(function() {
-    if (el) el.style.display = 'none';
-  }, 600);
+  el.addEventListener('animationend', function() { el.classList.remove('animate-flash-white'); }, { once: true });
 }
 
 // ─── Enter Dungeon ─────────────────────────────────────────
