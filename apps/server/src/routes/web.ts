@@ -21,7 +21,7 @@ const HTML = `<!DOCTYPE html>
   <title>JAKE IDLER</title>
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700;800&display=swap" rel="stylesheet">
   <script src="https://unpkg.com/lucide@latest"></script>
-  <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+  <script src="/socket.io/socket.io.js"></script>
   <link rel="stylesheet" href="/static/css/login.css" />
 </head>
 <body>
