@@ -1504,10 +1504,37 @@ if (typeof io !== 'undefined' && token) {
   socket.on('party:member-joined', function() { if (currentParty) loadParty(); });
   socket.on('party:member-left', function() { if (currentParty) loadParty(); });
   socket.on('party:role-changed', function() { if (currentParty) loadParty(); });
+  // Poll party combat status if not the leader (no active pollCombat)
+  var partyCombatInterval = null;
+  function pollPartyCombat() {
+    fetch('/api/heroes/' + hero.id + '/combat/party-status', {
+      headers: { 'Authorization': 'Bearer ' + token },
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(state) {
+      if (!state.inCombat) {
+        if (partyCombatInterval) { clearInterval(partyCombatInterval); partyCombatInterval = null; }
+        return;
+      }
+      document.getElementById('combat-arena').classList.add('active');
+      if (state.monsters) renderMonsters(state.monsters);
+      if (state.round && state.round.partyHeroes) {
+        renderPartyHeroes(state.round.partyHeroes);
+        updateHeroBars(state.round.partyHeroes);
+      }
+      if (state.round) {
+        document.getElementById('round-counter').textContent = 'Round ' + state.round.round;
+      }
+      if (state.finished && partyCombatInterval) {
+        clearInterval(partyCombatInterval);
+        partyCombatInterval = null;
+      }
+    })
+    .catch(function() {});
+  }
+
   socket.on('party:combat-update', function(state) {
-    // Show arena for party members who didn't call enterDungeon
     document.getElementById('combat-arena').classList.add('active');
-    // Treat incoming combat update as a poll response
     if (!prevState) prevState = null;
     var fakeState = state;
     fakeState.floorCompleted = false;
@@ -1521,6 +1548,10 @@ if (typeof io !== 'undefined' && token) {
     if (state.round) {
       document.getElementById('round-counter').textContent = 'Round ' + state.round.round;
       prevState = state;
+    }
+    // Also start polling as fallback
+    if (!partyCombatInterval && !combatInterval) {
+      partyCombatInterval = setInterval(pollPartyCombat, 2000);
     }
   });
   socket.on('connect_error', function(err) { console.error('[Socket] Error:', err.message); });

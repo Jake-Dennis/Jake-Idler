@@ -246,6 +246,29 @@ router.get("/:id/combat/status", requireAuth, async (req, res) => {
   });
 });
 
+// GET /:id/combat/party-status — get party's current combat status (for non-leader members)
+router.get("/:id/combat/party-status", requireAuth, async (req, res) => {
+  const heroId = req.params.id as string;
+  const party = partyService.getPartyByPlayer(req.player!.id);
+  if (!party) { res.json({ inCombat: false }); return; }
+
+  const runId = combatService.getPartyIdForHero(party.memberIds[0] || heroId);
+  if (!runId || runId.startsWith("solo_")) { res.json({ inCombat: false }); return; }
+
+  const run = combatService.getPartyFloorRun(runId);
+  if (!run || (!run.floorCompleted && !run.floorFailed)) {
+    if (!run) { res.json({ inCombat: false }); return; }
+    const currentMonster = run.monsters[run.currentMonsterIndex];
+    const monsters = run.monsters.filter(m => m.currentHp > 0).map(m => ({
+      id: m.data.id, name: m.data.name, isBoss: m.data.isBoss,
+      hp: m.currentHp, maxHp: m.maxHp, isCurrentFocus: m === currentMonster,
+    }));
+    res.json({ inCombat: true, monsters, round: run.lastRound ?? null });
+    return;
+  }
+  res.json({ inCombat: false, finished: true, floorCompleted: run.floorCompleted, floorFailed: run.floorFailed });
+});
+
 // GET /:id/combat/monster — get current monster details
 router.get("/:id/combat/monster", requireAuth, async (req, res) => {
   const heroId = req.params.id as string;
