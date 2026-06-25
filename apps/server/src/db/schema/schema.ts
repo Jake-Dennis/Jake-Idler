@@ -1,4 +1,4 @@
-import { sqliteTable, text, integer, uniqueIndex } from "drizzle-orm/sqlite-core";
+import { sqliteTable, text, integer, uniqueIndex, index } from "drizzle-orm/sqlite-core";
 
 /** Shards are stored as `{rarity}_{bracketLevel}` keys (e.g. `rare_10`, `common_20`). */
 export interface HeroShards {
@@ -92,6 +92,43 @@ export const keys = sqliteTable("keys", {
   floorBracket: integer("floor_bracket").notNull(),
   createdAt: text("created_at").notNull(),
 });
+
+// ---------------------------------------------------------------------------
+// guilds
+// ---------------------------------------------------------------------------
+export const guilds = sqliteTable("guilds", {
+  id: text("id").primaryKey(),
+  name: text("name").notNull(),
+  nameLower: text("name_lower").notNull().unique(),
+  description: text("description").default("").notNull(),
+  leaderId: text("leader_id")
+    .notNull()
+    .references(() => players.id),
+  memberCount: integer("member_count").default(1).notNull(),
+  maxMembers: integer("max_members").default(50).notNull(),
+  createdAt: text("created_at").notNull(),
+});
+
+// ---------------------------------------------------------------------------
+// guild_members
+// ---------------------------------------------------------------------------
+export const guildMembers = sqliteTable(
+  "guild_members",
+  {
+    id: text("id").primaryKey(),
+    guildId: text("guild_id")
+      .notNull()
+      .references(() => guilds.id, { onDelete: "cascade" }),
+    playerId: text("player_id")
+      .notNull()
+      .references(() => players.id, { onDelete: "cascade" })
+      .unique(),
+    role: text("role", { enum: ["leader", "member"] }).default("member").notNull(),
+    joinedAt: text("joined_at").notNull(),
+    lastSeenAt: integer("last_seen_at"),
+  },
+  (t) => [index("idx_guild_members_guild").on(t.guildId)],
+);
 
 // ---------------------------------------------------------------------------
 // combat_events (append-only round event log for crash recovery)

@@ -35,9 +35,9 @@ export function now(): string {
   return new Date().toISOString();
 }
 
-/** Initialize database schema — creates tables if they don't exist. */
-export function initDatabase(): void {
-  client.exec(`
+/** Returns the full DDL string for creating all tables and indexes. */
+export function getSchemaDDL(): string {
+  return `
     CREATE TABLE IF NOT EXISTS players (
       id TEXT PRIMARY KEY,
       username TEXT UNIQUE NOT NULL,
@@ -93,6 +93,51 @@ export function initDatabase(): void {
       finished_at INTEGER,
       updated_at TEXT NOT NULL
     );
-  `);
+    CREATE TABLE IF NOT EXISTS guilds (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      name_lower TEXT NOT NULL,
+      description TEXT DEFAULT '' NOT NULL,
+      leader_id TEXT NOT NULL REFERENCES players(id),
+      member_count INTEGER DEFAULT 1 NOT NULL,
+      max_members INTEGER DEFAULT 50 NOT NULL,
+      created_at TEXT NOT NULL
+    );
+    CREATE UNIQUE INDEX IF NOT EXISTS uq_guilds_name_lower ON guilds(name_lower);
+    CREATE TABLE IF NOT EXISTS guild_members (
+      id TEXT PRIMARY KEY,
+      guild_id TEXT NOT NULL REFERENCES guilds(id) ON DELETE CASCADE,
+      player_id TEXT NOT NULL REFERENCES players(id) ON DELETE CASCADE,
+      role TEXT DEFAULT 'member' NOT NULL,
+      joined_at TEXT NOT NULL,
+      last_seen_at INTEGER
+    );
+    CREATE UNIQUE INDEX IF NOT EXISTS uq_guild_members_player ON guild_members(player_id);
+    CREATE INDEX IF NOT EXISTS idx_guild_members_guild ON guild_members(guild_id);
+  `;
+}
+
+/** The underlying better-sqlite3 client — exported for tests. */
+export function getClient(): Database.Database {
+  return client;
+}
+
+/** Execute DDL to initialize the database schema. */
+export function initDatabase(): void {
+  client.exec(getSchemaDDL());
   console.log("[DB] Schema initialized");
+}
+
+/**
+ * Create a fresh in-memory SQLite database with schema applied.
+ * Returns a drizzle instance + the underlying client (for direct access).
+ * Used by tests that need real DB interaction.
+ */
+export function createMemoryDatabase(): { db: typeof db; client: Database.Database } {
+  const memClient = new Database(":memory:");
+  memClient.pragma("journal_mode = WAL");
+  memClient.pragma("foreign_keys = ON");
+  const memDb = drizzle(memClient, { schema });
+  memClient.exec(getSchemaDDL());
+  return { db: memDb, client: memClient };
 }
