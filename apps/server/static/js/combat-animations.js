@@ -196,7 +196,9 @@ function playHeroDeath(e) {
 
 function playMonsterDeath(e) {
   return (async function() {
+    console.log('[Combat] monster_death event:', JSON.stringify(e));
     var target = findMonsterCard(e.monsterName);
+    console.log('[Combat] findMonsterCard result:', target);
     if (!target) return;
     var rect = target.getBoundingClientRect();
     emitParticles('death', rect.left + rect.width/2, rect.top + rect.height/2, 20);
