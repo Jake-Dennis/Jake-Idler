@@ -307,8 +307,8 @@ describe("combatSerializer.toView", () => {
         ],
       },
       events: [
-        { type: "hero_attack", heroId: "h1", damage: 99, crit: false, weaponType: "melee", role: "dps" },
-        { type: "hero_hit", heroId: "h1", damage: 7, crit: true },
+        { type: "hero_attack", heroId: "h1", damage: 99, crit: false, weaponType: "melee", role: "dps", monsterName: "Floor Boss" },
+        { type: "hero_hit", heroId: "h1", damage: 7, crit: true, monsterName: "Floor Boss" },
       ],
       floorProgress: {
         monstersDefeated: 2,

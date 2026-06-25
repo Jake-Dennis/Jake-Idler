@@ -652,6 +652,7 @@ function renderMonsters(monsters) {
   monsters.forEach(function(m) {
     var card = document.createElement('div');
     card.className = 'monster-card' + (m.isBoss ? ' boss' : '') + (m.isCurrentFocus ? ' is-focus' : '');
+    card.setAttribute('data-monster-name', m.name);
     card.id = 'monster-' + m.id;
     var pct = m.maxHp > 0 ? (m.hp / m.maxHp) * 100 : 0;
     var icon;
@@ -804,6 +805,20 @@ function emitParticles(type, x, y, count) {
 }
 var PARTICLE_IDX = 0;
 
+// ─── Helper: find monster card by name (from event data) ──
+// Falls back to focus card, then first visible card, then null.
+function findMonsterCard(monsterName) {
+  if (monsterName) {
+    var allCards = document.querySelectorAll('.monster-card');
+    for (var i = 0; i < allCards.length; i++) {
+      if (allCards[i].getAttribute('data-monster-name') === monsterName) {
+        return allCards[i];
+      }
+    }
+  }
+  return document.querySelector('.monster-card.is-focus') || document.querySelector('.monster-card:first-child') || null;
+}
+
 // ─── Core: Event-driven animation (replaces state-diffing) ──
 // Processes the events[] array from the server and plays animations in phases.
 // Falls back to the legacy state-diff approach when events are unavailable.
@@ -860,7 +875,7 @@ async function animateTransition(prev, next) {
   for (var i = 0; i < next.events.length; i++) {
     var ev = next.events[i];
     if (ev.type === 'hero_death') { await playHeroDeath(ev); }
-    if (ev.type === 'monster_death') { await playMonsterDeath(); }
+    if (ev.type === 'monster_death') { await playMonsterDeath(ev); }
   }
 
   // Update HP bars + combat log from the resulting snapshot
@@ -875,7 +890,7 @@ function playHeroAttack(e) {
   return (async function() {
     var wType = (e.heroId === hero.id) ? getWeaponType() : (e.weaponType || 'melee');
     var el = document.getElementById('hero-' + e.heroId);
-    var monEl = document.querySelector('.monster-card.is-focus') || document.querySelector('.monster-card:first-child');
+    var monEl = findMonsterCard(e.monsterName);
     if (!el) return;
 
     if (wType === 'mage' || wType === 'range') {
@@ -922,7 +937,7 @@ function playHeroAttack(e) {
 
 function playMonsterHit(e) {
   return (async function() {
-    var monEl = document.querySelector('.monster-card.is-focus') || document.querySelector('.monster-card:first-child');
+    var monEl = findMonsterCard(e.monsterName);
     if (!monEl) return;
     monEl.classList.add('animate-flash-red', 'animate-shake', 'animate-hit-splat');
     var mr = monEl.getBoundingClientRect();
@@ -987,9 +1002,9 @@ function playHeroDeath(e) {
   })();
 }
 
-function playMonsterDeath() {
+function playMonsterDeath(e) {
   return (async function() {
-    var target = document.querySelector('.monster-card.is-focus') || document.querySelector('.monster-card');
+    var target = findMonsterCard(e.monsterName);
     if (!target) return;
     var rect = target.getBoundingClientRect();
     emitParticles('death', rect.left + rect.width/2, rect.top + rect.height/2, 20);

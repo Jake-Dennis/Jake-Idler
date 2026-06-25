@@ -252,6 +252,7 @@ function buildEvents(
         crit: h.crit,
         weaponType: wType,
         role: h.role,
+        monsterName: lastRound.currentMonsterName,
       });
       }
       if (h.healingDone > 0) {
@@ -269,12 +270,13 @@ function buildEvents(
         });
       }
       if (h.damageTaken > 0) {
-        events.push({
-          type: "hero_hit",
-          heroId: h.heroId,
-          damage: Math.round(h.damageTaken),
-          crit: h.monsterCrit,
-        });
+      events.push({
+        type: "hero_hit",
+        heroId: h.heroId,
+        damage: Math.round(h.damageTaken),
+        crit: h.monsterCrit,
+        monsterName: lastRound.currentMonsterName,
+      });
         if (h.role === "tank") {
           events.push({
             type: "block",
@@ -291,7 +293,7 @@ function buildEvents(
       }
     }
     if (lastRound.monsterJustKilled) {
-      events.push({ type: "monster_death" });
+      events.push({ type: "monster_death", monsterName: lastRound.currentMonsterName });
     }
 
   return events;
