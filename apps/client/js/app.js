@@ -250,10 +250,13 @@ if (hero && hero.id) {
 
   // hero and token are defined in outer scope
   if (!token) { window.location.href = '/game'; throw new Error('No token'); }
-
-'use strict';
-
-if (!token) { window.location.href = '/game'; throw new Error('No token'); }
+  // Show the game container (hidden by default in the combined login/game HTML)
+  document.getElementById('game-container').style.display = 'flex';
+  // Hide login screens
+  var ls = document.getElementById('loginScreen');
+  var hs = document.getElementById('heroScreen');
+  if (ls) ls.style.display = 'none';
+  if (hs) hs.style.display = 'none';
 
 var isLooping = false;
 var loopCount = 0;
