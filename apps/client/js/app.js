@@ -471,92 +471,7 @@ function updateHeroBars(partyHeroes) {
 // The window.handleCombatEvents function drives all combat visuals
 // from the server's events[] array (Pokemon Showdown log pattern).
 
-// ─── Combat animations handled by external file ──────────────
-// See /static/js/combat-animations.js. Called via window.handleCombatEvents.
-function createProjectile(fromEl, toEl, color, isArc) {
-  var arena = document.querySelector('.arena');
-  var arenaRect = arena.getBoundingClientRect();
-  var fromRect = fromEl.getBoundingClientRect();
-  var toRect = toEl.getBoundingClientRect();
 
-  var startX = fromRect.left + fromRect.width/2 - 6;
-  var startY = fromRect.top + fromRect.height/2 - 6;
-  var endX = toRect.left + toRect.width/2 - 6;
-  var endY = toRect.top + 10;
-
-  var proj = document.createElement('div');
-  proj.className = 'projectile';
-  proj.style.background = 'radial-gradient(circle, ' + color + ', ' + color + ')';
-  proj.style.boxShadow = '0 0 16px ' + color;
-  proj.style.left = startX + 'px';
-  proj.style.top = startY + 'px';
-  proj.style.width = '14px';
-  proj.style.height = '14px';
-  document.body.appendChild(proj);
-
-  // Particle trail
-  var trailInterval = setInterval(function() {
-    if (!proj.parentNode) { clearInterval(trailInterval); return; }
-    var trail = document.createElement('div');
-    trail.className = 'projectile-trail';
-    trail.style.background = color;
-    trail.style.opacity = '0.5';
-    trail.style.width = '8px';
-    trail.style.height = '8px';
-    trail.style.left = proj.style.left;
-    trail.style.top = proj.style.top;
-    document.body.appendChild(trail);
-    setTimeout(function() { trail.remove(); }, 300);
-  }, 50);
-
-  if (isArc) {
-    var midX = (startX + endX) / 2;
-    var midY = Math.min(startY, endY) - 80;
-    var startTime = performance.now();
-    var duration = 400;
-    function animateArc(now) {
-      var t = Math.min((now - startTime) / duration, 1);
-      var t1 = 1 - t;
-      var x = t1*t1*startX + 2*t1*t*midX + t*t*endX;
-      var y = t1*t1*startY + 2*t1*t*midY + t*t*endY;
-      proj.style.left = x + 'px';
-      proj.style.top = y + 'px';
-      if (t < 1) requestAnimationFrame(animateArc);
-      else { clearInterval(trailInterval); proj.remove(); }
-    }
-    requestAnimationFrame(animateArc);
-  } else {
-    proj.style.transition = 'left .35s ease-in, top .35s ease-in';
-    requestAnimationFrame(function() {
-      proj.style.left = endX + 'px';
-      proj.style.top = endY + 'px';
-    });
-    setTimeout(function() { clearInterval(trailInterval); proj.remove(); }, 400);
-  }
-}
-
-function createExplosion(el, color) {
-  var rect = el.getBoundingClientRect();
-  var cx = rect.left + rect.width/2;
-  var cy = rect.top + 10;
-  for (var i = 0; i < 8; i++) {
-    var spark = document.createElement('div');
-    spark.className = 'projectile-trail animate-explode';
-    spark.style.background = color;
-    spark.style.width = '6px';
-    spark.style.height = '6px';
-    spark.style.left = (cx - 3) + 'px';
-    spark.style.top = (cy - 3) + 'px';
-    spark.style.setProperty('--tx', Math.cos(i * Math.PI/4) * 30 + 'px');
-    spark.style.setProperty('--ty', Math.sin(i * Math.PI/4) * 30 + 'px');
-    document.body.appendChild(spark);
-    spark.addEventListener('animationend', function() { spark.remove(); }, { once: true });
-  }
-  el.classList.add('animate-flash-white');
-  var rect2 = el.getBoundingClientRect();
-  floatText(rect2.left + rect2.width/2 - 20, rect2.top - 15, 'BOOM!', 'crit');
-  el.addEventListener('animationend', function() { el.classList.remove('animate-flash-white'); }, { once: true });
-}
 
 // ─── Enter Dungeon ─────────────────────────────────────────
 function enterDungeon() {
@@ -823,33 +738,28 @@ if (hero.photoUrl && avatarImg) {
   document.getElementById('hero-avatar-placeholder').style.display = 'none';
 }
 
-// ─── Socket.IO ──────────────────────────────────────────────
-var socket = null;
-if (typeof io !== 'undefined' && token) {
-  socket = io({ auth: { token: token } });
-  socket.on('connect', function() {
-    console.log('[Socket] Connected');
-    // Join personal hero room for solo combat updates
-    socket.emit('hero:join', hero.id);
+// ─── Server-Sent Events ─────────────────────────────────────
+var eventSource = null;
+var combatState = null;
+if (token && hero && hero.id) {
+  eventSource = new EventSource('/api/heroes/' + encodeURIComponent(hero.id) + '/combat/events?token=' + encodeURIComponent(token));
+  eventSource.addEventListener('connected', function(e) {
+    console.log('[SSE] Connected');
     fetch('/api/party', { headers: { 'Authorization': 'Bearer ' + token } })
       .then(function(r) { return r.json(); })
       .then(function(d) {
         if (d.party) {
-          socket.emit('party:join-room', d.party.id);
           currentParty = d.party;
         }
       })
       .catch(function() {});
   });
-  socket.on('party:formation', function() { loadParty(); });
-  socket.on('party:member-joined', function() { loadParty(); });
-  socket.on('party:member-left', function() { loadParty(); });
-  socket.on('party:role-changed', function() { loadParty(); });
-  socket.on('connect_error', function(err) { console.error('[Socket] Error:', err.message); });
+  eventSource.addEventListener('party:formation', function(e) { loadParty(); });
+  eventSource.onerror = function(err) { console.error('[SSE] Error:', err); };
 
   // Server-authoritative combat ticks — replaces all polling
-  var combatState = null;
-  socket.on('party:combat-update', async function(state) {
+  eventSource.addEventListener('party:combat-update', async function(e) {
+    var state = JSON.parse(e.data);
     if (state.finished) {
       if (state.round && combatState && combatState.round &&
           state.round.round > combatState.round.round) {
@@ -915,11 +825,11 @@ if (token) {
   })();
 }
 
-// ─── Periodic catch-up refresh (socket events drive real-time updates) ──
+// ─── Periodic catch-up refresh (SSE drives real-time updates) ──
 setInterval(function() {
   var tab = document.querySelector('.tab-content.active');
   if (!tab) return;
-  // Only refresh equipment/crafting tabs; party is updated via socket events
+  // Only refresh equipment/crafting tabs; party is updated via SSE
   if (tab.id === 'tab-equipment') loadEquipment();
   if (tab.id === 'tab-crafting') loadCrafting();
 }, 30000);
@@ -1161,13 +1071,11 @@ function loadParty() {
   .then(function(res) { return res.json(); })
   .then(function(data) {
     if (!data.party) {
-      if (socket && currentParty) socket.emit('party:leave-room', currentParty.id);
       showPartyNotInParty();
       return;
     }
     currentParty = data.party;
     showPartyInParty(data.party);
-    if (socket) socket.emit('party:join-room', data.party.id);
   })
   .catch(function() {
     showPartyNotInParty();
@@ -1277,10 +1185,8 @@ function joinParty() {
   .then(function(res) { return res.json().then(function(d) { if (!res.ok) throw new Error(d.error || 'Failed'); return d; }); })
   .then(function(data) {
     document.getElementById('party-join-input').value = '';
-    if (socket && currentParty) socket.emit('party:leave-room', currentParty.id);
     currentParty = data.party;
     showPartyInParty(data.party);
-    if (socket) socket.emit('party:join-room', data.party.id);
   })
   .catch(function(err) { alert(err.message); });
 }
@@ -1418,10 +1324,8 @@ function acceptInvite(partyId) {
   })
   .then(function(res) { return res.json().then(function(d) { if (!res.ok) throw new Error(d.error || 'Failed'); return d; }); })
   .then(function(data) {
-    if (socket && currentParty) socket.emit('party:leave-room', currentParty.id);
     currentParty = data.party;
     showPartyInParty(data.party);
-    if (socket) socket.emit('party:join-room', data.party.id);
   })
   .catch(function(err) { alert(err.message); });
 }

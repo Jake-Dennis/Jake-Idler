@@ -114,18 +114,44 @@ function playHeroAttack(e) {
     var el = document.getElementById('hero-' + e.heroId);
     if (!el) return;
     var monEl = findMonsterCard(e.monsterName);
-    var animClass = (e.role === 'tank') ? 'animate-shield' : 'animate-slash';
-    el.classList.add(animClass);
-    await sleep(getAnimDuration(animClass) + 50);
-    el.classList.remove(animClass);
-    if (monEl && e.role !== 'tank') {
-      monEl.style.animationPlayState = 'paused';
-      await sleep(80);
-      monEl.style.animationPlayState = '';
-    }
-    if (e.crit) {
-      var arena = document.querySelector('.arena');
-      if (arena) { arena.classList.add('animate-shake-screen'); setTimeout(function() { arena.classList.remove('animate-shake-screen'); }, 500); }
+    var wType = e.weaponType || 'melee';
+
+    if ((wType === 'mage' || wType === 'range') && monEl) {
+      if (wType === 'mage') {
+        var colors = { fire: '#ff8800', ice: '#4488ff', arcane: '#aa44ff' };
+        var mageColors = ['#ff8800', '#4488ff', '#aa44ff'];
+        var color = mageColors[Math.floor(Math.random() * mageColors.length)];
+        createProjectile(el, monEl, color, false);
+        await sleep(380);
+        createExplosion(monEl, color);
+      } else {
+        createProjectile(el, monEl, '#88ccff', true);
+        await sleep(430);
+        monEl.classList.add('animate-flash-white');
+        var hr = monEl.getBoundingClientRect();
+        floatText(hr.left + hr.width/2 - 20, hr.top - 10, 'HIT!', 'damage');
+        await sleep(400);
+        monEl.classList.remove('animate-flash-white');
+      }
+      if (e.crit) {
+        var arena = document.querySelector('.arena');
+        if (arena) { arena.classList.add('animate-shake-screen'); setTimeout(function() { arena.classList.remove('animate-shake-screen'); }, 500); }
+      }
+    } else {
+      // Melee
+      var animClass = (e.role === 'tank') ? 'animate-shield' : 'animate-slash';
+      el.classList.add(animClass);
+      await sleep(getAnimDuration(animClass) + 50);
+      el.classList.remove(animClass);
+      if (monEl && e.role !== 'tank') {
+        monEl.style.animationPlayState = 'paused';
+        await sleep(80);
+        monEl.style.animationPlayState = '';
+      }
+      if (e.crit) {
+        var arena = document.querySelector('.arena');
+        if (arena) { arena.classList.add('animate-shake-screen'); setTimeout(function() { arena.classList.remove('animate-shake-screen'); }, 500); }
+      }
     }
   })();
 }
@@ -212,6 +238,94 @@ function playMonsterDeath(e) {
     // Remove the dead monster card from the DOM
     if (target.parentNode) target.parentNode.removeChild(target);
   })();
+}
+
+// ─── Projectile System (mage/range weapon types) ─────────────
+
+function createProjectile(fromEl, toEl, color, isArc) {
+  var arena = document.querySelector('.arena');
+  if (!arena) return;
+  var arenaRect = arena.getBoundingClientRect();
+  var fromRect = fromEl.getBoundingClientRect();
+  var toRect = toEl.getBoundingClientRect();
+
+  var startX = fromRect.left + fromRect.width/2 - 6;
+  var startY = fromRect.top + fromRect.height/2 - 6;
+  var endX = toRect.left + toRect.width/2 - 6;
+  var endY = toRect.top + 10;
+
+  var proj = document.createElement('div');
+  proj.className = 'projectile';
+  proj.style.background = 'radial-gradient(circle, ' + color + ', ' + color + ')';
+  proj.style.boxShadow = '0 0 16px ' + color;
+  proj.style.left = startX + 'px';
+  proj.style.top = startY + 'px';
+  proj.style.width = '14px';
+  proj.style.height = '14px';
+  document.body.appendChild(proj);
+
+  var trailInterval = setInterval(function() {
+    if (!proj.parentNode) { clearInterval(trailInterval); return; }
+    var trail = document.createElement('div');
+    trail.className = 'projectile-trail';
+    trail.style.background = color;
+    trail.style.opacity = '0.5';
+    trail.style.width = '8px';
+    trail.style.height = '8px';
+    trail.style.left = proj.style.left;
+    trail.style.top = proj.style.top;
+    document.body.appendChild(trail);
+    setTimeout(function() { trail.remove(); }, 300);
+  }, 50);
+
+  if (isArc) {
+    var midX = (startX + endX) / 2;
+    var midY = Math.min(startY, endY) - 80;
+    var startTime = performance.now();
+    var duration = 400;
+    function animateArc(now) {
+      var t = Math.min((now - startTime) / duration, 1);
+      var t1 = 1 - t;
+      var x = t1*t1*startX + 2*t1*t*midX + t*t*endX;
+      var y = t1*t1*startY + 2*t1*t*midY + t*t*endY;
+      proj.style.left = x + 'px';
+      proj.style.top = y + 'px';
+      if (t < 1) requestAnimationFrame(animateArc);
+      else { clearInterval(trailInterval); proj.remove(); }
+    }
+    requestAnimationFrame(animateArc);
+  } else {
+    proj.style.transition = 'left .35s ease-in, top .35s ease-in';
+    requestAnimationFrame(function() {
+      proj.style.left = endX + 'px';
+      proj.style.top = endY + 'px';
+    });
+    setTimeout(function() { clearInterval(trailInterval); proj.remove(); }, 400);
+  }
+}
+
+function createExplosion(el, color) {
+  if (!el) return;
+  var rect = el.getBoundingClientRect();
+  var cx = rect.left + rect.width/2;
+  var cy = rect.top + 10;
+  for (var i = 0; i < 8; i++) {
+    var spark = document.createElement('div');
+    spark.className = 'projectile-trail animate-explode';
+    spark.style.background = color;
+    spark.style.width = '6px';
+    spark.style.height = '6px';
+    spark.style.left = (cx - 3) + 'px';
+    spark.style.top = (cy - 3) + 'px';
+    spark.style.setProperty('--tx', Math.cos(i * Math.PI/4) * 30 + 'px');
+    spark.style.setProperty('--ty', Math.sin(i * Math.PI/4) * 30 + 'px');
+    document.body.appendChild(spark);
+    spark.addEventListener('animationend', function() { spark.remove(); }, { once: true });
+  }
+  el.classList.add('animate-flash-white');
+  var rect2 = el.getBoundingClientRect();
+  floatText(rect2.left + rect2.width/2 - 20, rect2.top - 15, 'BOOM!', 'crit');
+  el.addEventListener('animationend', function() { el.classList.remove('animate-flash-white'); }, { once: true });
 }
 
 // ─── Main Entry Point ─────────────────────────────────────────
