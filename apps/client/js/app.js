@@ -814,6 +814,14 @@ function escHtml(s) {
 var loopInfoEl = document.getElementById('loop-info');
 console.log('[Game] Loaded hero: ' + hero.name + ' (Lv.' + hero.level + ')');
 if (typeof lucide !== 'undefined') lucide.createIcons();
+updateHeroBar(hero);
+// Set up hero avatar photo
+var avatarImg = document.getElementById('hero-avatar-img');
+if (hero.photoUrl && avatarImg) {
+  avatarImg.src = hero.photoUrl;
+  avatarImg.style.display = '';
+  document.getElementById('hero-avatar-placeholder').style.display = 'none';
+}
 
 // ─── Socket.IO ──────────────────────────────────────────────
 var socket = null;
