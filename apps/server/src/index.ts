@@ -12,10 +12,11 @@ import partyRoutes from "./routes/party.js";
 import friendRoutes from "./routes/friends.js";
 import leaderboardRoutes from "./routes/leaderboard.js";
 import webRoutes from "./routes/web.js";
+import guildRoutes from "./routes/guilds.js";
 import { initDatabase } from "./db/connection.js";
 import { config } from "./config/index.js";
 import { setUpPinoHttp } from "./observability/logger.js";
-import { authLimiter, partyCreateLimiter, lootCraftLimiter } from "./middleware/rate-limit.js";
+import { authLimiter, partyCreateLimiter, lootCraftLimiter, guildCreateLimiter, heartbeatLimiter } from "./middleware/rate-limit.js";
 import { presenceService } from "./services/presence-service.js";
 
 // Boot-time safety checks
@@ -78,6 +79,9 @@ app.use("/api/heroes", heroPhotoRoutes);
 app.use("/api/heroes", combatRoutes);
 app.use("/api/heroes", dungeonRoutes);
 app.use("/api/heroes", lootRoutes);
+app.use("/api/guilds", guildCreateLimiter); // POST / (create)
+app.use("/api/guilds", heartbeatLimiter);   // POST /heartbeat
+app.use("/api/guilds", guildRoutes);
 app.use("/api/party", partyRoutes);
 app.use("/api/friends", friendRoutes);
 app.use("/api/leaderboard", leaderboardRoutes);

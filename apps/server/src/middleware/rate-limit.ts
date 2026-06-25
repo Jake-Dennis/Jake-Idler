@@ -62,3 +62,17 @@ export const lootCraftLimiter = createRateLimiter({
   keyPrefix: "loot",
   skip: (req) => req.method !== "POST",
 });
+
+export const guildCreateLimiter = createRateLimiter({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 5,
+  keyPrefix: "guild_create",
+  skip: (req) => req.method !== "POST",
+});
+
+export const heartbeatLimiter = createRateLimiter({
+  windowMs: 60 * 1000, // 1 min
+  max: 10,
+  keyPrefix: "heartbeat",
+  skip: (req) => req.method !== "POST",
+});
