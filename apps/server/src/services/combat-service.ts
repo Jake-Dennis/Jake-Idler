@@ -32,6 +32,7 @@ export interface PartyHeroRoundData {
   damageTaken: number;
   monsterCrit: boolean;
   healingReceived: number;
+  photoUrl?: string | null;
 }
 
 export interface CombatRoundState {
@@ -93,6 +94,7 @@ interface PartyHeroRunState {
   healing: number;
   alive: boolean;
   weaponType: string;
+  photoUrl: string | null;
 }
 
 interface PartyFloorRunState {
@@ -159,6 +161,7 @@ class CombatService {
       position: CombatPosition;
       level: number;
       equipped: Record<string, Equipment | null>;
+      photoUrl: string | null;
     }>,
   ): Promise<{
     totalMonsters: number;
@@ -220,6 +223,7 @@ class CombatService {
         healing,
         alive: true,
         weaponType,
+        photoUrl: pm.photoUrl ?? null,
       });
     }
 
@@ -528,6 +532,7 @@ class CombatService {
       damageTaken,
       monsterCrit,
       healingReceived,
+      photoUrl: hero.photoUrl,
     };
   }
 

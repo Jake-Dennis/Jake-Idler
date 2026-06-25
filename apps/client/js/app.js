@@ -402,7 +402,7 @@ function renderPartyHeroes(partyHeroes) {
       card.id = 'hero-' + h.heroId;
       var pct = h.maxHp > 0 ? (h.hp / h.maxHp) * 100 : 0;
       var heroName = (h.heroId === hero.id) ? hero.name : (h.name || h.heroId.substring(0, 10));
-      var photoUrl = (h.heroId === hero.id) ? hero.photoUrl : null;
+      var photoUrl = (h.heroId === hero.id) ? hero.photoUrl : (h.photoUrl || null);
       var iconHtml;
       if (photoUrl) {
         iconHtml = '<img class="hero-card-photo" src="' + photoUrl + '" alt="">';

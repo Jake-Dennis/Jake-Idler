@@ -72,6 +72,7 @@ export interface PartyHeroRunState {
   healing: number;
   alive: boolean;
   weaponType: string;
+  photoUrl: string | null;
 }
 
 export interface PartyFloorRunState {

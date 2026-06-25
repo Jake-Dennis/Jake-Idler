@@ -20,6 +20,7 @@ describe("SessionManager", () => {
       healing: 0,
       alive: true,
       weaponType: "melee",
+      photoUrl: null,
     },
     {
       heroId: "hero-2",
@@ -33,6 +34,7 @@ describe("SessionManager", () => {
       healing: 10,
       alive: true,
       weaponType: "melee",
+      photoUrl: null,
     },
   ];
 

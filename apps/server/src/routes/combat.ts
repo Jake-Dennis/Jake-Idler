@@ -6,8 +6,8 @@ import { partyService } from "../services/party-service.js";
 import { db } from "../db/connection.js";
 import { heroes } from "../db/schema/index.js";
 import { eq, sql } from "drizzle-orm";
-import { getIO } from "../socket/index.js";
 import { combatSerializer } from "../game/serializers/combat-serializer.js";
+import { sseManager } from "../game/sse-manager.js";
 import { createChildLogger } from "../observability/logger.js";
 
 const log = createChildLogger("combat-route");
@@ -46,6 +46,7 @@ router.post("/:id/combat/start", requireAuth, async (req, res) => {
       position: import("@jake-idler/game").CombatPosition;
       level: number;
       equipped: Record<string, import("@jake-idler/game").Equipment | null>;
+      photoUrl: string | null;
     }> = [];
 
     for (const memberId of party.memberIds) {
@@ -57,13 +58,13 @@ router.post("/:id/combat/start", requireAuth, async (req, res) => {
       if (partyService.isBot(memberId)) {
         const bot = partyService.getBot(memberId);
         if (bot) {
-          memberData.push({ heroId: bot.heroId, name: bot.name, role, position, level: bot.level, equipped: bot.equipped });
+          memberData.push({ heroId: bot.heroId, name: bot.name, role, position, level: bot.level, equipped: bot.equipped, photoUrl: null });
         }
       } else {
         const playerHeroes = await heroService.getHeroesByPlayer(memberId);
         if (playerHeroes.length > 0) {
           const h = playerHeroes[0];
-          memberData.push({ heroId: h.id, name: h.name, role, position, level: h.level, equipped: h.equipped });
+          memberData.push({ heroId: h.id, name: h.name, role, position, level: h.level, equipped: h.equipped, photoUrl: h.photoUrl ?? null });
         }
       }
     }
@@ -77,7 +78,7 @@ router.post("/:id/combat/start", requireAuth, async (req, res) => {
   const role = "dps" as import("@jake-idler/game").CombatRole;
   const position = "middle" as import("@jake-idler/game").CombatPosition;
   const floorInfo = await combatService.startFloorRun(`solo_${heroId}`, heroId, floor, [{
-    heroId, name: hero.name, role, position, level: hero.level, equipped: hero.equipped,
+    heroId, name: hero.name, role, position, level: hero.level, equipped: hero.equipped, photoUrl: hero.photoUrl ?? null,
   }]);
   res.status(201).json({ ...floorInfo, partyCombat: false });
 });
@@ -123,19 +124,20 @@ router.get("/:id/combat/status", requireAuth, async (req, res) => {
 
   const heroAfter = await heroService.getHero(heroId);
 
-  // Broadcast finished state to party members
-  if (isPartyCombat) {
-    try {
-      getIO().to(`party:${runId}`).emit('party:combat-update', combatSerializer.toView(run, null));
-    } catch (err) {
-      log.error({ runId, err }, "party:combat-update emit failed");
-    }
-  }
-
   res.json({
     ...combatSerializer.toView(run, heroId),
     hero: heroAfter,
   });
+});
+
+// GET /:id/combat/events — SSE stream for real-time combat & party updates
+router.get("/:id/combat/events", requireAuth, async (req, res) => {
+  const heroId = req.params.id as string;
+  const hero = await heroService.getHero(heroId);
+  if (!hero) { res.status(404).json({ error: "Hero not found" }); return; }
+  if (hero.playerId !== req.player!.id) { res.status(403).json({ error: "Not your hero" }); return; }
+
+  sseManager.addClient(heroId, req.player!.id, res);
 });
 
 // GET /:id/combat/monster — get current monster details
