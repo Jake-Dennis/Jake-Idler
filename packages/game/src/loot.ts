@@ -57,19 +57,25 @@ export function rollShardDrops(
   floorNumber: number,
   bossMultiplier: number = 1.0,
 ): ShardDropResult[] {
-  const drops: ShardDropResult[] = [];
-  const rarities = [Rarity.Common, Rarity.Uncommon, Rarity.Rare, Rarity.Epic, Rarity.Legendary];
+  // Roll for each rarity in descending order (legendary first, common last).
+  // Each kill can drop AT MOST 1 shard. Once a rarity hits, stop.
   const bracketLevel = getBracketEquipmentLevel(floorNumber);
+  const rarities = [
+    Rarity.Legendary,
+    Rarity.Epic,
+    Rarity.Rare,
+    Rarity.Uncommon,
+    Rarity.Common,
+  ];
 
   for (const rarity of rarities) {
     const adjustedRate = getAdjustedDropRate(floorNumber, rarity, bossMultiplier);
-    // Roll for each rarity tier independently — always 1 shard per drop
     if (Math.random() * 100 < adjustedRate) {
-      drops.push({ rarity, amount: 1, bracketLevel });
+      return [{ rarity, amount: 1, bracketLevel }];
     }
   }
 
-  return drops;
+  return [];
 }
 
 /**
