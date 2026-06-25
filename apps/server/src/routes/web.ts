@@ -352,6 +352,7 @@ function generateGameHtml(hero: HeroResponse): string {
 <title>${safeName} - JAKE IDLER</title>
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700;800&display=swap" rel="stylesheet">
 <script src="https://unpkg.com/lucide@latest"></script>
+<script src="/static/js/combat-animations.js"></script>
 <link rel="stylesheet" href="/static/css/game.css" />
 </head>
 <body>
@@ -764,312 +765,14 @@ function updateHeroBars(partyHeroes) {
 
 
 
-// ─── Animation System ───────────────────────────────────────
-// Event-driven: server sends events[] per round, client picks animations.
-// Architecture: Pokemon Showdown "battle log" pattern.
-// See: https://github.com/smogon/pokemon-showdown/blob/master/sim/SIM-PROTOCOL.md
+// ─── Combat animations loaded from external file ──────────────
+// See /static/js/combat-animations.js (loaded via <script> tag).
+// The window.handleCombatEvents function drives all combat visuals
+// from the server's events[] array (Pokemon Showdown log pattern).
 
-var DURATION_CACHE = {};
-
-// ─── DIY Particle System ────────────────────────────────────
-var PARTICLE_POOL = [];
-var PARTICLE_POOL_SIZE = 30;
-var PARTICLE_COLORS = {
-  hit: ['#ff8800', '#ffaa44', '#ffcc66', '#ffffff'],
-  death: ['#884422', '#664422', '#442211', '#ff4444'],
-  heal: ['#44cc44', '#66ee66', '#88ff88', '#aaffaa'],
-  block: ['#6688ff', '#88aaff', '#aaccff', '#ffffff']
-};
-for (var pi = 0; pi < PARTICLE_POOL_SIZE; pi++) {
-  var p = document.createElement('div');
-  p.className = 'particle';
-  p.style.cssText = 'position:fixed;width:6px;height:6px;border-radius:50%;pointer-events:none;z-index:500;opacity:0;transition:none';
-  document.body.appendChild(p);
-  PARTICLE_POOL.push(p);
-}
-function emitParticles(type, x, y, count) {
-  var colors = PARTICLE_COLORS[type] || PARTICLE_COLORS.hit;
-  for (var i = 0; i < (count || 8); i++) {
-    var idx = (PARTICLE_IDX++) % PARTICLE_POOL_SIZE;
-    var p = PARTICLE_POOL[idx];
-    var angle = Math.random() * Math.PI * 2;
-    var speed = 40 + Math.random() * 80;
-    var distX = Math.cos(angle) * speed;
-    var distY = Math.sin(angle) * speed - 20;
-    var color = colors[Math.floor(Math.random() * colors.length)];
-    p.style.cssText = 'position:fixed;width:' + (4 + Math.random() * 4) + 'px;height:' + (4 + Math.random() * 4) + 'px;border-radius:50%;pointer-events:none;z-index:500;background:' + color + ';box-shadow:0 0 4px ' + color + ';left:' + x + 'px;top:' + y + 'px;opacity:1;transition:all ' + (300 + Math.random() * 200) + 'ms ease-out';
-    p.style.transform = 'translate(' + distX + 'px,' + distY + 'px) scale(0.3)';
-    (function(part) { setTimeout(function() { part.style.opacity = '0'; }, 20); })(p);
-    (function(part) { setTimeout(function() { part.style.cssText = 'position:fixed;width:6px;height:6px;border-radius:50%;pointer-events:none;z-index:500;opacity:0;transition:none'; }, 600); })(p);
-  }
-}
-var PARTICLE_IDX = 0;
-
-// ─── Helper: find monster card by name (from event data) ──
-// Falls back to focus card, then first visible card, then null.
-function findMonsterCard(monsterName) {
-  if (monsterName) {
-    var allCards = document.querySelectorAll('.monster-card');
-    for (var i = 0; i < allCards.length; i++) {
-      if (allCards[i].getAttribute('data-monster-name') === monsterName) {
-        return allCards[i];
-      }
-    }
-  }
-  return document.querySelector('.monster-card.is-focus') || document.querySelector('.monster-card:first-child') || null;
-}
-
-// ─── Core: Event-driven animation (replaces state-diffing) ──
-// Processes the events[] array from the server and plays animations in phases.
-// Falls back to the legacy state-diff approach when events are unavailable.
-async function animateTransition(prev, next) {
-  if (!next.round || !prev.round) return;
-  if (next.round.round <= prev.round.round) return;
-
-  // Vignette flash on round transition
-  var vf = document.getElementById('vignette-flash');
-  if (vf) { vf.classList.add('flash'); setTimeout(function() { vf.classList.remove('flash'); }, 200); }
-
-  // Phase 1: Hero attacks (simultaneous)
-  var attackPromises = [];
-  for (var i = 0; i < next.events.length; i++) {
-    if (next.events[i].type === 'hero_attack') {
-      attackPromises.push(playHeroAttack(next.events[i]));
-    }
-  }
-  if (attackPromises.length > 0) await Promise.all(attackPromises);
-  await sleep(PHASE_GAP_MS);
-
-  // Phase 2: Monster hit effects + blocks
-  var hitActive = false;
-  for (var i = 0; i < next.events.length; i++) {
-    if (next.events[i].type === 'hero_hit' || next.events[i].type === 'block') { hitActive = true; break; }
-  }
-  if (hitActive) {
-    // Monsters attack — shake all monster cards
-    var allMonsters = document.querySelectorAll('.monster-card');
-    for (var mi = 0; mi < allMonsters.length; mi++) {
-      var m = allMonsters[mi];
-      if (m.classList.contains('boss')) { m.classList.add('animate-shake-screen'); } else { m.classList.add('animate-shake'); }
-    }
-    await animSleep('animate-shake');
-    for (var mi2 = 0; mi2 < allMonsters.length; mi2++) { allMonsters[mi2].classList.remove('animate-shake-screen', 'animate-shake'); }
-  }
-  for (var i = 0; i < next.events.length; i++) {
-    var ev = next.events[i];
-    if (ev.type === 'hero_hit') { await playMonsterHit(ev); hitActive = true; }
-    if (ev.type === 'block') { await playBlockEffect(ev); hitActive = true; }
-  }
-  if (hitActive) await sleep(PHASE_GAP_MS);
-
-  // Phase 3: Heals
-  var healActive = false;
-  for (var i = 0; i < next.events.length; i++) {
-    var ev = next.events[i];
-    if (ev.type === 'heal_cast') { await playHealCast(ev); healActive = true; }
-    if (ev.type === 'healed') { await playHealed(ev); healActive = true; }
-  }
-  if (healActive) await sleep(PHASE_GAP_MS);
-
-  // Phase 4: Deaths
-  for (var i = 0; i < next.events.length; i++) {
-    var ev = next.events[i];
-    if (ev.type === 'hero_death') { await playHeroDeath(ev); }
-    if (ev.type === 'monster_death') { await playMonsterDeath(ev); }
-  }
-
-  // Update HP bars + combat log from the resulting snapshot
-  if (next.monsters) updateMonsterBars(next.monsters);
-  if (next.round && next.round.partyHeroes) updateHeroBars(next.round.partyHeroes);
-  updateCombatLog(next, prev);
-}
-
-// ─── Per-event animation handlers ───────────────────────────
-
-function playHeroAttack(e) {
-  return (async function() {
-    var wType = (e.heroId === hero.id) ? getWeaponType() : (e.weaponType || 'melee');
-    var el = document.getElementById('hero-' + e.heroId);
-    var monEl = findMonsterCard(e.monsterName);
-    if (!el) return;
-
-    if (wType === 'mage' || wType === 'range') {
-      if (monEl) {
-        if (wType === 'mage') {
-          var colors = { fire: '#ff8800', ice: '#4488ff', arcane: '#aa44ff' };
-          var color = colors.fire;
-          if (hero.equipped && hero.equipped.rightHandWeapon) {
-            var n = (hero.equipped.rightHandWeapon.name || '').toLowerCase();
-            if (n.indexOf('ice') !== -1 || n.indexOf('frost') !== -1) color = colors.ice;
-            else if (n.indexOf('arcane') !== -1 || n.indexOf('void') !== -1) color = colors.arcane;
-          }
-          createProjectile(el, monEl, color, false);
-          await sleep(380);
-          createExplosion(monEl, color);
-        } else {
-          createProjectile(el, monEl, '#88ccff', true);
-          await sleep(430);
-          monEl.classList.add('animate-flash-white');
-          var hr2 = monEl.getBoundingClientRect();
-          floatText(hr2.left + hr2.width/2 - 20, hr2.top - 10, 'HIT!', 'damage');
-          await sleep(400);
-          monEl.classList.remove('animate-flash-white');
-        }
-        if (e.crit) {
-          var arena = document.querySelector('.arena');
-          if (arena) { arena.classList.add('animate-shake-screen'); setTimeout(function() { arena.classList.remove('animate-shake-screen'); }, 500); }
-        }
-      }
-    } else {
-      // melee
-      var animClass = (e.role === 'tank') ? 'animate-shield' : 'animate-slash';
-      el.classList.add(animClass);
-      await sleep(getAnimDuration(animClass) + 50);
-      el.classList.remove(animClass);
-      if (monEl) {
-        monEl.style.animationPlayState = 'paused';
-        await sleep(80);
-        monEl.style.animationPlayState = '';
-      }
-    }
-  })();
-}
-
-function playMonsterHit(e) {
-  return (async function() {
-    var monEl = findMonsterCard(e.monsterName);
-    if (!monEl) return;
-    monEl.classList.add('animate-flash-red', 'animate-shake', 'animate-hit-splat');
-    var mr = monEl.getBoundingClientRect();
-    floatText(mr.left + mr.width/2 - 20, mr.top - 10, Math.round(e.damage), 'damage');
-    emitParticles('hit', mr.left + mr.width/2, mr.top + mr.height/2, 6);
-    await animSleep('animate-flash-red');
-    monEl.classList.remove('animate-flash-red', 'animate-shake', 'animate-hit-splat');
-    if (e.crit) {
-      var arena = document.querySelector('.arena');
-      if (arena) { arena.classList.add('animate-shake-screen'); setTimeout(function() { arena.classList.remove('animate-shake-screen'); }, getAnimDuration('animate-shake-screen') + 50); }
-    }
-  })();
-}
-
-function playBlockEffect(e) {
-  return (async function() {
-    var hel = document.getElementById('hero-' + e.heroId);
-    if (!hel) return;
-    var mCards = document.querySelectorAll('.monster-card');
-    for (var bi = 0; bi < mCards.length; bi++) {
-      hel.classList.add('animate-shield', 'animate-block-burst');
-      var br2 = hel.getBoundingClientRect();
-      emitParticles('block', br2.left + br2.width/2, br2.top + br2.height/2, 4);
-      if (bi === 0) floatText(br2.left + br2.width/2 - 20, br2.top - 10, 'BLOCK', 'block');
-      await animSleep('animate-block-burst');
-      hel.classList.remove('animate-shield', 'animate-block-burst');
-    }
-  })();
-}
-
-function playHealCast(e) {
-  return (async function() {
-    var casterEl = document.getElementById('hero-' + e.heroId);
-    if (!casterEl) return;
-    casterEl.classList.add('animate-heal-cast');
-    await animSleep('animate-heal-cast');
-    casterEl.classList.remove('animate-heal-cast');
-  })();
-}
-
-function playHealed(e) {
-  return (async function() {
-    var hel = document.getElementById('hero-' + e.heroId);
-    if (!hel) return;
-    var hr3 = hel.getBoundingClientRect();
-    emitParticles('heal', hr3.left + hr3.width/2, hr3.top + hr3.height/2, 8);
-    hel.classList.add('animate-heal-received');
-    await animSleep('animate-heal-received');
-    hel.classList.remove('animate-heal-received');
-    floatText(hr3.left + hr3.width/2 - 20, hr3.top - 20, '+' + Math.round(e.healAmount), 'heal');
-  })();
-}
-
-function playHeroDeath(e) {
-  return (async function() {
-    var hel = document.getElementById('hero-' + e.heroId);
-    if (!hel) return;
-    var rect3 = hel.getBoundingClientRect();
-    emitParticles('death', rect3.left + rect3.width/2, rect3.top + rect3.height/2, 12);
-    hel.classList.add('animate-fade-out');
-    await animSleep('animate-fade-out');
-  })();
-}
-
-function playMonsterDeath(e) {
-  return (async function() {
-    var target = findMonsterCard(e.monsterName);
-    if (!target) return;
-    var rect = target.getBoundingClientRect();
-    emitParticles('death', rect.left + rect.width/2, rect.top + rect.height/2, 20);
-    var arena = document.querySelector('.arena');
-    if (arena) { arena.classList.add('animate-shake-screen'); setTimeout(function() { arena.classList.remove('animate-shake-screen'); }, getAnimDuration('animate-shake-screen') + 50); }
-    target.classList.add('animate-flash-white');
-    await animSleep('animate-flash-white');
-    target.classList.remove('animate-flash-white');
-    target.classList.add('animate-fade-out');
-    await animSleep('animate-fade-out');
-  })();
-}
-
-
-
-
-
-// ─── Combat log (driven by state, complementary to events) ──
-function updateCombatLog(next, prev) {
-  if (!next.round || !next.round.partyHeroes) return;
-  var r = next.round.round;
-
-  if (prev.round && prev.round.partyHeroes) {
-    var prevMap = {};
-    for (var pi = 0; pi < prev.round.partyHeroes.length; pi++) {
-      prevMap[prev.round.partyHeroes[pi].heroId] = prev.round.partyHeroes[pi];
-    }
-    next.round.partyHeroes.forEach(function(h) {
-      var prevH = prevMap[h.heroId];
-      if (h.damage > 0) addLog(h.crit ? 'crit' : 'damage', '[R' + r + '] ' + h.name + ' ' + (h.crit ? 'CRITS' : 'hits') + ' for ' + Math.round(h.damage));
-      if (h.damageTaken > 0 && h.role !== 'tank') addLog('damage', '[R' + r + '] ' + h.name + ' takes ' + Math.round(h.damageTaken));
-      if (h.damageTaken > 0 && h.role === 'tank') addLog('block', '[R' + r + '] ' + h.name + ' blocks ' + Math.round(h.damageTaken) + ' damage!');
-      if (h.healingReceived > 0) addLog('heal', '[R' + r + '] +' + Math.round(h.healingReceived) + ' HP healed');
-      if (prevH && !h.alive && prevH.alive) addLog('kill', '[R' + r + '] ' + h.name + ' has fallen!');
-    });
-  }
-  if (next.round.monsterJustKilled && prev.round && !prev.round.monsterJustKilled) {
-    addLog('kill', '[R' + r + '] ' + prev.round.currentMonsterName + ' defeated!');
-  }
-}
-
-function sleep(ms) {
-  return new Promise(function(r) { setTimeout(r, ms); });
-}
-
-// Wait for a CSS animation to finish by reading its duration from the live style.
-// The 50ms buffer covers class toggling + reflow. Single source of truth — change
-// the CSS keyframe and the timing updates automatically.
-function animSleep(className) {
-  return sleep(getAnimDuration(className) + 50);
-}
-
-// Perceptual pause between phases so the player can register each one.
-// Not tied to a specific animation — just enough for the eye to follow.
-var PHASE_GAP_MS = 200;
-
-function getAnimDuration(className) {
-  var d = DURATION_CACHE[className]; if (d !== undefined) return d;
-  var el = document.createElement('div'); el.className = className; el.style.cssText = 'position:absolute;left:-9999px;top:-9999px;width:1px;height:1px';
-  document.body.appendChild(el);
-  var ms = 300; try { var raw = getComputedStyle(el).animationDuration; if (raw) { if (raw.indexOf('ms') !== -1) { var v = parseFloat(raw); if (!isNaN(v)) ms = v; } else if (raw.indexOf('s') !== -1) { var v = parseFloat(raw); if (!isNaN(v)) ms = v * 1000; } } } catch(e) {}
-  document.body.removeChild(el); DURATION_CACHE[className] = ms; return ms;
-}
-
-// ─── Projectile System ─────────────────────────────────────
+// ─── Combat animations handled by external file ──────────────
+// See /static/js/combat-animations.js. Called via window.handleCombatEvents.
+// ─── Combat animations removed — now in /static/js/combat-animations.js ──
 function createProjectile(fromEl, toEl, color, isArc) {
   var arena = document.querySelector('.arena');
   var arenaRect = arena.getBoundingClientRect();
@@ -1442,7 +1145,7 @@ if (typeof io !== 'undefined' && token) {
     if (state.finished) {
       if (state.round && combatState && combatState.round &&
           state.round.round > combatState.round.round) {
-        await animateTransition(combatState, state);
+        await (window.handleCombatEvents ? window.handleCombatEvents(state.events, state.monsters, state.round?.partyHeroes, state.round?.round) : Promise.resolve());
       }
       document.getElementById('combat-arena').classList.remove('active');
       document.getElementById('start-btn').style.display = '';
@@ -1463,7 +1166,7 @@ if (typeof io !== 'undefined' && token) {
     document.getElementById('stop-btn').style.display = '';
 
     if (combatState && state.round && state.round.round > combatState.round.round) {
-      await animateTransition(combatState, state);
+      await (window.handleCombatEvents ? window.handleCombatEvents(state.events, state.monsters, state.round?.partyHeroes, state.round?.round) : Promise.resolve());
     } else {
       if (state.monsters) renderMonsters(state.monsters);
       if (state.round && state.round.partyHeroes) {
@@ -1526,7 +1229,7 @@ var pollInterval = setInterval(function() {
 
     // Animate on round advance
     if (pollCombatState && state.round.round > pollCombatState.round.round) {
-      animateTransition(pollCombatState, state);
+      if (window.handleCombatEvents) window.handleCombatEvents(state.events, state.monsters, state.round?.partyHeroes, state.round?.round);
     }
     pollCombatState = state;
 
