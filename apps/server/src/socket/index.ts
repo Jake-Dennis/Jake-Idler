@@ -151,7 +151,7 @@ export function initSocketIO(server: HttpServer): Server {
   io = new Server(server, {
     transports: ["websocket", "polling"],
     cors: {
-      origin: process.env.CORS_ORIGIN || "*",
+      origin: process.env.CORS_ORIGIN || "http://localhost:3000",
       credentials: true,
     },
   });
