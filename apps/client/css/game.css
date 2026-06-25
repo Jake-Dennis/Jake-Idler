@@ -304,6 +304,22 @@ svg[data-lucide]{display:inline;vertical-align:middle}
 .equip-section-title{font-size:1rem;font-weight:700;margin:16px 0 6px;color:#9a949a;display:flex;align-items:center;gap:8px}
 .inv-count{font-size:.78rem;color:#5a555a;font-weight:400}
 
+/* ── Guild ── */
+.guild-section{margin-bottom:16px}
+.guild-section h2{font-size:1.15rem;font-weight:700;margin-bottom:8px;color:#9a949a}
+.guild-input{width:auto;padding:8px 12px;background:#060406;border:1px solid #181518;border-radius:6px;color:#9a949a;font-size:.85rem;outline:none;margin-right:6px;display:block}
+.guild-input:focus{border-color:#4a2020}
+.guild-controls{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.guild-directory{display:flex;flex-direction:column;gap:8px}
+.guild-card{background:#080608;border:1px solid #1a1518;border-radius:6px;padding:12px}
+.guild-card:hover{border-color:#2a2020}
+.guild-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px}
+.guild-member-count{font-size:.8rem;color:#5a555a}
+.guild-desc{color:#5a555a;font-size:.85rem;margin:4px 0 12px 0}
+.guild-roster{display:flex;flex-direction:column;gap:6px}
+.guild-member-row{background:#080608;border:1px solid #1a1518;border-radius:6px;padding:10px 12px}
+.guild-member-row:hover{border-color:#2a2020}
+
 /* ── Crafting ── */
 .craft-layout{display:flex;gap:16px;align-items:flex-start}
 .craft-panel{flex:1;min-width:0}

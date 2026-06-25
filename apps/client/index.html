@@ -106,6 +106,7 @@
       <button class="tab" data-tab="equipment"><i data-lucide="shield" style="width:16px;height:16px"></i> Equipment</button>
       <button class="tab" data-tab="party"><i data-lucide="users" style="width:16px;height:16px"></i> Party</button>
       <button class="tab" data-tab="crafting"><i data-lucide="hammer" style="width:16px;height:16px"></i> Crafting</button>
+      <button class="tab" data-tab="guild"><i data-lucide="building-2" style="width:16px;height:16px"></i> Guild</button>
     </div>
 
     <!-- ═══════════ TAB: DUNGEON ═══════════ -->
@@ -243,6 +244,50 @@
           <div id="craft-convert-list" class="craft-shard-list"></div>
         </div>
       </div>
+    </div>
+
+    <!-- ═══════════ TAB: GUILD ═══════════ -->
+    <div id="tab-guild" class="tab-content">
+
+      <!-- Not in a guild -->
+      <div id="guild-not-in" style="display:none">
+        <div class="card" style="padding:24px">
+          <div class="guild-section">
+            <h2>Create Guild</h2>
+            <div class="guild-controls">
+              <input id="guild-name-input" class="guild-input" placeholder="Guild name" style="flex:1;min-width:160px" maxlength="32" />
+              <input id="guild-desc-input" class="guild-input" placeholder="Description (optional)" style="flex:1;min-width:160px;margin-top:6px" maxlength="200" />
+              <button onclick="createGuild()" class="btn btn-primary btn-sm" style="margin-top:6px">Create</button>
+            </div>
+          </div>
+          <div class="guild-section" style="margin-top:16px">
+            <h2>Open Guilds</h2>
+            <div id="guild-directory" class="guild-directory">
+              <p class="loading" id="guild-dir-loading">Loading guilds...</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- In a guild -->
+      <div id="guild-in" style="display:none">
+        <div class="card" style="padding:24px">
+          <div class="guild-header">
+            <h2 id="guild-name" style="margin:0">Guild Name</h2>
+            <span id="guild-member-count" class="guild-member-count">1/50</span>
+          </div>
+          <p id="guild-description" class="guild-desc" style="color:#6a656a;font-size:.85rem;margin:6px 0 12px 0"></p>
+
+          <h3 style="font-size:.9rem;font-weight:600;margin-bottom:8px;color:#a0a0c0">Roster</h3>
+          <div id="guild-roster" class="guild-roster"></div>
+
+          <div class="guild-controls" style="margin-top:16px;justify-content:flex-end">
+            <button id="guild-leave-btn" onclick="leaveGuild()" class="btn btn-danger btn-sm" style="display:none">Leave Guild</button>
+            <button id="guild-disband-btn" onclick="disbandGuild()" class="btn btn-danger btn-sm" style="display:none">Disband Guild</button>
+          </div>
+        </div>
+      </div>
+
     </div>
 
     <!-- ═══════════ RESULT OVERLAY ═══════════ -->

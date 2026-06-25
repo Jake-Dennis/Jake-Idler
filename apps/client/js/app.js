@@ -258,6 +258,9 @@ if (hero && hero.id) {
   if (ls) ls.style.display = 'none';
   if (hs) hs.style.display = 'none';
 
+  // Start periodic heartbeat for guild presence
+  startHeartbeat();
+
 var isLooping = false;
 var loopCount = 0;
 var totalGoldEarned = 0;
@@ -288,6 +291,7 @@ document.querySelectorAll('.tab').forEach(function(tab) {
     if (this.dataset.tab === 'equipment') loadEquipment();
     if (this.dataset.tab === 'party') loadParty();
     if (this.dataset.tab === 'crafting') loadCrafting();
+    if (this.dataset.tab === 'guild') loadGuild();
   });
 });
 
@@ -695,10 +699,7 @@ document.getElementById('result-retry-btn').addEventListener('click', function()
 document.getElementById('start-btn').addEventListener('click', enterDungeon);
 
 document.getElementById('stop-btn').addEventListener('click', function() {
-  document.getElementById('combat-arena').classList.remove('active');
-  document.getElementById('start-btn').style.display = '';
-  document.getElementById('stop-btn').style.display = 'none';
-  document.getElementById('result-overlay').classList.remove('show');
+  // Only stops auto-looping; does NOT skip the current cutscene
   if (isLooping) toggleLoop();
 });
 
@@ -731,8 +732,6 @@ function loopRetry() {
     showingResult = false;
     document.getElementById('combat-arena').classList.add('active');
     document.getElementById('start-btn').style.display = 'none';
-    document.getElementById('stop-btn').style.display = '';
-
     if (data.heroes && data.heroes.length > 0) {
       renderPartyHeroes(data.heroes);
     }
@@ -1377,6 +1376,218 @@ function acceptInvite(partyId) {
   .catch(function(err) { alert(err.message); });
 }
 
+// ─── Heartbeat ─────────────────────────────────────────────
+var heartbeatTimer = null;
+var HEARTBEAT_INTERVAL = 30000;
+
+function startHeartbeat() {
+  if (heartbeatTimer) return;
+  // Send first heartbeat immediately
+  fetch('/api/guilds/heartbeat', { method: 'POST', headers: { 'Authorization': 'Bearer ' + token } }).catch(function() {});
+  heartbeatTimer = setInterval(function() {
+    fetch('/api/guilds/heartbeat', { method: 'POST', headers: { 'Authorization': 'Bearer ' + token } }).catch(function() {});
+  }, HEARTBEAT_INTERVAL);
+}
+
+function stopHeartbeat() {
+  if (heartbeatTimer) {
+    clearInterval(heartbeatTimer);
+    heartbeatTimer = null;
+  }
+}
+
+// ─── Guild ──────────────────────────────────────────────────
+
+function loadGuild() {
+  document.getElementById('guild-not-in').style.display = 'none';
+  document.getElementById('guild-in').style.display = 'none';
+
+  // Also load the directory in the background for "not in guild" view
+  loadGuildDirectory();
+
+  fetch('/api/guilds/mine', {
+    headers: { 'Authorization': 'Bearer ' + token }
+  })
+  .then(function(res) {
+    if (res.status === 404) {
+      showGuildNotIn();
+      return null;
+    }
+    return res.json();
+  })
+  .then(function(data) {
+    if (!data) return;
+    showGuildIn(data.guild, data.members);
+  })
+  .catch(function() {
+    showGuildNotIn();
+  });
+}
+
+function showGuildNotIn() {
+  document.getElementById('guild-not-in').style.display = 'block';
+  document.getElementById('guild-in').style.display = 'none';
+}
+
+function showGuildIn(guild, members) {
+  document.getElementById('guild-not-in').style.display = 'none';
+  document.getElementById('guild-in').style.display = 'block';
+  document.getElementById('guild-name').textContent = guild.name;
+  document.getElementById('guild-member-count').textContent = guild.memberCount + '/' + guild.maxMembers;
+  document.getElementById('guild-description').textContent = guild.description || '';
+
+  var isLeader = guild.leaderId === hero.playerId;
+  document.getElementById('guild-leave-btn').style.display = isLeader ? 'none' : 'inline-flex';
+  document.getElementById('guild-disband-btn').style.display = isLeader ? 'inline-flex' : 'none';
+
+  var rosterDiv = document.getElementById('guild-roster');
+  rosterDiv.innerHTML = '';
+
+  for (var i = 0; i < members.length; i++) {
+    var m = members[i];
+    var card = document.createElement('div');
+    card.className = 'guild-member-row';
+
+    var dotColor = m.isOnline ? '#22c55e' : '#3a373a';
+
+    var kickBtn = '';
+    if (isLeader && m.playerId !== hero.playerId) {
+      kickBtn = '<button onclick="kickMember(&apos;' + m.playerId + '&apos;)" class="btn btn-ghost btn-sm" style="font-size:.7rem">Kick</button>';
+    }
+
+    card.innerHTML =
+      '<div style="display:flex;gap:8px;align-items:center">' +
+        '<span style="width:8px;height:8px;border-radius:50%;background:' + dotColor + ';display:inline-block;flex-shrink:0"></span>' +
+        '<div style="flex:1;min-width:0">' +
+          '<div style="display:flex;justify-content:space-between;align-items:center">' +
+            '<span style="font-weight:600;color:#e0e0e0">' + escHtml(m.username) + '</span>' +
+            (m.role === 'leader' ? '<span class="role-badge" style="background:#7c3aed;color:#fff;padding:2px 8px;border-radius:4px;font-size:.65rem;font-weight:700">LEADER</span>' : '') +
+          '</div>' +
+          '<div style="font-size:.7rem;color:' + (m.isOnline ? '#22c55e' : '#3a373a') + '">' + (m.isOnline ? 'Online' : 'Offline') + '</div>' +
+        '</div>' +
+        kickBtn +
+      '</div>';
+
+    rosterDiv.appendChild(card);
+  }
+}
+
+function loadGuildDirectory() {
+  var dirDiv = document.getElementById('guild-directory');
+  if (!dirDiv) return;
+  dirDiv.innerHTML = '<p class="loading">Loading guilds...</p>';
+
+  fetch('/api/guilds', {
+    headers: { 'Authorization': 'Bearer ' + token }
+  })
+  .then(function(res) { return res.json(); })
+  .then(function(data) {
+    if (!data.guilds || data.guilds.length === 0) {
+      dirDiv.innerHTML = '<p style="text-align:center;padding:16px;color:#3a373a;font-size:.78rem">No open guilds yet. Create one!</p>';
+      return;
+    }
+    dirDiv.innerHTML = '';
+    for (var i = 0; i < data.guilds.length; i++) {
+      var g = data.guilds[i];
+      var entry = document.createElement('div');
+      entry.className = 'guild-card';
+      entry.innerHTML =
+        '<div style="display:flex;justify-content:space-between;align-items:center">' +
+          '<div>' +
+            '<div style="font-weight:600;color:#e0e0e0">' + escHtml(g.name) + '</div>' +
+            (g.description ? '<div style="font-size:.75rem;color:#5a555a;margin-top:2px">' + escHtml(g.description) + '</div>' : '') +
+            '<div style="font-size:.7rem;color:#3a373a;margin-top:2px">' + g.memberCount + '/' + g.maxMembers + ' members</div>' +
+          '</div>' +
+          '<button onclick="joinGuild(&apos;' + g.id + '&apos;)" class="btn btn-primary btn-sm">Join</button>' +
+        '</div>';
+      dirDiv.appendChild(entry);
+    }
+  })
+  .catch(function() {
+    dirDiv.innerHTML = '<p style="text-align:center;padding:16px;color:#6a2525;font-size:.78rem">Failed to load guilds</p>';
+  });
+}
+
+function createGuild() {
+  var name = document.getElementById('guild-name-input').value.trim();
+  if (!name) { alert('Enter a guild name'); return; }
+
+  var description = document.getElementById('guild-desc-input').value.trim();
+
+  fetch('/api/guilds', {
+    method: 'POST',
+    headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name: name, description: description || undefined })
+  })
+  .then(function(res) { return res.json().then(function(d) { if (!res.ok) throw new Error(d.error || 'Failed'); return d; }); })
+  .then(function(data) {
+    document.getElementById('guild-name-input').value = '';
+    document.getElementById('guild-desc-input').value = '';
+    loadGuild();
+  })
+  .catch(function(err) { alert(err.message); });
+}
+
+function joinGuild(guildId) {
+  fetch('/api/guilds/' + guildId + '/join', {
+    method: 'POST',
+    headers: { 'Authorization': 'Bearer ' + token }
+  })
+  .then(function(res) { return res.json().then(function(d) { if (!res.ok) throw new Error(d.error || 'Failed'); return d; }); })
+  .then(function() { loadGuild(); })
+  .catch(function(err) { alert(err.message); });
+}
+
+function leaveGuild() {
+  if (!confirm('Leave your guild?')) return;
+  fetch('/api/guilds/mine', { headers: { 'Authorization': 'Bearer ' + token } })
+  .then(function(res) { return res.json(); })
+  .then(function(data) {
+    if (!data || !data.guild) { loadGuild(); return; }
+    return fetch('/api/guilds/' + data.guild.id + '/leave', {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + token }
+    });
+  })
+  .then(function() { loadGuild(); })
+  .catch(function(err) { alert(err.message); });
+}
+
+function disbandGuild() {
+  if (!confirm('Are you sure? This will DISBAND your guild permanently.')) return;
+  if (!confirm('All members will be removed. Continue?')) return;
+  fetch('/api/guilds/mine', { headers: { 'Authorization': 'Bearer ' + token } })
+  .then(function(res) { return res.json(); })
+  .then(function(data) {
+    if (!data || !data.guild) { loadGuild(); return; }
+    return fetch('/api/guilds/' + data.guild.id, {
+      method: 'DELETE',
+      headers: { 'Authorization': 'Bearer ' + token }
+    });
+  })
+  .then(function() { loadGuild(); })
+  .catch(function(err) { alert(err.message); });
+}
+
+function kickMember(targetPlayerId) {
+  if (!confirm('Remove this member from the guild?')) return;
+  fetch('/api/guilds/mine', { headers: { 'Authorization': 'Bearer ' + token } })
+  .then(function(res) { return res.json(); })
+  .then(function(data) {
+    if (!data || !data.guild) throw new Error('Not in a guild');
+    return fetch('/api/guilds/' + data.guild.id + '/kick', {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ playerId: targetPlayerId })
+    });
+  })
+  .then(function(res) {
+    if (res.status !== 204) return res.json().then(function(d) { throw new Error(d.error || 'Failed'); });
+    loadGuild();
+  })
+  .catch(function(err) { alert(err.message); });
+}
+
 // ─── Crafting ───────────────────────────────────────────────
 var CRAFTABLE_SLOTS = {
   rightHandWeapon: ['melee','range','mage'],
@@ -1632,6 +1843,14 @@ document.getElementById('hero-photo-input').addEventListener('change', function(
   window.acceptInvite = acceptInvite;
   window.updateMonsterBars = updateMonsterBars;
   window.updateHeroBars = updateHeroBars;
+  window.startHeartbeat = startHeartbeat;
+  window.stopHeartbeat = stopHeartbeat;
+  window.loadGuild = loadGuild;
+  window.createGuild = createGuild;
+  window.joinGuild = joinGuild;
+  window.leaveGuild = leaveGuild;
+  window.disbandGuild = disbandGuild;
+  window.kickMember = kickMember;
   })();
 }
 })();
