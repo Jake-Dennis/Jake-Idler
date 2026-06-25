@@ -56,8 +56,11 @@ app.use("/api/heroes", lootCraftLimiter);     // POST /:id/loot/craft
 // Serve uploaded hero photos statically
 app.use("/uploads", express.static(path.resolve(import.meta.dirname, "..", "uploads")));
 
-// Serve static CSS files
+// Serve static CSS/JS files
 app.use("/static", express.static(path.resolve(import.meta.dirname, "..", "static")));
+
+// Serve extracted client SPA files
+app.use("/client", express.static(path.resolve(import.meta.dirname, "..", "..", "client")));
 
 // Serve game assets
 app.use("/assets", express.static(path.resolve(import.meta.dirname, "..", "..", "..", "Jake-Assets")));

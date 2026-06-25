@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>JAKE IDLER</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="/socket.io/socket.io.js"></script>
+  <link rel="stylesheet" href="/client/css/login.css" />
+  <link rel="stylesheet" href="/client/css/game.css" />
+</head>
+<body>
+
+  <!-- ═══════════ LOGIN SCREEN ═══════════ -->
+  <div id="loginScreen" class="screen">
+    <div class="card card-centered">
+      <h1><span class="gold">JAKE</span> <span class="purple">IDLER</span></h1>
+      <p class="subtitle">An idle RPG adventure</p>
+
+      <div id="loginAlert" class="alert alert-error"></div>
+
+      <div class="form-group">
+        <label for="username">Username</label>
+        <input type="text" id="username" placeholder="Enter username" autocomplete="username" />
+      </div>
+      <div class="form-group">
+        <label for="password">Password</label>
+        <input type="password" id="password" placeholder="Enter password" autocomplete="current-password" />
+      </div>
+
+      <div class="btn-group">
+        <button id="loginBtn" class="btn btn-primary">Login</button>
+        <button id="registerBtn" class="btn btn-gold">Register</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════ HERO SELECT SCREEN ═══════════ -->
+  <div id="heroScreen" class="screen active">
+    <div class="card">
+      <div class="hero-list-header">
+        <h2>Select Hero</h2>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <button id="refreshHeroesBtn" class="btn btn-ghost btn-sm">&#x27F3; Refresh</button>
+          <button id="logoutBtn" class="btn btn-ghost btn-sm">Logout</button>
+        </div>
+      </div>
+
+      <div id="heroList" class="hero-layout">
+        <!-- Left: hero list -->
+        <div id="heroListContainer">
+          <div id="heroesLoading" class="loading"></div>
+          <div id="heroesEmpty" class="empty-heroes" style="display:none;">
+            <p>No heroes yet. Create one to begin your adventure!</p>
+          </div>
+          <div id="heroesList"></div>
+        </div>
+
+        <!-- Right: create hero form -->
+        <div class="create-hero-card">
+          <h3>Create Hero</h3>
+          <div id="createAlert" class="alert alert-error"></div>
+          <div class="form-group">
+            <label for="heroName">Hero Name</label>
+            <input type="text" id="heroName" placeholder="Enter hero name" maxlength="20" />
+          </div>
+          <button id="createHeroBtn" class="btn btn-gold">Create Hero</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════ GAME CONTAINER ═══════════ -->
+  <div id="game-container" style="display:none;flex-direction:column;height:100vh;">
+
+    <!-- ═══════════ HERO BAR ═══════════ -->
+    <div class="hero-bar animate-torch-flicker" id="hero-bar">
+      <div class="hero-avatar" id="hero-avatar-wrap" title="Change photo">
+        <img id="hero-avatar-img" src="" alt="" style="display:none">
+        <div class="hero-avatar-placeholder" id="hero-avatar-placeholder"></div>
+        <div class="hero-avatar-overlay"><i data-lucide="camera" style="width:14px;height:14px"></i></div>
+      </div>
+      <input type="file" id="hero-photo-input" accept="image/*" style="display:none">
+      <span class="h-name" id="hero-bar-name"></span>
+      <span class="h-stat">Lv.<span class="h-val" id="hero-bar-level">0</span></span>
+      <span class="h-stat"><i data-lucide="sword" style="width:14px;height:14px"></i> <span class="h-val" id="hero-bar-atk">0</span></span>
+      <span class="h-stat"><i data-lucide="shield" style="width:14px;height:14px"></i> <span class="h-val" id="hero-bar-def">0</span></span>
+      <span class="h-stat">
+        <i data-lucide="heart" style="width:14px;height:14px"></i> <span class="hp-bar-outer"><span class="hp-bar-inner hp-green" id="hero-bar-hp-fill" style="width:100%"></span></span>
+        <span id="hero-bar-hp">0</span>/<span id="hero-bar-maxhp">0</span>
+      </span>
+      <span class="h-stat"><i data-lucide="coins" style="width:14px;height:14px"></i> <span class="h-val" id="hero-bar-gold">0</span></span>
+      <span class="h-stat">
+        <label for="floor-select" style="color:#4a454a;font-weight:700;font-size:.7rem;letter-spacing:1px;margin-right:4px">FLOOR</label>
+        <select id="floor-select" style="padding:2px 6px;background:#0a080a;border:1px solid #2a2020;border-radius:4px;color:#9a949a;font-size:.8rem;cursor:pointer"></select>
+      </span>
+      <button id="start-btn" class="btn btn-primary btn-sm" title="Start dungeon run"><i data-lucide="sword" style="width:14px;height:14px"></i> Start</button>
+      <button id="stop-btn" style="display:none;background:transparent;border:1px solid #4a2020;border-radius:4px;color:#6a2525;font-size:.7rem;cursor:pointer;padding:4px 8px" title="Stop dungeon run"><i data-lucide="square" style="width:14px;height:14px"></i> Stop</button>
+      <button id="loop-btn" class="btn btn-loop btn-sm" title="Toggle dungeon loop"><i data-lucide="refresh-cw" style="width:14px;height:14px"></i> LOOP</button>
+      <button id="shake-toggle" style="background:transparent;border:1px solid #2a2020;border-radius:4px;color:#5a555a;font-size:.7rem;cursor:pointer;padding:2px 6px" title="Toggle screen shake">Shake</button>
+    </div>
+
+    <!-- ═══════════ TABS ═══════════ -->
+    <div class="tab-bar">
+      <button class="tab active" data-tab="dungeon"><i data-lucide="sword" style="width:16px;height:16px"></i> Dungeon</button>
+      <button class="tab" data-tab="equipment"><i data-lucide="shield" style="width:16px;height:16px"></i> Equipment</button>
+      <button class="tab" data-tab="party"><i data-lucide="users" style="width:16px;height:16px"></i> Party</button>
+      <button class="tab" data-tab="crafting"><i data-lucide="hammer" style="width:16px;height:16px"></i> Crafting</button>
+    </div>
+
+    <!-- ═══════════ TAB: DUNGEON ═══════════ -->
+    <div id="tab-dungeon" class="tab-content active">
+
+      <div id="combat-arena">
+        <div class="round-counter" id="round-counter">Round 0</div>
+
+        <div class="arena">
+          <div class="arena-row" id="boss-row"></div>
+          <div class="arena-row" id="monster-row"></div>
+          <div id="arena-divider" style="border-top:1px solid #1a1518;margin:6px 0"></div>
+          <div class="hero-row" id="hero-row"></div>
+          <div class="vignette-flash" id="vignette-flash"></div>
+          <div class="floor-announce" id="floor-announce"></div>
+        </div>
+
+        <button id="log-toggle" style="background:transparent;border:1px solid #1a1518;border-radius:3px;color:#4a454a;font-size:.65rem;cursor:pointer;padding:2px 8px;margin-top:4px;align-self:center">Hide log</button>
+        <div class="combat-log" id="combat-log"></div>
+
+        <div id="loop-info" class="loop-info"></div>
+      </div>
+    </div>
+
+    <!-- ═══════════ TAB: EQUIPMENT ═══════════ -->
+    <div id="tab-equipment" class="tab-content">
+      <div class="equip-character">
+        <div class="equip-stats-panel" id="equip-stats-panel"></div>
+        <div class="equip-body-grid" id="equip-grid"></div>
+        <div class="equip-inventory-panel">
+          <div class="equip-section-title" style="margin-bottom:6px">Inventory <span class="inv-count" id="inv-count"></span></div>
+          <div class="equip-inventory-wrap" id="equip-inventory"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════ TAB: PARTY ═══════════ -->
+    <div id="tab-party" class="tab-content">
+
+      <!-- Not in party -->
+      <div id="party-not-in" style="display:none">
+        <div class="card" style="padding:24px">
+          <div class="party-section">
+            <h2>Create Party</h2>
+            <div class="party-controls">
+              <input id="party-name-input" class="party-input" placeholder="Party name" style="flex:1;min-width:160px" />
+              <button onclick="createParty()" class="btn btn-primary btn-sm">Create</button>
+            </div>
+          </div>
+          <div class="party-section">
+            <h2>Join Party</h2>
+            <div class="party-controls">
+              <input id="party-join-input" class="party-input" placeholder="Party ID" style="flex:1;min-width:160px" />
+              <button onclick="joinParty()" class="btn btn-primary btn-sm">Join</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- In party -->
+      <div id="party-in" style="display:none">
+        <div class="card" style="padding:24px">
+          <div class="party-title" id="party-title">Party Name</div>
+          <div class="party-info" id="party-info">Members: 1/999 &middot; Floor 1</div>
+
+          <div id="party-members"></div>
+
+          <div class="party-section" style="margin-top:16px">
+            <h3>Controls</h3>
+            <div class="party-controls">
+              <input id="invite-input" class="party-input" placeholder="Username to invite" style="flex:1;min-width:140px" />
+              <button onclick="invitePlayer()" class="btn btn-primary btn-sm">Invite</button>
+            </div>
+            <div class="party-controls">
+              <select id="bot-role-select" class="party-input">
+                <option value="tank">Tank</option>
+                <option value="dps">DPS</option>
+                <option value="healer">Healer</option>
+              </select>
+              <button onclick="addBot()" class="btn btn-ghost btn-sm">Add Bot</button>
+              <button onclick="leaveParty()" class="btn btn-danger btn-sm" style="margin-left:auto">Leave Party</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Pending invites -->
+      <div id="party-invites" style="display:none;margin-top:16px">
+        <div class="card" style="padding:20px">
+          <h3 style="font-size:.95rem;font-weight:600;margin-bottom:10px;color:#a0a0c0">Pending Invites</h3>
+          <div id="invites-list"></div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ═══════════ TAB: CRAFTING ═══════════ -->
+    <div id="tab-crafting" class="tab-content">
+      <div class="craft-layout">
+        <div class="craft-panel">
+          <div class="craft-section-title">Shards</div>
+          <div id="craft-shard-list" class="craft-shard-list"></div>
+
+          <div class="craft-section-title" style="margin-top:16px">Salvage Equipment</div>
+          <div id="craft-salvage-list" class="craft-salvage-list"></div>
+        </div>
+
+        <div class="craft-panel">
+          <div class="craft-section-title">Craft Gear</div>
+          <div class="craft-form">
+            <div class="craft-row">
+              <label>Slot</label>
+              <select id="craft-slot"><option value="">&#x2014;</option></select>
+            </div>
+            <div class="craft-row">
+              <label>Type</label>
+              <select id="craft-type"><option value="">&#x2014;</option></select>
+            </div>
+            <div class="craft-row">
+              <label>Rarity</label>
+              <select id="craft-rarity">
+                <option value="common">Common</option>
+                <option value="uncommon">Uncommon</option>
+                <option value="rare">Rare</option>
+                <option value="epic">Epic</option>
+                <option value="legendary">Legendary</option>
+              </select>
+            </div>
+            <div id="craft-cost-display" class="craft-cost"></div>
+            <button id="craft-btn" class="btn btn-primary" style="width:100%">Craft</button>
+            <div id="craft-result" class="craft-result"></div>
+          </div>
+
+          <div class="craft-section-title" style="margin-top:16px">Convert Shard &rarr; Gold</div>
+          <div id="craft-convert-list" class="craft-shard-list"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════ RESULT OVERLAY ═══════════ -->
+    <div id="result-overlay" class="overlay">
+      <div class="overlay-card">
+        <h2 id="result-title">Victory!</h2>
+        <div id="result-icon" style="font-size:3rem;margin:8px 0"></div>
+        <p id="result-details"></p>
+        <div id="result-loop-summary" style="display:none;margin:12px 0;padding:12px;background:rgba(251,191,36,.1);border:1px solid rgba(251,191,36,.3);border-radius:8px">
+          <div style="font-size:.85rem;color:#fbbf24"><i data-lucide="refresh-cw" style="width:14px;height:14px"></i> Loop Run #<span id="loop-run-count">0</span></div>
+          <div class="big-num" id="loop-total-gold">0</div>
+          <div style="font-size:.8rem;color:#a0a0c0">total gold earned</div>
+        </div>
+        <div class="btn-group" style="margin-top:16px;justify-content:center">
+          <button id="result-btn" class="btn btn-primary">OK</button>
+          <button id="result-retry-btn" class="btn btn-ghost" style="display:none"><i data-lucide="sword" style="width:16px;height:16px"></i> Retry</button>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /game-container -->
+
+  <script src="/client/js/combat-animations.js"></script>
+  <script src="/client/js/app.js"></script>
+
+</body>
+</html>
