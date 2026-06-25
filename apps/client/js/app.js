@@ -470,7 +470,8 @@ function updateHeroBars(partyHeroes) {
 
 // ─── Combat animations handled by external file ──────────────
 // See /static/js/combat-animations.js. Called via window.handleCombatEvents.
-// ─── Combat animations removed — now in /static/js/combat-animations.js ──
+function createProjectile(fromEl, toEl, color, isArc) {
+  var arena = document.querySelector('.arena');
   var arenaRect = arena.getBoundingClientRect();
   var fromRect = fromEl.getBoundingClientRect();
   var toRect = toEl.getBoundingClientRect();
@@ -531,6 +532,8 @@ function updateHeroBars(partyHeroes) {
   }
 }
 
+function createExplosion(el, color) {
+  var rect = el.getBoundingClientRect();
   var cx = rect.left + rect.width/2;
   var cy = rect.top + 10;
   for (var i = 0; i < 8; i++) {
