@@ -7,7 +7,7 @@ export interface GameEventMap {
   "round:processed": {
     runId: string;
     round: number;
-    state: import("../services/combat-service.js").CombatRoundState;
+    state: import("./session-manager.js").PartyFloorRunState;
   };
   "run:started": {
     runId: string;

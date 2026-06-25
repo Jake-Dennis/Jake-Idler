@@ -247,13 +247,11 @@ export class SessionManager {
       return;
     }
     run.tickCount++;
-    if (run.lastRound) {
-      gameEvents.emit("round:processed", {
-        runId,
-        round: run.tickCount,
-        state: run.lastRound,
-      });
-    }
+    gameEvents.emit("round:processed", {
+      runId,
+      round: run.tickCount,
+      state: run,
+    });
   }
 
   /** Remove runs that finished more than 60 seconds ago. */

@@ -321,13 +321,16 @@ describe("SessionManager", () => {
       gameEvents.off("round:processed", handler);
     });
 
-    it("does not emit round:processed when lastRound is null", () => {
+    it("emits round:processed even when lastRound is null", () => {
       const handler = vi.fn();
       gameEvents.on("round:processed", handler);
       manager.createRun("party-1", "hero-1", 5, mockHeroes, mockMonsters, 1, 100);
       const runId = manager.getActivePartyIdForHero("hero-1")!;
       manager.tick(runId);
-      expect(handler).not.toHaveBeenCalled();
+      expect(handler).toHaveBeenCalledTimes(1);
+      expect(handler).toHaveBeenCalledWith(
+        expect.objectContaining({ runId, round: 1 }),
+      );
       gameEvents.off("round:processed", handler);
     });
 

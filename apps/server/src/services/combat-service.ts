@@ -283,13 +283,11 @@ class CombatService {
       if (run.floorCompleted || run.floorFailed) continue;
       try {
         await this.processRound(run.partyId, run);
-        if (run.lastRound) {
-          gameEvents.emit("round:processed", {
-            runId: run.partyId,
-            round: run.tickCount,
-            state: run.lastRound,
-          });
-        }
+        gameEvents.emit("round:processed", {
+          runId: run.partyId,
+          round: run.tickCount,
+          state: run,
+        });
       } catch (err) {
         this.log.error({ partyId: run.partyId, err }, "Error processing run");
       }
