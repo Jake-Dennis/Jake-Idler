@@ -112,7 +112,8 @@ export function processMonsterLoot(
 
   return {
     gold: calculateGoldReward(floorNumber, goldMul),
-    shards: rollShardDrops(floorNumber, bossMul),
+    // Shards drop from floor bosses and bracket bosses only (not trash)
+    shards: isBoss ? rollShardDrops(floorNumber, bossMul) : [],
     keyDropped: false, // key drops handled by dungeon service
   };
 }
