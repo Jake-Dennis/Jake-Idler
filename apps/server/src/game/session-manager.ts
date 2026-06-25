@@ -71,6 +71,7 @@ export interface PartyHeroRunState {
   def: number;
   healing: number;
   alive: boolean;
+  weaponType: string;
 }
 
 export interface PartyFloorRunState {

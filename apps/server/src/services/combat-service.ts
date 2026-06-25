@@ -15,8 +15,6 @@ import { createChildLogger } from "../observability/logger.js";
 import { sessionManager } from "../game/session-manager.js";
 import { combatScheduler } from "../game/tick-scheduler.js";
 import { gameEvents } from "../game/event-bus.js";
-import { combatSerializer } from "../game/serializers/combat-serializer.js";
-import { getIO } from "../socket/index.js";
 
 // ─── Exported Types ────────────────────────────────────────────
 
@@ -94,6 +92,7 @@ interface PartyHeroRunState {
   /** Healing power per round (healer only — equals their original ATK). */
   healing: number;
   alive: boolean;
+  weaponType: string;
 }
 
 interface PartyFloorRunState {
@@ -132,19 +131,6 @@ const HEAL_PRIORITY: CombatRole[] = [
 
 class CombatService {
   private log = createChildLogger("combat");
-
-  constructor() {
-    gameEvents.on("round:processed", (payload) => {
-      const run = sessionManager.getRun(payload.runId);
-      if (!run) return;
-      const room = run.partyId.startsWith("solo_")
-        ? `hero:${run.initiatorHeroId}`
-        : `party:${run.partyId}`;
-      try {
-        getIO().to(room).emit("party:combat-update", combatSerializer.toView(run, null));
-      } catch (_) {}
-    });
-  }
 
   isInCombat(heroId: string): boolean {
     return this.getActivePartyIdForHero(heroId) !== null;
@@ -217,6 +203,11 @@ class CombatService {
         healing = rawAtk * 0.055;
       }
 
+      const weaponType =
+        pm.equipped?.rightHandWeapon?.type
+        || pm.equipped?.leftHand?.type
+        || "melee";
+
       heroes_.push({
         heroId: pm.heroId,
         name: pm.name,
@@ -228,6 +219,7 @@ class CombatService {
         def,
         healing,
         alive: true,
+        weaponType,
       });
     }
 

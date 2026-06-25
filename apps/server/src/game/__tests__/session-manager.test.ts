@@ -19,6 +19,7 @@ describe("SessionManager", () => {
       def: 10,
       healing: 0,
       alive: true,
+      weaponType: "melee",
     },
     {
       heroId: "hero-2",
@@ -31,6 +32,7 @@ describe("SessionManager", () => {
       def: 5,
       healing: 10,
       alive: true,
+      weaponType: "melee",
     },
   ];
 

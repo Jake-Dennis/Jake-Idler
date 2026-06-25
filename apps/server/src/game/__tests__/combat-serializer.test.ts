@@ -41,6 +41,7 @@ function makeStubRun(overrides: {
         def: 10,
         healing: 0,
         alive: true,
+        weaponType: "melee",
       },
     ],
     monsters: [monsterA, monsterB, monsterC],
@@ -357,16 +358,9 @@ describe("combatSerializer.toView", () => {
 });
 
 describe("combatSerializer.buildEvents", () => {
-  it("produces hero_attack events with weapon type from playerHero", () => {
+  it("uses weapon type from the weaponTypes map", () => {
     const lastRound = makeStubLastRound();
-    const playerHero = {
-      id: "h1",
-      equipped: {
-        rightHandWeapon: { type: "bow" },
-      } as Record<string, unknown>,
-    };
-
-    const events = combatSerializer.buildEvents(lastRound, playerHero);
+    const events = combatSerializer.buildEvents(lastRound, { h1: "bow" });
     const attack = events.find((e) => e.type === "hero_attack");
     expect(attack).toBeDefined();
     expect(attack!.weaponType).toBe("bow");
@@ -375,7 +369,7 @@ describe("combatSerializer.buildEvents", () => {
     expect(attack!.role).toBe("dps");
   });
 
-  it("defaults weapon type to melee for other heroes", () => {
+  it("defaults weapon type to melee when not in the map", () => {
     const lastRound = {
       ...makeStubLastRound(),
       partyHeroes: [
@@ -397,14 +391,7 @@ describe("combatSerializer.buildEvents", () => {
       ],
     };
 
-    const playerHero = {
-      id: "h1",
-      equipped: {
-        rightHandWeapon: { type: "sword" },
-      } as Record<string, unknown>,
-    };
-
-    const events = combatSerializer.buildEvents(lastRound, playerHero);
+    const events = combatSerializer.buildEvents(lastRound, { h1: "sword" });
     const attack = events.find((e) => e.type === "hero_attack");
     expect(attack).toBeDefined();
     expect(attack!.weaponType).toBe("melee");
@@ -432,7 +419,7 @@ describe("combatSerializer.buildEvents", () => {
       ],
     };
 
-    const events = combatSerializer.buildEvents(lastRound, { id: "h1", equipped: null });
+    const events = combatSerializer.buildEvents(lastRound, { h1: "melee" });
     expect(events.some((e) => e.type === "heal_cast" && e.healAmount === 25)).toBe(true);
     expect(events.some((e) => e.type === "healed" && e.healAmount === 15)).toBe(true);
   });
@@ -459,7 +446,7 @@ describe("combatSerializer.buildEvents", () => {
       ],
     };
 
-    const events = combatSerializer.buildEvents(lastRound, { id: "h1", equipped: null });
+    const events = combatSerializer.buildEvents(lastRound, { h1: "melee" });
     expect(events.some((e) => e.type === "hero_hit" && e.damage === 20 && e.crit === true)).toBe(true);
     expect(events.some((e) => e.type === "block" && e.damage === 20)).toBe(true);
   });
@@ -486,13 +473,13 @@ describe("combatSerializer.buildEvents", () => {
       ],
     };
 
-    const events = combatSerializer.buildEvents(lastRound, { id: "h1", equipped: null });
+    const events = combatSerializer.buildEvents(lastRound, { h1: "melee" });
     expect(events.some((e) => e.type === "hero_death")).toBe(true);
   });
 
   it("produces monster_death when monsterJustKilled is true", () => {
     const lastRound = makeStubLastRound({ monsterJustKilled: true });
-    const events = combatSerializer.buildEvents(lastRound, { id: "h1", equipped: null });
+    const events = combatSerializer.buildEvents(lastRound, { h1: "melee" });
     expect(events.some((e) => e.type === "monster_death")).toBe(true);
   });
 
@@ -517,7 +504,7 @@ describe("combatSerializer.buildEvents", () => {
       floorFailed: false,
       partyHeroes: [],
     };
-    const events = combatSerializer.buildEvents(lastRound, { id: "h1", equipped: null });
+    const events = combatSerializer.buildEvents(lastRound, { h1: "melee" });
     expect(events).toEqual([]);
   });
 });

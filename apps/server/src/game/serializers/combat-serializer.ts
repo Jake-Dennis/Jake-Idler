@@ -65,6 +65,7 @@ interface PartyFloorRunState {
     def: number;
     healing: number;
     alive: boolean;
+    weaponType: string;
   }>;
   monsters: FloorMonster[];
   currentMonsterIndex: number;
@@ -199,9 +200,12 @@ function toView(state: PartyFloorRunState, _viewerHeroId: string | null): Combat
     currentMonsterIsBoss: currentMonster?.data.isBoss ?? false,
   };
 
-  // Build battle log from current round (weapon types default to "melee";
-  // the client overrides weaponType for the local player from its own hero data)
-  const events: CombatEventView[] = buildEvents(state.lastRound);
+  // Build battle log from current round with weapon types from the run state
+  const weaponTypes: Record<string, string> = {};
+  for (const h of state.heroes) {
+    weaponTypes[h.heroId] = h.weaponType || "melee";
+  }
+  const events: CombatEventView[] = buildEvents(state.lastRound, weaponTypes);
 
   const view: CombatViewState = {
     inCombat,
@@ -232,7 +236,7 @@ function toView(state: PartyFloorRunState, _viewerHeroId: string | null): Combat
 
 function buildEvents(
   lastRound: CombatRoundState | null,
-  playerHero?: { id: string; equipped: Record<string, unknown> | null },
+  weaponTypes?: Record<string, string>,
 ): CombatEventView[] {
   if (!lastRound || !lastRound.partyHeroes) return [];
 
@@ -240,10 +244,7 @@ function buildEvents(
 
   for (const h of lastRound.partyHeroes) {
     if (h.damage > 0) {
-      const wType =
-        playerHero && h.heroId === playerHero.id
-          ? ((playerHero.equipped?.rightHandWeapon as { type?: string } | undefined)?.type || "melee")
-          : "melee";
+      const wType = (weaponTypes && weaponTypes[h.heroId]) || "melee";
       events.push({
         type: "hero_attack",
         heroId: h.heroId,
