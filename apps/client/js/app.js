@@ -775,6 +775,8 @@ if (token && hero && hero.id) {
         result: state.result || {},
         hero: state.hero,
       });
+      // Refresh hero data so crafting tab has latest shards
+      refreshHero();
       combatState = null;
       return;
     }
