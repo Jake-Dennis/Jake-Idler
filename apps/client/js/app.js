@@ -777,6 +777,7 @@ if (token && hero && hero.id) {
       });
       // Refresh hero data so crafting tab has latest shards
       refreshHero();
+      loadCrafting();
       combatState = null;
       return;
     }
