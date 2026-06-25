@@ -137,6 +137,7 @@ export interface CombatViewState {
     isCurrentFocus: boolean;
   }>;
   round: CombatRoundView | null;
+  events: CombatEventView[];
   floorProgress: {
     monstersDefeated: number;
     totalMonsters: number;
@@ -199,6 +200,10 @@ function toView(state: PartyFloorRunState, _viewerHeroId: string | null): Combat
     currentMonsterIsBoss: currentMonster?.data.isBoss ?? false,
   };
 
+  // Build battle log from current round (weapon types default to "melee";
+  // the client overrides weaponType for the local player from its own hero data)
+  const events: CombatEventView[] = buildEvents(state.lastRound);
+
   const view: CombatViewState = {
     inCombat,
     finished,
@@ -207,6 +212,7 @@ function toView(state: PartyFloorRunState, _viewerHeroId: string | null): Combat
     partyCombat,
     monsters,
     round,
+    events,
     floorProgress,
   };
 
@@ -226,26 +232,27 @@ function toView(state: PartyFloorRunState, _viewerHeroId: string | null): Combat
 }
 
 function buildEvents(
-  lastRound: CombatRoundState,
-  playerHero: { id: string; equipped: Record<string, unknown> | null },
+  lastRound: CombatRoundState | null,
+  playerHero?: { id: string; equipped: Record<string, unknown> | null },
 ): CombatEventView[] {
+  if (!lastRound || !lastRound.partyHeroes) return [];
+
   const events: CombatEventView[] = [];
 
-  if (lastRound && lastRound.partyHeroes) {
-    for (const h of lastRound.partyHeroes) {
-      if (h.damage > 0) {
-        const wType =
-          h.heroId === playerHero.id
-            ? ((playerHero.equipped?.rightHandWeapon as { type?: string } | undefined)?.type || "melee")
-            : "melee";
-        events.push({
-          type: "hero_attack",
-          heroId: h.heroId,
-          damage: Math.round(h.damage),
-          crit: h.crit,
-          weaponType: wType,
-          role: h.role,
-        });
+  for (const h of lastRound.partyHeroes) {
+    if (h.damage > 0) {
+      const wType =
+        playerHero && h.heroId === playerHero.id
+          ? ((playerHero.equipped?.rightHandWeapon as { type?: string } | undefined)?.type || "melee")
+          : "melee";
+      events.push({
+        type: "hero_attack",
+        heroId: h.heroId,
+        damage: Math.round(h.damage),
+        crit: h.crit,
+        weaponType: wType,
+        role: h.role,
+      });
       }
       if (h.healingDone > 0) {
         events.push({
@@ -286,7 +293,6 @@ function buildEvents(
     if (lastRound.monsterJustKilled) {
       events.push({ type: "monster_death" });
     }
-  }
 
   return events;
 }

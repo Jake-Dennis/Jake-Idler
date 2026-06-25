@@ -113,11 +113,6 @@ router.get("/:id/combat/status", requireAuth, async (req, res) => {
       .where(eq(heroes.id, heroId));
   }
 
-  // Build events from round data (centralised in serializer)
-  const events = run.lastRound
-    ? combatSerializer.buildEvents(run.lastRound, { id: hero.id, equipped: hero.equipped })
-    : [];
-
   const isPartyCombat = !runId.startsWith("solo_");
 
   if (!run.floorCompleted && !run.floorFailed) {

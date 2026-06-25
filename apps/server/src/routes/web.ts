@@ -763,7 +763,10 @@ function updateHeroBars(partyHeroes) {
 
 
 
-// ─── AnimationQueue (removed — replaced by inline animateTransition) ──
+// ─── Animation System ───────────────────────────────────────
+// Event-driven: server sends events[] per round, client picks animations.
+// Architecture: Pokemon Showdown "battle log" pattern.
+// See: https://github.com/smogon/pokemon-showdown/blob/master/sim/SIM-PROTOCOL.md
 
 var DURATION_CACHE = {};
 
@@ -783,11 +786,11 @@ for (var pi = 0; pi < PARTICLE_POOL_SIZE; pi++) {
   document.body.appendChild(p);
   PARTICLE_POOL.push(p);
 }
-var PARTICLE_IDX = 0;
 function emitParticles(type, x, y, count) {
   var colors = PARTICLE_COLORS[type] || PARTICLE_COLORS.hit;
   for (var i = 0; i < (count || 8); i++) {
-    var p = PARTICLE_POOL[PARTICLE_IDX % PARTICLE_POOL_SIZE]; PARTICLE_IDX++;
+    var idx = (PARTICLE_IDX++) % PARTICLE_POOL_SIZE;
+    var p = PARTICLE_POOL[idx];
     var angle = Math.random() * Math.PI * 2;
     var speed = 40 + Math.random() * 80;
     var distX = Math.cos(angle) * speed;
@@ -798,6 +801,206 @@ function emitParticles(type, x, y, count) {
     (function(part) { setTimeout(function() { part.style.opacity = '0'; }, 20); })(p);
     (function(part) { setTimeout(function() { part.style.cssText = 'position:fixed;width:6px;height:6px;border-radius:50%;pointer-events:none;z-index:500;opacity:0;transition:none'; }, 600); })(p);
   }
+}
+var PARTICLE_IDX = 0;
+
+// ─── Core: Event-driven animation (replaces state-diffing) ──
+// Processes the events[] array from the server and plays animations in phases.
+// Falls back to the legacy state-diff approach when events are unavailable.
+async function animateTransition(prev, next) {
+  if (!next.round || !prev.round) return;
+  if (next.round.round <= prev.round.round) return;
+
+  // Vignette flash on round transition
+  var vf = document.getElementById('vignette-flash');
+  if (vf) { vf.classList.add('flash'); setTimeout(function() { vf.classList.remove('flash'); }, 200); }
+
+  // Phase 1: Hero attacks (simultaneous)
+  var attackPromises = [];
+  for (var i = 0; i < next.events.length; i++) {
+    if (next.events[i].type === 'hero_attack') {
+      attackPromises.push(playHeroAttack(next.events[i]));
+    }
+  }
+  if (attackPromises.length > 0) await Promise.all(attackPromises);
+  await sleep(PHASE_GAP_MS);
+
+  // Phase 2: Monster hit effects + blocks
+  var hitActive = false;
+  for (var i = 0; i < next.events.length; i++) {
+    if (next.events[i].type === 'hero_hit' || next.events[i].type === 'block') { hitActive = true; break; }
+  }
+  if (hitActive) {
+    // Monsters attack — shake all monster cards
+    var allMonsters = document.querySelectorAll('.monster-card');
+    for (var mi = 0; mi < allMonsters.length; mi++) {
+      var m = allMonsters[mi];
+      if (m.classList.contains('boss')) { m.classList.add('animate-shake-screen'); } else { m.classList.add('animate-shake'); }
+    }
+    await animSleep('animate-shake');
+    for (var mi2 = 0; mi2 < allMonsters.length; mi2++) { allMonsters[mi2].classList.remove('animate-shake-screen', 'animate-shake'); }
+  }
+  for (var i = 0; i < next.events.length; i++) {
+    var ev = next.events[i];
+    if (ev.type === 'hero_hit') { await playMonsterHit(ev); hitActive = true; }
+    if (ev.type === 'block') { await playBlockEffect(ev); hitActive = true; }
+  }
+  if (hitActive) await sleep(PHASE_GAP_MS);
+
+  // Phase 3: Heals
+  var healActive = false;
+  for (var i = 0; i < next.events.length; i++) {
+    var ev = next.events[i];
+    if (ev.type === 'heal_cast') { await playHealCast(ev); healActive = true; }
+    if (ev.type === 'healed') { await playHealed(ev); healActive = true; }
+  }
+  if (healActive) await sleep(PHASE_GAP_MS);
+
+  // Phase 4: Deaths
+  for (var i = 0; i < next.events.length; i++) {
+    var ev = next.events[i];
+    if (ev.type === 'hero_death') { await playHeroDeath(ev); }
+    if (ev.type === 'monster_death') { await playMonsterDeath(); }
+  }
+
+  // Update HP bars + combat log from the resulting snapshot
+  if (next.monsters) updateMonsterBars(next.monsters);
+  if (next.round && next.round.partyHeroes) updateHeroBars(next.round.partyHeroes);
+  updateCombatLog(next, prev);
+}
+
+// ─── Per-event animation handlers ───────────────────────────
+
+function playHeroAttack(e) {
+  return (async function() {
+    var wType = (e.heroId === hero.id) ? getWeaponType() : (e.weaponType || 'melee');
+    var el = document.getElementById('hero-' + e.heroId);
+    var monEl = document.querySelector('.monster-card.is-focus') || document.querySelector('.monster-card:first-child');
+    if (!el) return;
+
+    if (wType === 'mage' || wType === 'range') {
+      if (monEl) {
+        if (wType === 'mage') {
+          var colors = { fire: '#ff8800', ice: '#4488ff', arcane: '#aa44ff' };
+          var color = colors.fire;
+          if (hero.equipped && hero.equipped.rightHandWeapon) {
+            var n = (hero.equipped.rightHandWeapon.name || '').toLowerCase();
+            if (n.indexOf('ice') !== -1 || n.indexOf('frost') !== -1) color = colors.ice;
+            else if (n.indexOf('arcane') !== -1 || n.indexOf('void') !== -1) color = colors.arcane;
+          }
+          createProjectile(el, monEl, color, false);
+          await sleep(380);
+          createExplosion(monEl, color);
+        } else {
+          createProjectile(el, monEl, '#88ccff', true);
+          await sleep(430);
+          monEl.classList.add('animate-flash-white');
+          var hr2 = monEl.getBoundingClientRect();
+          floatText(hr2.left + hr2.width/2 - 20, hr2.top - 10, 'HIT!', 'damage');
+          await sleep(400);
+          monEl.classList.remove('animate-flash-white');
+        }
+        if (e.crit) {
+          var arena = document.querySelector('.arena');
+          if (arena) { arena.classList.add('animate-shake-screen'); setTimeout(function() { arena.classList.remove('animate-shake-screen'); }, 500); }
+        }
+      }
+    } else {
+      // melee
+      var animClass = (e.role === 'tank') ? 'animate-shield' : 'animate-slash';
+      el.classList.add(animClass);
+      await sleep(getAnimDuration(animClass) + 50);
+      el.classList.remove(animClass);
+      if (monEl) {
+        monEl.style.animationPlayState = 'paused';
+        await sleep(80);
+        monEl.style.animationPlayState = '';
+      }
+    }
+  })();
+}
+
+function playMonsterHit(e) {
+  return (async function() {
+    var monEl = document.querySelector('.monster-card.is-focus') || document.querySelector('.monster-card:first-child');
+    if (!monEl) return;
+    monEl.classList.add('animate-flash-red', 'animate-shake', 'animate-hit-splat');
+    var mr = monEl.getBoundingClientRect();
+    floatText(mr.left + mr.width/2 - 20, mr.top - 10, Math.round(e.damage), 'damage');
+    emitParticles('hit', mr.left + mr.width/2, mr.top + mr.height/2, 6);
+    await animSleep('animate-flash-red');
+    monEl.classList.remove('animate-flash-red', 'animate-shake', 'animate-hit-splat');
+    if (e.crit) {
+      var arena = document.querySelector('.arena');
+      if (arena) { arena.classList.add('animate-shake-screen'); setTimeout(function() { arena.classList.remove('animate-shake-screen'); }, getAnimDuration('animate-shake-screen') + 50); }
+    }
+  })();
+}
+
+function playBlockEffect(e) {
+  return (async function() {
+    var hel = document.getElementById('hero-' + e.heroId);
+    if (!hel) return;
+    var mCards = document.querySelectorAll('.monster-card');
+    for (var bi = 0; bi < mCards.length; bi++) {
+      hel.classList.add('animate-shield', 'animate-block-burst');
+      var br2 = hel.getBoundingClientRect();
+      emitParticles('block', br2.left + br2.width/2, br2.top + br2.height/2, 4);
+      if (bi === 0) floatText(br2.left + br2.width/2 - 20, br2.top - 10, 'BLOCK', 'block');
+      await animSleep('animate-block-burst');
+      hel.classList.remove('animate-shield', 'animate-block-burst');
+    }
+  })();
+}
+
+function playHealCast(e) {
+  return (async function() {
+    var casterEl = document.getElementById('hero-' + e.heroId);
+    if (!casterEl) return;
+    casterEl.classList.add('animate-heal-cast');
+    await animSleep('animate-heal-cast');
+    casterEl.classList.remove('animate-heal-cast');
+  })();
+}
+
+function playHealed(e) {
+  return (async function() {
+    var hel = document.getElementById('hero-' + e.heroId);
+    if (!hel) return;
+    var hr3 = hel.getBoundingClientRect();
+    emitParticles('heal', hr3.left + hr3.width/2, hr3.top + hr3.height/2, 8);
+    hel.classList.add('animate-heal-received');
+    await animSleep('animate-heal-received');
+    hel.classList.remove('animate-heal-received');
+    floatText(hr3.left + hr3.width/2 - 20, hr3.top - 20, '+' + Math.round(e.healAmount), 'heal');
+  })();
+}
+
+function playHeroDeath(e) {
+  return (async function() {
+    var hel = document.getElementById('hero-' + e.heroId);
+    if (!hel) return;
+    var rect3 = hel.getBoundingClientRect();
+    emitParticles('death', rect3.left + rect3.width/2, rect3.top + rect3.height/2, 12);
+    hel.classList.add('animate-fade-out');
+    await animSleep('animate-fade-out');
+  })();
+}
+
+function playMonsterDeath() {
+  return (async function() {
+    var target = document.querySelector('.monster-card.is-focus') || document.querySelector('.monster-card');
+    if (!target) return;
+    var rect = target.getBoundingClientRect();
+    emitParticles('death', rect.left + rect.width/2, rect.top + rect.height/2, 20);
+    var arena = document.querySelector('.arena');
+    if (arena) { arena.classList.add('animate-shake-screen'); setTimeout(function() { arena.classList.remove('animate-shake-screen'); }, getAnimDuration('animate-shake-screen') + 50); }
+    target.classList.add('animate-flash-white');
+    await animSleep('animate-flash-white');
+    target.classList.remove('animate-flash-white');
+    target.classList.add('animate-fade-out');
+    await animSleep('animate-fade-out');
+  })();
 }
 
 
@@ -1032,6 +1235,30 @@ async function animateTransition(prev, next) {
   }
   if (next.round.monsterJustKilled && !prev.round.monsterJustKilled) {
     addLog('kill', '[R' + next.round.round + '] ' + prev.round.currentMonsterName + ' defeated!');
+  }
+}
+
+// ─── Combat log (driven by state, complementary to events) ──
+function updateCombatLog(next, prev) {
+  if (!next.round || !next.round.partyHeroes) return;
+  var r = next.round.round;
+
+  if (prev.round && prev.round.partyHeroes) {
+    var prevMap = {};
+    for (var pi = 0; pi < prev.round.partyHeroes.length; pi++) {
+      prevMap[prev.round.partyHeroes[pi].heroId] = prev.round.partyHeroes[pi];
+    }
+    next.round.partyHeroes.forEach(function(h) {
+      var prevH = prevMap[h.heroId];
+      if (h.damage > 0) addLog(h.crit ? 'crit' : 'damage', '[R' + r + '] ' + h.name + ' ' + (h.crit ? 'CRITS' : 'hits') + ' for ' + Math.round(h.damage));
+      if (h.damageTaken > 0 && h.role !== 'tank') addLog('damage', '[R' + r + '] ' + h.name + ' takes ' + Math.round(h.damageTaken));
+      if (h.damageTaken > 0 && h.role === 'tank') addLog('block', '[R' + r + '] ' + h.name + ' blocks ' + Math.round(h.damageTaken) + ' damage!');
+      if (h.healingReceived > 0) addLog('heal', '[R' + r + '] +' + Math.round(h.healingReceived) + ' HP healed');
+      if (prevH && !h.alive && prevH.alive) addLog('kill', '[R' + r + '] ' + h.name + ' has fallen!');
+    });
+  }
+  if (next.round.monsterJustKilled && prev.round && !prev.round.monsterJustKilled) {
+    addLog('kill', '[R' + r + '] ' + prev.round.currentMonsterName + ' defeated!');
   }
 }
 
