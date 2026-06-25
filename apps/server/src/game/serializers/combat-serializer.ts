@@ -164,7 +164,6 @@ function toView(state: PartyFloorRunState, _viewerHeroId: string | null): Combat
   const currentMonster = state.monsters[state.currentMonsterIndex];
 
   const monsters = state.monsters
-    .filter((m) => m.currentHp > 0)
     .map((m) => ({
       id: m.data.id,
       name: m.data.name,

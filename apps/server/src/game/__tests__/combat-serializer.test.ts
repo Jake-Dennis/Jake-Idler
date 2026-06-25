@@ -116,8 +116,17 @@ describe("combatSerializer.toView", () => {
     expect(view.partyCombat).toBe(true);
     expect(view.result).toBeUndefined();
 
-    expect(view.monsters).toHaveLength(2);
+    expect(view.monsters).toHaveLength(3);
+    // Dead monster (m1, currentHp=0) is included with isCurrentFocus=false
     expect(view.monsters[0]).toMatchObject({
+      id: "m1",
+      name: "Goblin Scout",
+      isBoss: false,
+      hp: 0,
+      maxHp: 100,
+      isCurrentFocus: false,
+    });
+    expect(view.monsters[1]).toMatchObject({
       id: "m2",
       name: "Orc Warrior",
       isBoss: false,
@@ -125,7 +134,7 @@ describe("combatSerializer.toView", () => {
       maxHp: 150,
       isCurrentFocus: true,
     });
-    expect(view.monsters[1]).toMatchObject({
+    expect(view.monsters[2]).toMatchObject({
       id: "m3",
       name: "Floor Boss",
       isBoss: true,
@@ -258,6 +267,14 @@ describe("combatSerializer.toView", () => {
       partyCombat: true,
       monsters: [
         {
+          id: "m1",
+          name: "Goblin Scout",
+          isBoss: false,
+          hp: 0,
+          maxHp: 100,
+          isCurrentFocus: false,
+        },
+        {
           id: "m2",
           name: "Orc Warrior",
           isBoss: false,
@@ -328,17 +345,14 @@ describe("combatSerializer.toView", () => {
     expect(view.round).toBeNull();
   });
 
-  it("marks isCurrentFocus correctly for the current monster", () => {
+  it("marks isCurrentFocus on the dead monster when index points to it", () => {
     const run = makeStubRun({ currentMonsterIndex: 0 });
-    // Monster A is dead (currentHp: 0), so it's filtered out
-    // currentMonsterIndex is 0, but monster at index 0 has currentHp 0
-    // So currentMonster = monsters[0] which has currentHp 0
-    // After filter, only monsters with currentHp > 0 remain
-    // So monsters array will be [monsterB, monsterC]
-    // currentMonster = run.monsters[0] (dead monster)
-    // m === currentMonster will be false for all filtered monsters
+    // Monster A (index 0) has currentHp 0 (dead), but is still included
+    // in the monsters array. currentMonsterIndex 0 → focus on dead monster.
     const view = combatSerializer.toView(run, "h1");
-    expect(view.monsters.every((m) => !m.isCurrentFocus)).toBe(true);
+    // First monster (dead) should have focus because currentMonsterIndex is 0
+    expect(view.monsters[0].isCurrentFocus).toBe(true);
+    expect(view.monsters[0].hp).toBe(0);
   });
 });
 
