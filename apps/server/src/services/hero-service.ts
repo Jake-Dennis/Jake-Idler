@@ -76,7 +76,7 @@ export class HeroService {
       }
     }
 
-    const heroForStats = { level: 0, equipped } as Pick<Hero, "level" | "equipped">;
+    const heroForStats = { level: 1, equipped } as Pick<Hero, "level" | "equipped">;
     const computed = computeHeroStats(heroForStats);
 
     const now = new Date().toISOString();
@@ -86,10 +86,10 @@ export class HeroService {
         id,
         playerId,
         name,
-        level: 0,
+        level: 1,
         gold: 0,
         currentFloor: 1,
-        shards: { common: 0, uncommon: 0, rare: 0, epic: 0, legendary: 0 },
+        shards: {},
         equipped: equipped as unknown as Record<string, unknown>,
         inventory: inventory as unknown as unknown[],
         stats: {
