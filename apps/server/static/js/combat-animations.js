@@ -207,6 +207,8 @@ function playMonsterDeath(e) {
     target.classList.remove('animate-flash-white');
     target.classList.add('animate-fade-out');
     await animSleep('animate-fade-out');
+    // Remove the dead monster card from the DOM
+    if (target.parentNode) target.parentNode.removeChild(target);
   })();
 }
 

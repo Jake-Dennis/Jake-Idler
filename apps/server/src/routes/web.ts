@@ -1178,6 +1178,10 @@ if (typeof io !== 'undefined' && token) {
       }
     }
 
+    // Re-render monster/hero cards to remove dead monsters (server filters currentHp <= 0)
+    if (state.monsters) renderMonsters(state.monsters);
+    if (state.round && state.round.partyHeroes) renderPartyHeroes(state.round.partyHeroes);
+
     if (state.round) {
       document.getElementById('round-counter').textContent = 'Round ' + state.round.round;
       combatState = state;
