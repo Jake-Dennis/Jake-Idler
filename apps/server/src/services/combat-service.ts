@@ -183,7 +183,7 @@ class CombatService {
     const partySize = partyMembers.length;
     const monsters = this.generateMonsterQueue(floorNumber, partySize);
 
-    // Scale monster HP by party size so each member contributes proportionally
+    // Scale monster HP by party size (from GEAR-BALANCE.md)
     const hpScale = 1 + (Math.sqrt(partySize) - 1) * 0.5;
     for (const m of monsters) {
       m.maxHp = Math.round(m.maxHp * hpScale);
@@ -203,10 +203,10 @@ class CombatService {
       let healing = 0;
 
       if (pm.role === "tank") {
-        atk = 0;
-        hp = baseHp + rawAtk;
+        atk = Math.round(rawAtk * 0.5);
+        hp = baseHp + Math.round(rawAtk * 0.5);
       } else if (pm.role === "healer") {
-        atk = 0;
+        atk = Math.round(rawAtk * 0.5);
         healing = Math.round(rawAtk * 0.5);
       } else {
         atk = rawAtk;
@@ -457,10 +457,11 @@ class CombatService {
         run.currentMonsterIndex = nextIndex;
         const nextMonster = run.monsters[nextIndex];
         if (run.lastRound) {
+          // Keep the DYING monster's name in lastRound so the client
+          // can remove the correct card. The next tick will set the
+          // name to the new current monster via finaliseRound.
           run.lastRound = {
             ...run.lastRound,
-            currentMonsterName: nextMonster.data.name,
-            currentMonsterIsBoss: nextMonster.data.isBoss,
             monsterHp: nextMonster.currentHp,
             monsterMaxHp: nextMonster.maxHp,
             monsterJustKilled: true,
