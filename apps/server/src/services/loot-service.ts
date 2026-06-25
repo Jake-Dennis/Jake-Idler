@@ -8,7 +8,6 @@ import {
   calculateSalvageValue,
   getCraftCost,
   getCraftGoldCost,
-  getSalvageShards,
   getShardSalvageValue,
   generateEquipment,
   shardKey,
@@ -183,28 +182,21 @@ class LootService {
 
     const equipment = inventory[idx];
     const goldValue = calculateSalvageValue(equipment);
-    const shardCount = getSalvageShards(equipment.rarity);
-    const bracketLevel = Math.ceil(equipment.level / 10) * 10;
-    const shardKeyStr = shardKey(equipment.rarity, bracketLevel);
 
-    // Remove from inventory, add gold and shards
+    // Remove from inventory, add gold only (no shards from gear salvage)
     inventory.splice(idx, 1);
     const newGold = hero.gold + goldValue;
-    const currentShards = hero.shards as unknown as Record<string, number> || {};
-    const newShards = { ...currentShards };
-    newShards[shardKeyStr] = (newShards[shardKeyStr] || 0) + shardCount;
 
     await db
       .update(heroes)
       .set({
         inventory: inventory as unknown as unknown[],
         gold: newGold,
-        shards: newShards as any,
         lastActive: new Date().toISOString(),
       })
       .where(eq(heroes.id, heroId));
 
-    return { success: true, gold: goldValue, shards: newShards };
+    return { success: true, gold: goldValue };
   }
 
   /**

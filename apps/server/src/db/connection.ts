@@ -93,6 +93,18 @@ export function getSchemaDDL(): string {
       finished_at INTEGER,
       updated_at TEXT NOT NULL
     );
+    CREATE TABLE IF NOT EXISTS chat_messages (
+      id TEXT PRIMARY KEY,
+      channel TEXT NOT NULL,
+      sender_id TEXT NOT NULL REFERENCES players(id),
+      sender_name TEXT NOT NULL,
+      target_id TEXT,
+      target_name TEXT,
+      message TEXT NOT NULL,
+      created_at TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_chat_channel ON chat_messages(channel, created_at);
+    CREATE INDEX IF NOT EXISTS idx_chat_whisper ON chat_messages(sender_id, target_id, created_at);
     CREATE TABLE IF NOT EXISTS guilds (
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,

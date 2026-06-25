@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Jake Idler — Balance Editor</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #060406; color: #9a949a; font-family: system-ui, sans-serif; padding: 24px; max-width: 800px; margin: 0 auto; }
+  h1 { color: #e0e0e0; font-size: 1.3rem; margin-bottom: 16px; }
+  .card { background: #0a080a; border: 1px solid #1a1518; border-radius: 8px; padding: 20px; margin-bottom: 16px; }
+  .card h2 { font-size: 1rem; color: #a0a0c0; margin-bottom: 12px; }
+  .row { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid #100e10; gap: 8px; }
+  .row:last-child { border-bottom: none; }
+  .row label { font-size: .78rem; color: #5a555a; flex: 1; word-break: break-all; }
+  .row input { width: 140px; padding: 4px 8px; background: #060406; border: 1px solid #181518; border-radius: 4px; color: #9a949a; font-size: .78rem; text-align: right; flex-shrink: 0; }
+  .row input:focus { border-color: #4a2020; outline: none; }
+  .row select { width: 140px; padding: 4px 8px; background: #060406; border: 1px solid #181518; border-radius: 4px; color: #9a949a; font-size: .78rem; flex-shrink: 0; }
+  .nested { margin-left: 16px; border-left: 1px solid #1a1518; padding-left: 12px; }
+  .section-title { font-size: .85rem; font-weight: 700; color: #7c3aed; margin: 10px 0 6px 0; }
+  .btn { padding: 8px 16px; border-radius: 6px; font-size: .78rem; font-weight: 700; cursor: pointer; border: none; }
+  .btn-primary { background: #3a1520; color: #e0e0e0; border: 1px solid #5a2020; }
+  .btn-primary:hover { background: #4a1a25; }
+  .btn-success { background: #0a2a0a; color: #22c55e; border: 1px solid #154a15; }
+  .btn-danger { background: #2a0a0a; color: #ef4444; border: 1px solid #4a1515; }
+  .toolbar { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+  .toast { position: fixed; top: 12px; right: 12px; padding: 8px 16px; border-radius: 6px; font-size: .78rem; z-index: 100; }
+  .toast-success { background: #0a2a0a; color: #22c55e; border: 1px solid #154a15; }
+  .toast-error { background: #2a0a0a; color: #ef4444; border: 1px solid #4a1515; }
+  .file-info { font-size: .72rem; color: #3a373a; margin-bottom: 12px; }
+  input[type="file"] { display: none; }
+</style>
+</head>
+<body>
+
+<h1>&#x2699;&#xFE0F; Jake Idler — Balance Editor</h1>
+
+<div class="toolbar">
+  <button onclick="openFile()" class="btn btn-primary">Open balancing.json</button>
+  <button onclick="saveFile()" class="btn btn-success" id="save-btn" disabled>Save</button>
+  <button onclick="resetToDefaults()" class="btn btn-danger" id="reset-btn" disabled>Reset to Defaults</button>
+</div>
+
+<div id="file-info" class="file-info">No file loaded. Click "Open" to select your balancing.json.</div>
+
+<div id="editor" class="card" style="display:none">
+  <h2>Balance Parameters</h2>
+  <div id="fields"></div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+var originalData = null;
+var currentData = null;
+var fileHandle = null;
+
+function toast(msg, type) {
+  var el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = 'toast toast-' + type;
+  setTimeout(function() { el.className = 'toast'; }, 3000);
+}
+
+function openFile() {
+  var input = document.createElement('input');
+  input.type = 'file';
+  input.accept = '.json,application/json';
+  input.onchange = async function(e) {
+    var file = e.target.files[0];
+    if (!file) return;
+    try {
+      var text = await file.text();
+      var data = JSON.parse(text);
+      originalData = JSON.parse(text);
+      currentData = data;
+      renderEditor(data);
+      document.getElementById('file-info').textContent = 'Loaded: ' + file.name + ' (' + Object.keys(data).length + ' keys)';
+      document.getElementById('editor').style.display = 'block';
+      document.getElementById('save-btn').disabled = false;
+      document.getElementById('reset-btn').disabled = false;
+      toast('Loaded ' + file.name, 'success');
+    } catch (err) {
+      toast('Failed to parse JSON: ' + err.message, 'error');
+    }
+  };
+  input.click();
+}
+
+function renderEditor(data) {
+  var container = document.getElementById('fields');
+  container.innerHTML = '';
+
+  var keys = Object.keys(data).sort();
+  for (var i = 0; i < keys.length; i++) {
+    var key = keys[i];
+    var value = data[key];
+
+    if (value !== null && typeof value === 'object' && !Array.isArray(value)) {
+      var div = document.createElement('div');
+      div.innerHTML = '<div class="section-title">' + key + '</div><div class="nested" id="nested-' + key + '"></div>';
+      container.appendChild(div);
+      var nested = document.getElementById('nested-' + key);
+      var subKeys = Object.keys(value).sort();
+      for (var j = 0; j < subKeys.length; j++) {
+        var sk = subKeys[j];
+        addField(nested, key + '.' + sk, value[sk], key, sk);
+      }
+    } else {
+      addField(container, key, value, null, null);
+    }
+  }
+}
+
+function addField(container, label, value, parent, sub) {
+  var row = document.createElement('div');
+  row.className = 'row';
+  var inputId = 'f-' + label.replace(/[^a-zA-Z0-9]/g, '-');
+
+  if (typeof value === 'number') {
+    row.innerHTML = '<label>' + label + '</label>' +
+      '<input type="number" id="' + inputId + '" value="' + value + '" step="any" data-parent="' + (parent || '') + '" data-sub="' + (sub || '') + '">';
+  } else if (typeof value === 'boolean') {
+    row.innerHTML = '<label>' + label + '</label>' +
+      '<select id="' + inputId + '" data-parent="' + (parent || '') + '" data-sub="' + (sub || '') + '">' +
+      '<option value="true"' + (value ? ' selected' : '') + '>true</option>' +
+      '<option value="false"' + (!value ? ' selected' : '') + '>false</option></select>';
+  } else {
+    row.innerHTML = '<label>' + label + '</label>' +
+      '<input type="text" id="' + inputId + '" value="' + (value ?? '') + '" data-parent="' + (parent || '') + '" data-sub="' + (sub || '') + '">';
+  }
+  container.appendChild(row);
+}
+
+function collectData() {
+  var result = JSON.parse(JSON.stringify(currentData));
+  var inputs = document.querySelectorAll('#fields input, #fields select');
+
+  for (var i = 0; i < inputs.length; i++) {
+    var inp = inputs[i];
+    var parent = inp.dataset.parent;
+    var sub = inp.dataset.sub;
+    var raw = inp.value;
+
+    if (inp.type === 'number') {
+      raw = parseFloat(raw);
+    } else if (inp.tagName === 'SELECT') {
+      raw = raw === 'true';
+    }
+
+    if (parent && sub) {
+      if (result[parent] && typeof result[parent] === 'object') {
+        result[parent][sub] = raw;
+      }
+    } else {
+      result[inp.id.replace('f-', '').replace(/-/g, '_')] = raw;
+    }
+  }
+  return result;
+}
+
+function saveFile() {
+  var data = collectData();
+  var json = JSON.stringify(data, null, 2);
+
+  // Try File System Access API first
+  if ('showSaveFilePicker' in window) {
+    (async function() {
+      try {
+        var handle = await window.showSaveFilePicker({
+          suggestedName: 'balancing.json',
+          types: [{ description: 'JSON', accept: { 'application/json': ['.json'] } }]
+        });
+        var writable = await handle.createWritable();
+        await writable.write(json);
+        await writable.close();
+        currentData = data;
+        originalData = JSON.parse(json);
+        toast('Saved successfully!', 'success');
+      } catch (err) {
+        if (err.name !== 'AbortError') fallbackDownload(json);
+      }
+    })();
+  } else {
+    fallbackDownload(json);
+  }
+}
+
+function fallbackDownload(json) {
+  var blob = new Blob([json], { type: 'application/json' });
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url;
+  a.download = 'balancing.json';
+  a.click();
+  URL.revokeObjectURL(url);
+  currentData = JSON.parse(json);
+  originalData = JSON.parse(json);
+  toast('Downloaded. Replace the original file manually.', 'success');
+}
+
+function resetToDefaults() {
+  if (!confirm('Reset all values to defaults?')) return;
+  // Re-parse from the original file content
+  if (originalData) {
+    currentData = JSON.parse(JSON.stringify(originalData));
+    renderEditor(currentData);
+    toast('Reset to original values', 'success');
+  }
+}
+</script>
+</body>
+</html>

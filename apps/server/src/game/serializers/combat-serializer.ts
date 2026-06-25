@@ -98,6 +98,7 @@ interface PartyFloorRunState {
 export interface CombatEventView {
   type: string;
   heroId?: string;
+  heroName?: string;
   damage?: number;
   crit?: boolean;
   weaponType?: string;
@@ -248,6 +249,7 @@ function buildEvents(
       events.push({
         type: "hero_attack",
         heroId: h.heroId,
+        heroName: h.name,
         damage: Math.round(h.damage),
         crit: h.crit,
         weaponType: wType,
@@ -259,6 +261,7 @@ function buildEvents(
         events.push({
           type: "heal_cast",
           heroId: h.heroId,
+          heroName: h.name,
           healAmount: Math.round(h.healingDone),
         });
       }
@@ -266,6 +269,7 @@ function buildEvents(
         events.push({
           type: "healed",
           heroId: h.heroId,
+          heroName: h.name,
           healAmount: Math.round(h.healingReceived),
         });
       }
@@ -273,6 +277,7 @@ function buildEvents(
       events.push({
         type: "hero_hit",
         heroId: h.heroId,
+        heroName: h.name,
         damage: Math.round(h.damageTaken),
         crit: h.monsterCrit,
         monsterName: lastRound.currentMonsterName,
@@ -281,6 +286,7 @@ function buildEvents(
           events.push({
             type: "block",
             heroId: h.heroId,
+            heroName: h.name,
             damage: Math.round(h.damageTaken),
           });
         }
@@ -289,6 +295,7 @@ function buildEvents(
         events.push({
           type: "hero_death",
           heroId: h.heroId,
+          heroName: h.name,
         });
       }
     }

@@ -304,6 +304,26 @@ svg[data-lucide]{display:inline;vertical-align:middle}
 .equip-section-title{font-size:1rem;font-weight:700;margin:16px 0 6px;color:#9a949a;display:flex;align-items:center;gap:8px}
 .inv-count{font-size:.78rem;color:#5a555a;font-weight:400}
 
+/* ── Friends ── */
+.friends-section{margin-bottom:12px}
+.friends-section h2{font-size:1.15rem;font-weight:700;margin-bottom:8px;color:#9a949a}
+.friends-input{width:auto;padding:8px 12px;background:#060406;border:1px solid #181518;border-radius:6px;color:#9a949a;font-size:.85rem;outline:none;margin-right:6px}
+.friends-input:focus{border-color:#4a2020}
+.friends-controls{display:flex;gap:6px;align-items:center}
+.friends-list{display:flex;flex-direction:column;gap:6px}
+.friend-card{background:#080608;border:1px solid #1a1518;border-radius:6px;padding:10px 12px}
+.friend-card:hover{border-color:#2a2020}
+
+/* ── Chat ── */
+.chat-channel-bar{display:flex;gap:4px;flex-wrap:wrap}
+.chat-channel-btn{background:#0a080a;border:1px solid #1a1518;border-radius:4px;color:#5a555a;cursor:pointer;padding:4px 12px;font-size:.78rem;font-weight:600}
+.chat-channel-btn.active{background:#2a1520;border-color:#4a2020;color:#e0e0e0}
+.chat-channel-btn:hover{border-color:#2a2020}
+.chat-messages{scrollbar-width:thin;scrollbar-color:#1a1518 transparent}
+.chat-msg:hover{background:rgba(255,255,255,0.02)}
+.chat-input{width:auto;padding:8px 12px;background:#060406;border:1px solid #181518;border-radius:6px;color:#9a949a;font-size:.85rem;outline:none}
+.chat-input:focus{border-color:#4a2020}
+
 /* ── Guild ── */
 .guild-section{margin-bottom:16px}
 .guild-section h2{font-size:1.15rem;font-weight:700;margin-bottom:8px;color:#9a949a}
@@ -319,6 +339,11 @@ svg[data-lucide]{display:inline;vertical-align:middle}
 .guild-roster{display:flex;flex-direction:column;gap:6px}
 .guild-member-row{background:#080608;border:1px solid #1a1518;border-radius:6px;padding:10px 12px}
 .guild-member-row:hover{border-color:#2a2020}
+
+/* ── Party Friends ── */
+.party-friends-list{display:flex;flex-direction:column;gap:4px}
+.party-friend-row{background:#080608;border:1px solid #1a1518;border-radius:6px;padding:8px 10px}
+.party-friend-row:hover{border-color:#2a2020}
 
 /* ── Crafting ── */
 .craft-layout{display:flex;gap:16px;align-items:flex-start}

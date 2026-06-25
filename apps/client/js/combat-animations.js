@@ -349,7 +349,9 @@ window.handleCombatEvents = async function(events, monsters, partyHeroes, roundN
   if (attackEvts.length > 0) {
     var promises = [];
     for (var i = 0; i < attackEvts.length; i++) {
-      promises.push(playHeroAttack(attackEvts[i]));
+      var evt = attackEvts[i];
+      if (window.addLog) window.addLog('attack', (evt.heroName || 'Hero') + ' attacks ' + (evt.monsterName || 'Monster'));
+      promises.push(playHeroAttack(evt));
     }
     await Promise.all(promises);
     await sleep(PHASE_GAP_MS);
@@ -370,8 +372,16 @@ window.handleCombatEvents = async function(events, monsters, partyHeroes, roundN
     for (var mi2 = 0; mi2 < allMonsters.length; mi2++) { allMonsters[mi2].classList.remove('animate-shake-screen', 'animate-shake'); }
     // Block and hit effects
     for (var i = 0; i < events.length; i++) {
-      if (events[i].type === 'hero_hit') await playMonsterHit(events[i]);
-      if (events[i].type === 'block') await playBlockEffect(events[i]);
+      if (events[i].type === 'hero_hit') {
+        var hitEvt = events[i];
+        var critStr = hitEvt.isCrit ? ' (CRIT!)' : '';
+        if (window.addLog) window.addLog('hit', (hitEvt.heroName || 'Hero') + ' hits ' + (hitEvt.monsterName || 'Monster') + ' for ' + hitEvt.damage + critStr);
+        await playMonsterHit(hitEvt);
+      }
+      if (events[i].type === 'block') {
+        if (window.addLog) window.addLog('block', (events[i].monsterName || 'Monster') + ' blocked the attack');
+        await playBlockEffect(events[i]);
+      }
     }
     await sleep(PHASE_GAP_MS);
   }
@@ -383,16 +393,28 @@ window.handleCombatEvents = async function(events, monsters, partyHeroes, roundN
   }
   if (hasHeal) {
     for (var i = 0; i < events.length; i++) {
-      if (events[i].type === 'heal_cast') await playHealCast(events[i]);
-      if (events[i].type === 'healed') await playHealed(events[i]);
+      if (events[i].type === 'heal_cast') {
+        if (window.addLog) window.addLog('heal', (events[i].heroName || 'Hero') + ' casts heal');
+        await playHealCast(events[i]);
+      }
+      if (events[i].type === 'healed') {
+        if (window.addLog) window.addLog('healed', (events[i].heroName || 'Hero') + ' healed for ' + events[i].amount);
+        await playHealed(events[i]);
+      }
     }
     await sleep(PHASE_GAP_MS);
   }
 
   // Phase 4: Deaths
   for (var i = 0; i < events.length; i++) {
-    if (events[i].type === 'hero_death') await playHeroDeath(events[i]);
-    if (events[i].type === 'monster_death') await playMonsterDeath(events[i]);
+    if (events[i].type === 'hero_death') {
+      if (window.addLog) window.addLog('death', (events[i].heroName || 'Hero') + ' has fallen');
+      await playHeroDeath(events[i]);
+    }
+    if (events[i].type === 'monster_death') {
+      if (window.addLog) window.addLog('kill', (events[i].name || events[i].monsterName || 'Monster') + ' defeated!');
+      await playMonsterDeath(events[i]);
+    }
   }
 
   // Update HP bars from snapshot

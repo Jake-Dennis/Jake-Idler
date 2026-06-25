@@ -1,6 +1,6 @@
 import { db } from "../db/connection.js";
 import { friends, players } from "../db/schema/index.js";
-import { eq, and, or } from "drizzle-orm";
+import { eq, and, or, like } from "drizzle-orm";
 import { onlinePlayers } from "../socket/index.js";
 
 class FriendService {
@@ -10,11 +10,11 @@ class FriendService {
   async addFriend(playerId: string, targetUsername: string): Promise<void> {
     if (targetUsername.length === 0) throw new Error("Username is required");
 
-    // Find the target player
+    // Find the target player (case-insensitive)
     const targetRows = await db
       .select()
       .from(players)
-      .where(eq(players.username, targetUsername))
+      .where(like(players.username, targetUsername))
       .limit(1);
 
     if (targetRows.length === 0) throw new Error("Player not found");

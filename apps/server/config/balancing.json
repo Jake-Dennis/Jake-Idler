@@ -1,0 +1,34 @@
+{
+  "MAX_INVENTORY": 30,
+  "PARTY_MAX_SIZE": 999,
+  "FLOORS_PER_BRACKET": 10,
+  "MONSTERS_PER_FLOOR": 5,
+  "BASE_DROP_RATES": {
+    "common": 70,
+    "uncommon": 20,
+    "rare": 8,
+    "epic": 1.5,
+    "legendary": 0.5
+  },
+  "RARITY_BONUS": {
+    "common": 10,
+    "uncommon": 20,
+    "rare": 30,
+    "epic": 40,
+    "legendary": 50
+  },
+  "HERO_STAT_MULTIPLIER": 0,
+  "FLOOR_SCALE_EXPONENT": 0.3,
+  "FLOOR_SCALE_FACTOR": 0.02,
+  "GOLD_SCALE_FACTOR": 0.1,
+  "CRAFT_COST": {
+    "common": 1,
+    "uncommon": 1,
+    "rare": 1,
+    "epic": 1,
+    "legendary": 1
+  },
+  "COMBAT_COOLDOWN_MS": 5000,
+  "STALE_TIMEOUT_MS": 75000,
+  "GUILD_MAX_MEMBERS": 50
+}

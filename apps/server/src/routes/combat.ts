@@ -9,9 +9,24 @@ const log = createChildLogger("combat-route");
 
 const router = Router();
 
+// Per-hero cooldown: prevent spamming start-stop to burn through floors.
+// Players must wait N seconds between combat starts.
+const COMBAT_COOLDOWN_MS = 5_000;
+const lastCombatStart = new Map<string, number>();
+
 // POST /:id/combat/start — simulate an entire floor run instantly
 router.post("/:id/combat/start", requireAuth, async (req, res) => {
   const heroId = req.params.id as string;
+
+  const now = Date.now();
+  const lastStart = lastCombatStart.get(heroId);
+  if (lastStart && (now - lastStart) < COMBAT_COOLDOWN_MS) {
+    const remaining = Math.ceil((COMBAT_COOLDOWN_MS - (now - lastStart)) / 1000);
+    res.status(429).json({ error: `Please wait ${remaining}s before starting another floor` });
+    return;
+  }
+  lastCombatStart.set(heroId, now);
+
   const hero = await heroService.getHero(heroId);
   if (!hero) { res.status(404).json({ error: "Hero not found" }); return; }
   if (hero.playerId !== req.player!.id) { res.status(403).json({ error: "Not your hero" }); return; }

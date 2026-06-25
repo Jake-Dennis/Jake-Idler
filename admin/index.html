@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Jake Idler — Admin</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: #060406; color: #9a949a; font-family: 'Cinzel', monospace; padding: 24px; }
+    h1 { color: #e0e0e0; font-size: 1.3rem; margin-bottom: 16px; }
+    .card { background: #0a080a; border: 1px solid #1a1518; border-radius: 8px; padding: 20px; margin-bottom: 16px; }
+    .card h2 { font-size: 1rem; color: #a0a0c0; margin-bottom: 12px; }
+    .param { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid #100e10; }
+    .param:last-child { border-bottom: none; }
+    .param label { font-size: .78rem; color: #5a555a; word-break: break-all; padding-right: 8px; }
+    .param input { width: 120px; padding: 4px 8px; background: #060406; border: 1px solid #181518; border-radius: 4px; color: #9a949a; font-size: .78rem; text-align: right; }
+    .param input:focus { border-color: #4a2020; outline: none; }
+    .param select { padding: 4px 8px; background: #060406; border: 1px solid #181518; border-radius: 4px; color: #9a949a; font-size: .78rem; }
+    .btn { padding: 8px 16px; border-radius: 6px; font-size: .78rem; font-weight: 700; cursor: pointer; border: none; font-family: inherit; }
+    .btn-primary { background: #3a1520; color: #e0e0e0; border: 1px solid #5a2020; }
+    .btn-primary:hover { background: #4a1a25; }
+    .btn-danger { background: #2a0a0a; color: #ef4444; border: 1px solid #4a1515; }
+    .btn-success { background: #0a2a0a; color: #22c55e; border: 1px solid #154a15; }
+    .flash { position: fixed; top: 12px; right: 12px; padding: 8px 16px; border-radius: 6px; font-size: .78rem; z-index: 100; }
+    .flash-success { background: #0a2a0a; color: #22c55e; border: 1px solid #154a15; }
+    .flash-error { background: #2a0a0a; color: #ef4444; border: 1px solid #4a1515; }
+    .actions { display: flex; gap: 8px; margin-top: 16px; }
+    .nested-params { margin-left: 16px; border-left: 1px solid #1a1518; padding-left: 12px; }
+    .section-title { font-size: .85rem; font-weight: 700; color: #7c3aed; margin: 10px 0 6px 0; }
+    input[type="text"], input[type="url"] { width: 100%; padding: 8px; background: #060406; border: 1px solid #181518; border-radius: 4px; color: #9a949a; font-size: .78rem; }
+    input[type="text"]:focus, input[type="url"]:focus { border-color: #4a2020; outline: none; }
+  </style>
+</head>
+<body>
+
+<h1>&#x2699;&#xFE0F; Jake Idler &mdash; Admin Panel</h1>
+<div id="flash"></div>
+
+<div id="login-card" class="card">
+  <h2>Connect to Server</h2>
+  <p style="font-size:.78rem;margin-bottom:8px">Server URL (e.g. http://localhost:3000).</p>
+  <input id="server-url" type="url" value="http://localhost:3000" style="margin-bottom:8px" />
+  <p style="font-size:.78rem;margin-bottom:8px">Your JWT token (from game, check devtools &rarr; Application &rarr; Local Storage &rarr; token).</p>
+  <input id="token-input" type="text" placeholder="Paste your JWT token..." style="margin-bottom:8px" />
+  <button onclick="loadConfig()" class="btn btn-primary">Load Config</button>
+</div>
+
+<div id="config-card" class="card" style="display:none">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+    <h2 style="margin:0">Balancing Config</h2>
+    <button onclick="resetConfig()" class="btn btn-danger">Reset to Defaults</button>
+  </div>
+  <div id="config-fields"></div>
+  <div class="actions">
+    <button onclick="saveAll()" class="btn btn-success">Save All Changes</button>
+    <button onclick="loadConfig()" class="btn btn-primary">Refresh</button>
+  </div>
+</div>
+
+<script>
+var baseUrl = 'http://localhost:3000';
+
+function flash(msg, type) {
+  var el = document.getElementById('flash');
+  el.textContent = msg;
+  el.className = 'flash flash-' + type;
+  setTimeout(function() { el.className = 'flash'; }, 3000);
+}
+
+function getToken() {
+  return document.getElementById('token-input').value.trim();
+}
+
+async function api(path, options) {
+  var headers = { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + getToken() };
+  var res = await fetch(baseUrl + path, { headers: headers, ...options });
+  if (!res.ok) {
+    var err = await res.json().catch(function() { return { error: res.statusText }; });
+    throw new Error(err.error || 'Request failed (' + res.status + ')');
+  }
+  return res.json();
+}
+
+async function loadConfig() {
+  baseUrl = document.getElementById('server-url').value.trim().replace(/\/+$/, '');
+  var token = getToken();
+  if (!baseUrl) { flash('Enter a server URL', 'error'); return; }
+  if (!token) { flash('Enter a token', 'error'); return; }
+  try {
+    var data = await api('/api/admin/balancing');
+    document.getElementById('login-card').style.display = 'none';
+    document.getElementById('config-card').style.display = 'block';
+    renderConfig(data);
+    flash('Config loaded', 'success');
+  } catch (err) {
+    flash(err.message, 'error');
+  }
+}
+
+function renderConfig(config) {
+  var container = document.getElementById('config-fields');
+  container.innerHTML = '';
+
+  var keys = Object.keys(config).sort();
+  for (var i = 0; i < keys.length; i++) {
+    var key = keys[i];
+    var value = config[key];
+    var div = document.createElement('div');
+
+    if (value !== null && typeof value === 'object' && !Array.isArray(value)) {
+      div.innerHTML = '<div class="section-title">' + key + '</div><div class="nested-params" id="nested-' + key + '"></div>';
+      container.appendChild(div);
+      var nestedContainer = document.getElementById('nested-' + key);
+      var subKeys = Object.keys(value).sort();
+      for (var j = 0; j < subKeys.length; j++) {
+        var subKey = subKeys[j];
+        var subValue = value[subKey];
+        addParamField(nestedContainer, key + '.' + subKey, subValue, key, subKey);
+      }
+    } else {
+      addParamField(container, key, value, null, null);
+    }
+  }
+}
+
+function addParamField(container, label, value, parentKey, subKey) {
+  var row = document.createElement('div');
+  row.className = 'param';
+  var inputId = 'field-' + label.replace(/\./g, '-');
+
+  if (typeof value === 'number') {
+    row.innerHTML = '<label title="' + label + '">' + label + '</label>' +
+      '<input type="number" id="' + inputId + '" value="' + value + '" step="any" data-parent="' + (parentKey || '') + '" data-sub="' + (subKey || '') + '" />';
+  } else if (typeof value === 'boolean') {
+    row.innerHTML = '<label title="' + label + '">' + label + '</label>' +
+      '<select id="' + inputId + '" data-parent="' + (parentKey || '') + '" data-sub="' + (subKey || '') + '">' +
+      '<option value="true"' + (value ? ' selected' : '') + '>true</option>' +
+      '<option value="false"' + (!value ? ' selected' : '') + '>false</option></select>';
+  } else {
+    row.innerHTML = '<label title="' + label + '">' + label + '</label>' +
+      '<input type="text" id="' + inputId + '" value="' + (value ?? '') + '" data-parent="' + (parentKey || '') + '" data-sub="' + (subKey || '') + '" />';
+  }
+  container.appendChild(row);
+}
+
+async function saveAll() {
+  var inputs = document.querySelectorAll('#config-fields input, #config-fields select');
+  var errors = [];
+
+  for (var i = 0; i < inputs.length; i++) {
+    var input = inputs[i];
+    var parentKey = input.dataset.parent;
+    var subKey = input.dataset.sub;
+    var value = input.type === 'number' ? parseFloat(input.value) : (input.type === 'select-one' ? (input.value === 'true') : input.value);
+
+    if (parentKey && subKey) {
+      try {
+        await api('/api/admin/balancing/nested', {
+          method: 'PUT',
+          body: JSON.stringify({ key: parentKey, subKey: subKey, value: value })
+        });
+      } catch (err) { errors.push(parentKey + '.' + subKey + ': ' + err.message); }
+    } else {
+      try {
+        var key = input.id.replace('field-', '');
+        await api('/api/admin/balancing', {
+          method: 'PUT',
+          body: JSON.stringify({ key: key, value: value })
+        });
+      } catch (err) { errors.push(key + ': ' + err.message); }
+    }
+  }
+
+  if (errors.length === 0) {
+    flash('All changes saved', 'success');
+  } else {
+    flash(errors.join('; '), 'error');
+  }
+}
+
+async function resetConfig() {
+  if (!confirm('Reset all config to defaults?')) return;
+  try {
+    await api('/api/admin/balancing/reset', { method: 'POST' });
+    flash('Reset to defaults', 'success');
+    loadConfig();
+  } catch (err) {
+    flash(err.message, 'error');
+  }
+}
+</script>
+</body>
+</html>

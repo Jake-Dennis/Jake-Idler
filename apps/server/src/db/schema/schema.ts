@@ -94,6 +94,27 @@ export const keys = sqliteTable("keys", {
 });
 
 // ---------------------------------------------------------------------------
+// chat_messages
+// ---------------------------------------------------------------------------
+export const chatMessages = sqliteTable(
+  "chat_messages",
+  {
+    id: text("id").primaryKey(),
+    channel: text("channel", { enum: ["global", "guild", "party", "whisper"] }).notNull(),
+    senderId: text("sender_id").notNull().references(() => players.id),
+    senderName: text("sender_name").notNull(),
+    targetId: text("target_id"), // for whispers: recipient playerId
+    targetName: text("target_name"), // for whispers: recipient display name
+    message: text("message").notNull(),
+    createdAt: text("created_at").notNull(),
+  },
+  (t) => [
+    index("idx_chat_channel").on(t.channel, t.createdAt),
+    index("idx_chat_whisper").on(t.senderId, t.targetId, t.createdAt),
+  ],
+);
+
+// ---------------------------------------------------------------------------
 // guilds
 // ---------------------------------------------------------------------------
 export const guilds = sqliteTable("guilds", {

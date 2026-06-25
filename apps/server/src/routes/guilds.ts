@@ -3,7 +3,12 @@ import { z } from "zod";
 import { requireAuth } from "../auth/middleware.js";
 import { guildService, GuildError } from "../services/guild-service.js";
 import { presenceService } from "../services/presence-service.js";
-import { guildCreateLimiter, heartbeatLimiter } from "../middleware/rate-limit.js";
+import { guildCreateLimiter } from "../middleware/rate-limit.js";
+import { partyService } from "../services/party-service.js";
+import { playerStore } from "../store/player-store.js";
+
+/** In-memory map: guildId → partyId for the shared guild lobby. */
+const guildPartyMap = new Map<string, string>();
 
 const router = Router();
 
@@ -40,7 +45,23 @@ router.get("/mine", requireAuth, async (req, res) => {
       res.status(404).json({ error: "You are not in a guild" });
       return;
     }
-    res.json(result);
+
+    // Include guild lobby (party) info
+    const partyId = guildPartyMap.get(result.guild.id);
+    let party = null;
+    if (partyId) {
+      const partyData = partyService.getParty(partyId);
+      if (partyData) {
+        const playerNames: Record<string, string> = {};
+        for (const mid of partyData.memberIds) {
+          const p = await playerStore.findById(mid);
+          if (p) playerNames[mid] = p.username;
+        }
+        party = await partyService.getPartyResponse(partyData, playerNames);
+      }
+    }
+
+    res.json({ ...result, party });
   } catch (err: any) {
     res.status(400).json({ error: err.message });
   }
@@ -119,9 +140,79 @@ router.delete("/:id", requireAuth, async (req, res) => {
   }
 });
 
+// ─── Guild Lobby (Party) ─────────────────────────────────────
+
+/** POST /party — join or create the guild lobby party */
+router.post("/party", requireAuth, async (req, res) => {
+  try {
+    const membership = guildService.getMyGuild(req.player!.id);
+    if (!membership) { res.status(404).json({ error: "Not in a guild" }); return; }
+
+    let partyId = guildPartyMap.get(membership.guild.id);
+    if (!partyId) {
+      // Create a new guild party
+      const party = partyService.create(req.player!.id, `${membership.guild.name} Lobby`);
+      guildPartyMap.set(membership.guild.id, party.id);
+      partyId = party.id;
+    } else {
+      // Join existing guild party
+      const existingParty = partyService.getParty(partyId);
+      if (!existingParty) {
+        // Party was disbanded — create a new one
+        const party = partyService.create(req.player!.id, `${membership.guild.name} Lobby`);
+        guildPartyMap.set(membership.guild.id, party.id);
+        partyId = party.id;
+      } else {
+        // Check if already in the party
+        if (!existingParty.memberIds.includes(req.player!.id)) {
+          const joinedParty = partyService.join(req.player!.id, partyId);
+          // Use the new party object
+        }
+      }
+    }
+
+    const partyData = partyService.getParty(partyId);
+    if (!partyData) { res.status(500).json({ error: "Failed to create party" }); return; }
+
+    const playerNames: Record<string, string> = {};
+    for (const mid of partyData.memberIds) {
+      const p = await playerStore.findById(mid);
+      if (p) playerNames[mid] = p.username;
+    }
+    const party = await partyService.getPartyResponse(partyData, playerNames);
+    res.json({ party });
+  } catch (err: any) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+/** POST /party/leave — leave the guild lobby party */
+router.post("/party/leave", requireAuth, async (req, res) => {
+  try {
+    const membership = guildService.getMyGuild(req.player!.id);
+    if (!membership) { res.status(404).json({ error: "Not in a guild" }); return; }
+
+    const partyId = guildPartyMap.get(membership.guild.id);
+    if (!partyId) { res.status(404).json({ error: "No guild lobby" }); return; }
+
+    // leave() handles membership removal, leadership transfer, and empty-party cleanup
+    partyService.leave(req.player!.id);
+
+    // Check if the party still exists (may have been cleaned up)
+    const partyData = partyService.getParty(partyId);
+    if (!partyData) {
+      guildPartyMap.delete(membership.guild.id);
+    }
+
+    res.status(204).send();
+  } catch (err: any) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
 // ─── POST /heartbeat — presence ping ───────────────────────────
 
-router.post("/heartbeat", heartbeatLimiter, requireAuth, async (_req, res) => {
+router.post("/heartbeat", requireAuth, async (_req, res) => {
   // Heartbeat is called even if not in a guild — still updates onlinePlayers
   presenceService.heartbeat(_req.player!.id);
   res.status(204).send();

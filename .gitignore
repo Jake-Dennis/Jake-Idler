@@ -13,3 +13,7 @@ hero-id.txt
 *.jpg
 .omo/
 .playwright-mcp/
+apps/server/data/*.db
+apps/server/data/*.db-shm
+apps/server/data/*.db-wal
+.turbo/cache/

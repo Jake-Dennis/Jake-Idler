@@ -104,8 +104,10 @@
     <div class="tab-bar">
       <button class="tab active" data-tab="dungeon"><i data-lucide="sword" style="width:16px;height:16px"></i> Dungeon</button>
       <button class="tab" data-tab="equipment"><i data-lucide="shield" style="width:16px;height:16px"></i> Equipment</button>
-      <button class="tab" data-tab="party"><i data-lucide="users" style="width:16px;height:16px"></i> Party</button>
       <button class="tab" data-tab="crafting"><i data-lucide="hammer" style="width:16px;height:16px"></i> Crafting</button>
+      <button class="tab" data-tab="friends"><i data-lucide="user-plus" style="width:16px;height:16px"></i> Friends</button>
+      <button class="tab" data-tab="party"><i data-lucide="users" style="width:16px;height:16px"></i> Party</button>
+      <button class="tab" data-tab="chat"><i data-lucide="message-square" style="width:16px;height:16px"></i> Chat</button>
       <button class="tab" data-tab="guild"><i data-lucide="building-2" style="width:16px;height:16px"></i> Guild</button>
     </div>
 
@@ -175,11 +177,20 @@
           <div id="party-members"></div>
 
           <div class="party-section" style="margin-top:16px">
-            <h3>Controls</h3>
+            <h3>Invite by Username</h3>
             <div class="party-controls">
-              <input id="invite-input" class="party-input" placeholder="Username to invite" style="flex:1;min-width:140px" />
+              <input id="invite-input" class="party-input" placeholder="Username" style="flex:1;min-width:140px" />
               <button onclick="invitePlayer()" class="btn btn-primary btn-sm">Invite</button>
             </div>
+          </div>
+
+          <div class="party-section" style="margin-top:12px">
+            <h3 style="font-size:.85rem;font-weight:600;margin-bottom:6px;color:#a0a0c0">Online Friends</h3>
+            <div id="party-friends-list" class="party-friends-list"></div>
+          </div>
+
+          <div class="party-section" style="margin-top:16px">
+            <h3>Bots</h3>
             <div class="party-controls">
               <select id="bot-role-select" class="party-input">
                 <option value="tank">Tank</option>
@@ -246,6 +257,55 @@
       </div>
     </div>
 
+    <!-- ═══════════ TAB: FRIENDS ═══════════ -->
+    <div id="tab-friends" class="tab-content">
+      <div class="card" style="padding:24px">
+        <div class="friends-section">
+          <h2>Friend List</h2>
+          <div id="friends-list" class="friends-list">
+            <p class="loading">Loading friends...</p>
+          </div>
+        </div>
+
+        <div class="friends-section" style="margin-top:16px">
+          <h2>Add Friend</h2>
+          <div class="friends-controls">
+            <input id="friend-add-input" class="friends-input" placeholder="Username" style="flex:1;min-width:140px" maxlength="20" />
+            <button onclick="addFriend()" class="btn btn-primary btn-sm">Add</button>
+          </div>
+          <div id="friend-add-result" style="font-size:.78rem;margin-top:4px"></div>
+        </div>
+
+        <div id="friend-requests-section" class="friends-section" style="margin-top:16px;display:none">
+          <h2>Pending Requests</h2>
+          <div id="friend-requests-list" class="friends-list"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════ TAB: CHAT ═══════════ -->
+    <div id="tab-chat" class="tab-content">
+      <div class="card" style="padding:16px;display:flex;flex-direction:column;height:calc(100vh - 200px)">
+        <div class="chat-channel-bar">
+          <button class="chat-channel-btn active" data-channel="global" onclick="switchChatChannel('global')">Global</button>
+          <button class="chat-channel-btn" data-channel="guild" onclick="switchChatChannel('guild')">Guild</button>
+          <button class="chat-channel-btn" data-channel="party" onclick="switchChatChannel('party')">Party</button>
+          <button class="chat-channel-btn" data-channel="whisper" onclick="switchChatChannel('whisper')">Whisper</button>
+        </div>
+        <div id="chat-messages" class="chat-messages" style="flex:1;overflow-y:auto;margin:8px 0;padding:8px;background:#060406;border:1px solid #1a1518;border-radius:6px">
+          <p style="text-align:center;color:#3a373a;font-size:.78rem;padding:20px">Loading messages...</p>
+        </div>
+        <div id="chat-whisper-target" style="display:none;font-size:.78rem;color:#7c3aed;margin-bottom:4px">
+          Whispering to: <span id="chat-whisper-name"></span>
+          <button onclick="cancelWhisper()" style="background:none;border:none;color:#6a2525;cursor:pointer;font-size:.7rem;margin-left:8px">Cancel</button>
+        </div>
+        <div class="chat-input-row" style="display:flex;gap:6px">
+          <input id="chat-input" class="chat-input" placeholder="Type a message..." style="flex:1" maxlength="500" />
+          <button onclick="sendChat()" class="btn btn-primary btn-sm">Send</button>
+        </div>
+      </div>
+    </div>
+
     <!-- ═══════════ TAB: GUILD ═══════════ -->
     <div id="tab-guild" class="tab-content">
 
@@ -280,6 +340,17 @@
 
           <h3 style="font-size:.9rem;font-weight:600;margin-bottom:8px;color:#a0a0c0">Roster</h3>
           <div id="guild-roster" class="guild-roster"></div>
+
+          <div class="guild-section" style="margin-top:16px">
+            <h3 style="font-size:.9rem;font-weight:600;margin-bottom:8px;color:#a0a0c0">Guild Lobby</h3>
+            <div id="guild-party-section">
+              <p style="color:#3a373a;font-size:.78rem">No active lobby.</p>
+            </div>
+            <div class="guild-controls" style="margin-top:8px">
+              <button id="guild-party-join-btn" onclick="joinGuildParty()" class="btn btn-primary btn-sm">Join Lobby</button>
+              <button id="guild-party-leave-btn" onclick="leaveGuildParty()" class="btn btn-ghost btn-sm" style="display:none">Leave Lobby</button>
+            </div>
+          </div>
 
           <div class="guild-controls" style="margin-top:16px;justify-content:flex-end">
             <button id="guild-leave-btn" onclick="leaveGuild()" class="btn btn-danger btn-sm" style="display:none">Leave Guild</button>

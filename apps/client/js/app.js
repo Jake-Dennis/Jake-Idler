@@ -291,6 +291,8 @@ document.querySelectorAll('.tab').forEach(function(tab) {
     if (this.dataset.tab === 'equipment') loadEquipment();
     if (this.dataset.tab === 'party') loadParty();
     if (this.dataset.tab === 'crafting') loadCrafting();
+    if (this.dataset.tab === 'friends') loadFriends();
+    if (this.dataset.tab === 'chat') loadChat();
     if (this.dataset.tab === 'guild') loadGuild();
   });
 });
@@ -880,6 +882,14 @@ setInterval(function() {
   if (tab.id === 'tab-crafting') loadCrafting();
 }, 30000);
 
+// Faster poll for party tab — catches invites/joins from other players quickly
+setInterval(function() {
+  var partyTab = document.getElementById('tab-party');
+  if (partyTab && partyTab.classList.contains('active')) {
+    loadParty();
+  }
+}, 5000);
+
 
 
 // ─── Equipment ─────────────────────────────────────────────
@@ -1197,8 +1207,68 @@ function showPartyInParty(party) {
     membersDiv.appendChild(card);
   }
 
+  loadPartyFriends(party);
   loadInvites();
   if (typeof lucide !== 'undefined') lucide.createIcons();
+}
+
+function loadPartyFriends(party) {
+  var container = document.getElementById('party-friends-list');
+  if (!container) return;
+
+  fetch('/api/friends', {
+    headers: { 'Authorization': 'Bearer ' + token }
+  })
+  .then(function(res) { return res.json(); })
+  .then(function(data) {
+    container.innerHTML = '';
+
+    if (!data.friends || data.friends.length === 0) {
+      container.innerHTML = '<p style="color:#3a373a;font-size:.75rem">No friends yet</p>';
+      return;
+    }
+
+    var onlineFriends = data.friends.filter(function(f) { return f.isOnline && f.status === 'accepted'; });
+    if (onlineFriends.length === 0) {
+      container.innerHTML = '<p style="color:#3a373a;font-size:.75rem">No online friends</p>';
+      return;
+    }
+
+    for (var i = 0; i < onlineFriends.length; i++) {
+      var f = onlineFriends[i];
+      var alreadyInParty = party.members.some(function(m) { return m.playerId === f.friendId; });
+
+      var card = document.createElement('div');
+      card.className = 'party-friend-row';
+      card.innerHTML =
+        '<div style="display:flex;justify-content:space-between;align-items:center">' +
+          '<div style="display:flex;align-items:center;gap:6px">' +
+            '<span style="width:6px;height:6px;border-radius:50%;background:#22c55e;display:inline-block"></span>' +
+            '<span style="color:#e0e0e0;font-weight:600;font-size:.85rem">' + escHtml(f.username) + '</span>' +
+          '</div>' +
+          (alreadyInParty
+            ? '<span style="font-size:.7rem;color:#5a555a">In party</span>'
+            : '<button onclick="inviteFriendFromParty(&apos;' + escHtml(f.username) + '&apos;)" class="btn btn-primary btn-sm" style="font-size:.7rem;width:auto">Invite</button>') +
+        '</div>';
+      container.appendChild(card);
+    }
+  })
+  .catch(function() {
+    container.innerHTML = '';
+  });
+}
+
+function inviteFriendFromParty(username) {
+  fetch('/api/party/invite', {
+    method: 'POST',
+    headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username: username })
+  })
+  .then(function(res) { return res.json().then(function(d) { if (!res.ok) throw new Error(d.error || 'Failed'); return d; }); })
+  .then(function(data) {
+    showPartyInParty(data.party);
+  })
+  .catch(function(err) { alert(err.message); });
 }
 
 function createParty() {
@@ -1396,6 +1466,270 @@ function stopHeartbeat() {
   }
 }
 
+// ─── Friends ────────────────────────────────────────────────
+
+function loadFriends() {
+  document.getElementById('friends-list').innerHTML = '<p class="loading">Loading friends...</p>';
+
+  fetch('/api/friends', {
+    headers: { 'Authorization': 'Bearer ' + token }
+  })
+  .then(function(res) { return res.json(); })
+  .then(function(data) {
+    var list = document.getElementById('friends-list');
+    list.innerHTML = '';
+
+    if (!data.friends || data.friends.length === 0) {
+      list.innerHTML = '<p style="text-align:center;padding:16px;color:#3a373a;font-size:.78rem">No friends yet. Add some above!</p>';
+      return;
+    }
+
+    for (var i = 0; i < data.friends.length; i++) {
+      var f = data.friends[i];
+      var card = document.createElement('div');
+      card.className = 'friend-card';
+
+      var dotColor = f.isOnline ? '#22c55e' : '#3a373a';
+      var statusText = f.isOnline ? 'Online' : 'Offline';
+
+      card.innerHTML =
+        '<div style="display:flex;gap:8px;align-items:center">' +
+          '<span style="width:8px;height:8px;border-radius:50%;background:' + dotColor + ';display:inline-block;flex-shrink:0"></span>' +
+          '<div style="flex:1;min-width:0">' +
+            '<div style="display:flex;justify-content:space-between;align-items:center">' +
+              '<span style="font-weight:600;color:#e0e0e0">' + escHtml(f.username) + '</span>' +
+              (f.status === 'pending' ? '<span style="font-size:.65rem;color:#a0a0c0;padding:2px 6px;border:1px solid #2a2040;border-radius:4px">PENDING</span>' : '') +
+            '</div>' +
+            '<div style="font-size:.7rem;color:' + dotColor + '">' + statusText + '</div>' +
+          '</div>' +
+            (f.status === 'accepted'
+            ? '<button onclick="startWhisperFromFriend(&apos;' + f.friendId + '&apos;,&apos;' + escHtml(f.username) + '&apos;)" class="btn btn-ghost btn-sm" style="font-size:.7rem">PM</button><button onclick="removeFriend(&apos;' + f.id + '&apos;)" class="btn btn-ghost btn-sm" style="font-size:.7rem">Remove</button>'
+            : '') +
+        '</div>';
+
+      list.appendChild(card);
+    }
+  })
+  .catch(function() {
+    document.getElementById('friends-list').innerHTML = '<p style="text-align:center;padding:16px;color:#6a2525;font-size:.78rem">Failed to load friends</p>';
+  });
+
+  // Also load pending requests
+  loadFriendRequests();
+}
+
+function loadFriendRequests() {
+  fetch('/api/friends/requests', {
+    headers: { 'Authorization': 'Bearer ' + token }
+  })
+  .then(function(res) { return res.json(); })
+  .then(function(data) {
+    var section = document.getElementById('friend-requests-section');
+    var list = document.getElementById('friend-requests-list');
+    list.innerHTML = '';
+
+    if (!data.requests || data.requests.length === 0) {
+      section.style.display = 'none';
+      return;
+    }
+
+    section.style.display = 'block';
+    for (var i = 0; i < data.requests.length; i++) {
+      var r = data.requests[i];
+      var div = document.createElement('div');
+      div.className = 'friend-card';
+      div.innerHTML =
+        '<div style="display:flex;justify-content:space-between;align-items:center">' +
+          '<span style="font-weight:600;color:#e0e0e0">' + escHtml(r.username) + '</span>' +
+          '<button onclick="acceptFriend(&apos;' + r.fromPlayerId + '&apos;)" class="btn btn-primary btn-sm" style="width:auto">Accept</button>' +
+        '</div>';
+      list.appendChild(div);
+    }
+  })
+  .catch(function() {});
+}
+
+function addFriend() {
+  var username = document.getElementById('friend-add-input').value.trim();
+  if (!username) { document.getElementById('friend-add-result').textContent = 'Enter a username'; return; }
+
+  fetch('/api/friends/add', {
+    method: 'POST',
+    headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username: username })
+  })
+  .then(function(res) { return res.json().then(function(d) { if (!res.ok) throw new Error(d.error || 'Failed'); return d; }); })
+  .then(function() {
+    document.getElementById('friend-add-input').value = '';
+    document.getElementById('friend-add-result').textContent = 'Friend request sent!';
+    document.getElementById('friend-add-result').style.color = '#22c55e';
+    loadFriends();
+  })
+  .catch(function(err) {
+    document.getElementById('friend-add-result').textContent = err.message;
+    document.getElementById('friend-add-result').style.color = '#ef4444';
+  });
+}
+
+function acceptFriend(playerId) {
+  fetch('/api/friends/accept', {
+    method: 'POST',
+    headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ playerId: playerId })
+  })
+  .then(function(res) { return res.json().then(function(d) { if (!res.ok) throw new Error(d.error || 'Failed'); return d; }); })
+  .then(function() { loadFriends(); })
+  .catch(function(err) { alert(err.message); });
+}
+
+function removeFriend(friendId) {
+  if (!confirm('Remove this friend?')) return;
+  fetch('/api/friends/remove', {
+    method: 'POST',
+    headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ friendId: friendId })
+  })
+  .then(function(res) { return res.json().then(function(d) { if (!res.ok) throw new Error(d.error || 'Failed'); return d; }); })
+  .then(function() { loadFriends(); })
+  .catch(function(err) { alert(err.message); });
+}
+
+// ─── Chat ───────────────────────────────────────────────────
+
+var currentChatChannel = 'global';
+var chatWhisperTarget = null;
+var chatTimer = null;
+var lastChatTs = null;
+
+function loadChat() {
+  renderChatMessages();
+  if (!chatTimer) {
+    chatTimer = setInterval(renderChatMessages, 3000);
+  }
+}
+
+function switchChatChannel(channel) {
+  currentChatChannel = channel;
+  document.querySelectorAll('.chat-channel-btn').forEach(function(b) { b.classList.remove('active'); });
+  document.querySelector('.chat-channel-btn[data-channel="' + channel + '"]').classList.add('active');
+  if (channel !== 'whisper') {
+    chatWhisperTarget = null;
+    document.getElementById('chat-whisper-target').style.display = 'none';
+  }
+  lastChatTs = null;
+  document.getElementById('chat-messages').innerHTML = '<p style="text-align:center;color:#3a373a;font-size:.78rem;padding:20px">Loading messages...</p>';
+  renderChatMessages();
+}
+
+function renderChatMessages() {
+  var params = 'channel=' + encodeURIComponent(currentChatChannel);
+  if (lastChatTs) params += '&since=' + encodeURIComponent(lastChatTs);
+  if (currentChatChannel === 'whisper' && chatWhisperTarget) {
+    params += '&targetId=' + encodeURIComponent(chatWhisperTarget);
+  }
+
+  fetch('/api/chat/messages?' + params, {
+    headers: { 'Authorization': 'Bearer ' + token }
+  })
+  .then(function(res) { return res.json(); })
+  .then(function(data) {
+    if (!data.messages || data.messages.length === 0) {
+      if (!lastChatTs) {
+        document.getElementById('chat-messages').innerHTML = '<p style="text-align:center;color:#3a373a;font-size:.78rem;padding:20px">No messages yet</p>';
+      }
+      return;
+    }
+
+    var container = document.getElementById('chat-messages');
+    if (!lastChatTs) container.innerHTML = '';
+    lastChatTs = data.messages[data.messages.length - 1].createdAt;
+
+    for (var i = 0; i < data.messages.length; i++) {
+      var m = data.messages[i];
+      var isMe = m.senderId === hero.playerId;
+      var div = document.createElement('div');
+      div.className = 'chat-msg';
+      div.style.cssText = 'padding:4px 6px;border-radius:4px;margin-bottom:2px;word-break:break-word';
+
+      var nameColor = isMe ? '#7c3aed' : '#fbbf24';
+      var time = new Date(m.createdAt).toLocaleTimeString([], { hour:'2-digit', minute:'2-digit' });
+
+      var whisperLabel = '';
+      if (m.channel === 'whisper' && m.targetName) {
+        whisperLabel = isMe ? ' to ' + escHtml(m.targetName) : ' from ' + escHtml(m.senderName);
+      }
+
+      var nameHtml = m.channel === 'whisper'
+        ? '<span style="color:#a0a0c0;font-size:.7rem">' + whisperLabel + '</span>'
+        : '<span style="color:' + nameColor + ';font-weight:600;font-size:.78rem">' + escHtml(m.senderName) + '</span>';
+
+      // Click on name to whisper
+      var whisperLink = (m.channel !== 'whisper' && !isMe)
+        ? ' <span onclick="startWhisper(&apos;' + m.senderId + '&apos;,&apos;' + escHtml(m.senderName) + '&apos;)" style="color:#3a373a;font-size:.65rem;cursor:pointer">[PM]</span>'
+        : '';
+
+      div.innerHTML =
+        '<div style="display:flex;justify-content:space-between;align-items:baseline">' +
+          '<div>' + nameHtml + whisperLink + '</div>' +
+          '<span style="font-size:.65rem;color:#3a373a;flex-shrink:0">' + time + '</span>' +
+        '</div>' +
+        '<div style="font-size:.82rem;color:#c0c0c0;margin-left:4px">' + escHtml(m.message) + '</div>';
+
+      container.appendChild(div);
+    }
+
+    container.scrollTop = container.scrollHeight;
+  })
+  .catch(function() {});
+}
+
+function sendChat() {
+  var input = document.getElementById('chat-input');
+  var message = input.value.trim();
+  if (!message) return;
+
+  var body = { channel: currentChatChannel, message: message };
+  if (currentChatChannel === 'whisper' && chatWhisperTarget) {
+    var nameEl = document.getElementById('chat-whisper-name');
+    body.targetId = chatWhisperTarget;
+    body.targetName = nameEl.textContent;
+  }
+
+  fetch('/api/chat/send', {
+    method: 'POST',
+    headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  })
+  .then(function(res) { return res.json().then(function(d) { if (!res.ok) throw new Error(d.error || 'Failed'); return d; }); })
+  .then(function() {
+    input.value = '';
+    lastChatTs = null;
+    renderChatMessages();
+  })
+  .catch(function(err) { alert(err.message); });
+}
+
+function startWhisper(playerId, username) {
+  chatWhisperTarget = playerId;
+  switchChatChannel('whisper');
+  document.getElementById('chat-whisper-target').style.display = 'block';
+  document.getElementById('chat-whisper-name').textContent = username;
+  document.getElementById('chat-input').placeholder = 'Whisper to ' + username + '...';
+  document.getElementById('chat-input').focus();
+}
+
+function startWhisperFromFriend(playerId, username) {
+  // Switch to chat tab first
+  document.querySelector('.tab[data-tab="chat"]').click();
+  startWhisper(playerId, username);
+}
+
+function cancelWhisper() {
+  chatWhisperTarget = null;
+  document.getElementById('chat-whisper-target').style.display = 'none';
+  document.getElementById('chat-input').placeholder = 'Type a message...';
+}
+
 // ─── Guild ──────────────────────────────────────────────────
 
 function loadGuild() {
@@ -1417,7 +1751,7 @@ function loadGuild() {
   })
   .then(function(data) {
     if (!data) return;
-    showGuildIn(data.guild, data.members);
+    showGuildIn(data.guild, data.members, data.party);
   })
   .catch(function() {
     showGuildNotIn();
@@ -1429,7 +1763,7 @@ function showGuildNotIn() {
   document.getElementById('guild-in').style.display = 'none';
 }
 
-function showGuildIn(guild, members) {
+function showGuildIn(guild, members, party) {
   document.getElementById('guild-not-in').style.display = 'none';
   document.getElementById('guild-in').style.display = 'block';
   document.getElementById('guild-name').textContent = guild.name;
@@ -1469,6 +1803,34 @@ function showGuildIn(guild, members) {
       '</div>';
 
     rosterDiv.appendChild(card);
+  }
+
+  // Render guild lobby (party) info
+  var partySection = document.getElementById('guild-party-section');
+  var joinBtn = document.getElementById('guild-party-join-btn');
+  var leaveBtn = document.getElementById('guild-party-leave-btn');
+
+  if (party && party.members && party.members.length > 0) {
+    var partyHtml = '<div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px">';
+    for (var pi = 0; pi < party.members.length; pi++) {
+      var pm = party.members[pi];
+      var dot = pm.isOnline ? '#22c55e' : '#3a373a';
+      var name = pm.isBot ? pm.username : escHtml(pm.username);
+      partyHtml += '<span style="display:inline-flex;align-items:center;gap:4px;padding:3px 8px;background:#0a080a;border:1px solid #1a1518;border-radius:4px;font-size:.72rem;color:#e0e0e0">' +
+        '<span style="width:6px;height:6px;border-radius:50%;background:' + dot + ';display:inline-block"></span>' +
+        name + '</span>';
+    }
+    partyHtml += '</div>';
+    partySection.innerHTML = partyHtml;
+    joinBtn.style.display = 'none';
+
+    // Check if current player is in the party
+    var inParty = party.members.some(function(pm) { return pm.playerId === hero.playerId || (pm.isBot && false); });
+    leaveBtn.style.display = inParty ? 'inline-flex' : 'none';
+  } else {
+    partySection.innerHTML = '<p style="color:#3a373a;font-size:.78rem">No active lobby. Start one to party up!</p>';
+    joinBtn.style.display = 'inline-flex';
+    leaveBtn.style.display = 'none';
   }
 }
 
@@ -1588,6 +1950,30 @@ function kickMember(targetPlayerId) {
   .catch(function(err) { alert(err.message); });
 }
 
+// ─── Guild Party ──────────────────────────────────────────
+
+function joinGuildParty() {
+  fetch('/api/guilds/party', {
+    method: 'POST',
+    headers: { 'Authorization': 'Bearer ' + token }
+  })
+  .then(function(res) { return res.json().then(function(d) { if (!res.ok) throw new Error(d.error || 'Failed'); return d; }); })
+  .then(function() { loadGuild(); })
+  .catch(function(err) { alert(err.message); });
+}
+
+function leaveGuildParty() {
+  fetch('/api/guilds/party/leave', {
+    method: 'POST',
+    headers: { 'Authorization': 'Bearer ' + token }
+  })
+  .then(function(res) {
+    if (res.status !== 204) return res.json().then(function(d) { throw new Error(d.error || 'Failed'); });
+    loadGuild();
+  })
+  .catch(function(err) { alert(err.message); });
+}
+
 // ─── Crafting ───────────────────────────────────────────────
 var CRAFTABLE_SLOTS = {
   rightHandWeapon: ['melee','range','mage'],
@@ -1640,47 +2026,9 @@ function renderCraftShards(shards) {
   }
 }
 
-function renderConvertShards(shards) {
-  var container = document.getElementById('craft-convert-list');
-  container.innerHTML = '';
-  var keys = Object.keys(shards).filter(function(k) { return shards[k] > 0; }).sort();
-  if (keys.length === 0) {
-    container.innerHTML = '<div style="text-align:center;padding:16px;color:#3a373a;font-size:.78rem">No shards to convert.</div>';
-    return;
-  }
-  for (var i = 0; i < keys.length; i++) {
-    var k = keys[i];
-    var parts = k.split('_');
-    var rarity = parts[0];
-    var bracket = parseInt(parts[1]) || 10;
-    var color = rarityColors[rarity] || '#aaa';
-    var goldVal = bracket * ({common:2,uncommon:5,rare:12,epic:30,legendary:80}[rarity] || 1) * 1.75;
-    var div = document.createElement('div');
-    div.className = 'craft-shard-entry';
-    div.innerHTML =
-      '<span class="shard-label" style="color:' + color + '">' + rarity.charAt(0).toUpperCase() + rarity.slice(1) + ' Lv.' + bracket + '</span>' +
-      '<span style="color:#5a555a;font-size:.72rem">' + shards[k] + 'x → ' + Math.round(goldVal) + 'g</span>' +
-      '<button class="shard-btn" data-key="' + k + '">Convert 1</button>';
-    container.appendChild(div);
-    div.querySelector('.shard-btn').addEventListener('click', (function(key, r, b) {
-      return function() { convertShard(key, r, b); };
-    })(k, rarity, bracket));
-  }
-}
-
-function convertShard(key, rarity, bracket) {
-  fetch('/api/heroes/' + hero.id + '/shop/salvage-shard', {
-    method: 'POST',
-    headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ rarity: rarity, bracketLevel: bracket, amount: 1 })
-  })
-  .then(function(res) { return res.json().then(function(d) { if (!res.ok) throw new Error(d.error || 'Failed'); return d; }); })
-  .then(function() { loadCrafting(); refreshHero(); })
-  .catch(function(err) { alert(err.message); });
-}
-
 function renderSalvageItems(inventory) {
   var container = document.getElementById('craft-salvage-list');
+  if (!container) return;
   container.innerHTML = '';
   if (!inventory || inventory.length === 0) {
     container.innerHTML = '<div style="text-align:center;padding:16px;color:#3a373a;font-size:.78rem">No items to salvage.</div>';
@@ -1700,6 +2048,46 @@ function renderSalvageItems(inventory) {
       return function() { salvageItemCraft(id); };
     })(item.id));
   }
+}
+
+function renderConvertShards(shards) {
+  var container = document.getElementById('craft-convert-list');
+  if (!container) return;
+  container.innerHTML = '';
+  var keys = Object.keys(shards).filter(function(k) { return shards[k] > 0; }).sort();
+  if (keys.length === 0) {
+    container.innerHTML = '<div style="text-align:center;padding:16px;color:#3a373a;font-size:.78rem">No shards to convert.</div>';
+    return;
+  }
+  for (var i = 0; i < keys.length; i++) {
+    var k = keys[i];
+    var parts = k.split('_');
+    var rarity = parts[0];
+    var bracket = parseInt(parts[1]) || 10;
+    var color = rarityColors[rarity] || '#aaa';
+    var goldVal = bracket * ({common:2,uncommon:5,rare:12,epic:30,legendary:80}[rarity] || 1) * 1.75;
+    var div = document.createElement('div');
+    div.className = 'craft-shard-entry';
+    div.innerHTML =
+      '<span class="shard-label" style="color:' + color + '">' + rarity.charAt(0).toUpperCase() + rarity.slice(1) + ' Lv.' + bracket + '</span>' +
+      '<span style="color:#5a555a;font-size:.72rem">' + shards[k] + 'x &rarr; ' + Math.round(goldVal) + 'g</span>' +
+      '<button class="shard-btn" data-key="' + k + '">Convert 1</button>';
+    container.appendChild(div);
+    div.querySelector('.shard-btn').addEventListener('click', (function(key, r, b) {
+      return function() { convertShard(key, r, b); };
+    })(k, rarity, bracket));
+  }
+}
+
+function convertShard(key, rarity, bracket) {
+  fetch('/api/heroes/' + hero.id + '/shop/salvage-shard', {
+    method: 'POST',
+    headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ rarity: rarity, bracketLevel: bracket, amount: 1 })
+  })
+  .then(function(res) { return res.json().then(function(d) { if (!res.ok) throw new Error(d.error || 'Failed'); return d; }); })
+  .then(function() { loadCrafting(); refreshHero(); })
+  .catch(function(err) { alert(err.message); });
 }
 
 function salvageItemCraft(itemId) {
@@ -1843,6 +2231,7 @@ document.getElementById('hero-photo-input').addEventListener('change', function(
   window.acceptInvite = acceptInvite;
   window.updateMonsterBars = updateMonsterBars;
   window.updateHeroBars = updateHeroBars;
+  window.addLog = addLog;
   window.startHeartbeat = startHeartbeat;
   window.stopHeartbeat = stopHeartbeat;
   window.loadGuild = loadGuild;
@@ -1851,6 +2240,19 @@ document.getElementById('hero-photo-input').addEventListener('change', function(
   window.leaveGuild = leaveGuild;
   window.disbandGuild = disbandGuild;
   window.kickMember = kickMember;
+  window.joinGuildParty = joinGuildParty;
+  window.leaveGuildParty = leaveGuildParty;
+  window.loadFriends = loadFriends;
+  window.addFriend = addFriend;
+  window.acceptFriend = acceptFriend;
+  window.removeFriend = removeFriend;
+  window.inviteFriendFromParty = inviteFriendFromParty;
+  window.loadChat = loadChat;
+  window.switchChatChannel = switchChatChannel;
+  window.sendChat = sendChat;
+  window.startWhisper = startWhisper;
+  window.cancelWhisper = cancelWhisper;
+  window.startWhisperFromFriend = startWhisperFromFriend;
   })();
 }
 })();

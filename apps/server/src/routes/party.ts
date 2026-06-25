@@ -8,6 +8,7 @@ import { heroes } from "../db/schema/index.js";
 import { eq } from "drizzle-orm";
 import type { CombatRole } from "@jake-idler/game";
 import { createChildLogger } from "../observability/logger.js";
+import { partyCreateLimiter } from "../middleware/rate-limit.js";
 
 const log = createChildLogger("party-route");
 
@@ -18,7 +19,7 @@ const createSchema = z.object({
   name: z.string().min(1, "Party name is required").max(30),
 });
 
-router.post("/create", requireAuth, async (req, res) => {
+router.post("/create", partyCreateLimiter, requireAuth, async (req, res) => {
   try {
     const parsed = createSchema.safeParse(req.body);
     if (!parsed.success) {

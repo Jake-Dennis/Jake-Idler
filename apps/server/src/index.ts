@@ -13,10 +13,12 @@ import friendRoutes from "./routes/friends.js";
 import leaderboardRoutes from "./routes/leaderboard.js";
 import webRoutes from "./routes/web.js";
 import guildRoutes from "./routes/guilds.js";
+import chatRoutes from "./routes/chat.js";
+import adminRoutes from "./routes/admin.js";
 import { initDatabase } from "./db/connection.js";
 import { config } from "./config/index.js";
 import { setUpPinoHttp } from "./observability/logger.js";
-import { authLimiter, partyCreateLimiter, lootCraftLimiter } from "./middleware/rate-limit.js";
+import { authLimiter, lootCraftLimiter } from "./middleware/rate-limit.js";
 import { presenceService } from "./services/presence-service.js";
 
 // Boot-time safety checks
@@ -49,7 +51,7 @@ setUpPinoHttp(app);
 app.use("/api/auth/login", authLimiter);
 app.use("/api/auth/guest", authLimiter);
 app.use("/api/auth/register", authLimiter);
-app.use("/api/party", partyCreateLimiter);    // POST /create
+// partyCreateLimiter applied inline on POST /api/party/create in routes/party.ts
 app.use("/api/heroes", lootCraftLimiter);     // POST /:id/loot/craft
 
 // Serve uploaded hero photos statically
@@ -80,6 +82,8 @@ app.use("/api/heroes", combatRoutes);
 app.use("/api/heroes", dungeonRoutes);
 app.use("/api/heroes", lootRoutes);
 app.use("/api/guilds", guildRoutes);
+app.use("/api/chat", chatRoutes);
+app.use("/api/admin", adminRoutes);
 app.use("/api/party", partyRoutes);
 app.use("/api/friends", friendRoutes);
 app.use("/api/leaderboard", leaderboardRoutes);
