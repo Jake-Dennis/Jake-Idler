@@ -8,6 +8,8 @@ interface RateLimitOpts {
   max: number;
   keyPrefix: string;
   message?: string;
+  /** Only count requests where this returns true (default: all). */
+  skip?: (req: Request) => boolean;
 }
 
 export function createRateLimiter(opts: RateLimitOpts) {
@@ -16,6 +18,7 @@ export function createRateLimiter(opts: RateLimitOpts) {
     limit: opts.max,
     standardHeaders: true,
     legacyHeaders: false,
+    skip: opts.skip,
     keyGenerator: (req: Request): string => {
       // Prefer authenticated user key over IP
       if ((req as any).player?.id) {
@@ -26,32 +29,36 @@ export function createRateLimiter(opts: RateLimitOpts) {
     handler: (_req, res) => {
       res.status(429).json({ error: "Too many requests" });
     },
-    ...(opts.message ? {} : {}),
   });
 }
 
 // ─── Pre-built limiters ───────────────────────────────────────
+// All mutation limiters only count POST requests — GET reads are never rate-limited.
 
 export const authLimiter = createRateLimiter({
   windowMs: 15 * 60 * 1000, // 15 min
   max: 5,
   keyPrefix: "auth",
+  skip: (req) => req.method !== "POST",
 });
 
 export const combatStartLimiter = createRateLimiter({
   windowMs: 60 * 1000, // 1 min
   max: 10,
   keyPrefix: "combat",
+  skip: (req) => req.method !== "POST",
 });
 
 export const partyCreateLimiter = createRateLimiter({
   windowMs: 60 * 60 * 1000, // 1 hour
   max: 5,
   keyPrefix: "party",
+  skip: (req) => req.method !== "POST",
 });
 
 export const lootCraftLimiter = createRateLimiter({
   windowMs: 60 * 1000, // 1 min
   max: 20,
   keyPrefix: "loot",
+  skip: (req) => req.method !== "POST",
 });
