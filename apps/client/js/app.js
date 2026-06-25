@@ -1348,7 +1348,8 @@ function loadCrafting() {
     headers: { 'Authorization': 'Bearer ' + token }
   })
   .then(function(res) { return res.json(); })
-  .then(function(h) {
+  .then(function(resp) {
+    var h = resp.hero || resp;
     hero.gold = h.gold;
     hero.stats = h.stats;
     hero.level = h.level;
