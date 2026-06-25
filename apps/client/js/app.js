@@ -915,14 +915,14 @@ if (token) {
   })();
 }
 
-// ─── Periodic tab refresh ──
+// ─── Periodic catch-up refresh (socket events drive real-time updates) ──
 setInterval(function() {
   var tab = document.querySelector('.tab-content.active');
   if (!tab) return;
+  // Only refresh equipment/crafting tabs; party is updated via socket events
   if (tab.id === 'tab-equipment') loadEquipment();
-  if (tab.id === 'tab-party') loadParty();
   if (tab.id === 'tab-crafting') loadCrafting();
-}, 5000);
+}, 30000);
 
 
 
