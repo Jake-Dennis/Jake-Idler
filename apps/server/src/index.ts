@@ -12,12 +12,10 @@ import partyRoutes from "./routes/party.js";
 import friendRoutes from "./routes/friends.js";
 import leaderboardRoutes from "./routes/leaderboard.js";
 import webRoutes from "./routes/web.js";
-import { initSocketIO } from "./socket/index.js";
 import { initDatabase } from "./db/connection.js";
-import { initCombatTick } from "./services/combat-service.js";
 import { config } from "./config/index.js";
 import { setUpPinoHttp } from "./observability/logger.js";
-import { authLimiter, combatStartLimiter, partyCreateLimiter, lootCraftLimiter } from "./middleware/rate-limit.js";
+import { authLimiter, partyCreateLimiter, lootCraftLimiter } from "./middleware/rate-limit.js";
 
 // Boot-time safety checks
 if (process.env.NODE_ENV === "production") {
@@ -49,7 +47,6 @@ setUpPinoHttp(app);
 app.use("/api/auth/login", authLimiter);
 app.use("/api/auth/guest", authLimiter);
 app.use("/api/auth/register", authLimiter);
-app.use("/api/heroes", combatStartLimiter);  // POST /:id/combat/start
 app.use("/api/party", partyCreateLimiter);    // POST /create
 app.use("/api/heroes", lootCraftLimiter);     // POST /:id/loot/craft
 
@@ -84,10 +81,6 @@ app.use("/api/party", partyRoutes);
 app.use("/api/friends", friendRoutes);
 app.use("/api/leaderboard", leaderboardRoutes);
 app.use("/game", webRoutes);
-
-// Socket.IO
-initSocketIO(server);
-initCombatTick();
 
 server.listen(PORT, () => {
   initDatabase();

@@ -2,7 +2,7 @@ import { v4 as uuidv4 } from "uuid";
 import { db } from "../db/connection.js";
 import { heroes } from "../db/schema/index.js";
 import { eq } from "drizzle-orm";
-import { onlinePlayers, partyMembers, getIO } from "../socket/index.js";
+import { onlinePlayers, partyMembers } from "../socket/index.js";
 import { getHeroRole, computeHeroStats, computeEquipmentStats, Rarity } from "@jake-idler/game";
 import type { Equipment, CombatPosition, CombatRole } from "@jake-idler/game";
 

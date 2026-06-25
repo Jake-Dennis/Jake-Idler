@@ -473,6 +473,29 @@ function updateHeroBars(partyHeroes) {
 
 
 
+// ─── Combat Cutscene Playback ──────────────────────────────
+async function playCombatCutscene(roundStates, onComplete) {
+  if (!roundStates || roundStates.length === 0) {
+    onComplete();
+    return;
+  }
+  var prevState = null;
+  for (var i = 0; i < roundStates.length; i++) {
+    var rs = roundStates[i];
+    if (prevState) {
+      await window.handleCombatEvents(rs.events, rs.monsters, rs.partyHeroes, rs.round);
+    } else {
+      // First round — just render monsters and heroes, no animation
+      if (rs.monsters) renderMonsters(rs.monsters);
+      if (rs.partyHeroes) renderPartyHeroes(rs.partyHeroes);
+    }
+    await new Promise(function(r) { setTimeout(r, 200); });
+    prevState = rs;
+    document.getElementById('round-counter').textContent = 'Round ' + rs.round;
+  }
+  onComplete();
+}
+
 // ─── Enter Dungeon ─────────────────────────────────────────
 function enterDungeon() {
   var floor = parseInt(document.getElementById('floor-select').value);
@@ -520,6 +543,50 @@ function enterDungeon() {
     // Render monsters from the start response
     if (data.monsters && data.monsters.length > 0) {
       renderMonsters(data.monsters);
+    }
+
+    // Play cutscene from roundStates
+    if (data.roundStates && data.roundStates.length > 0) {
+      playCombatCutscene(data.roundStates, function() {
+        document.getElementById('combat-arena').classList.remove('active');
+        document.getElementById('start-btn').style.display = '';
+        document.getElementById('stop-btn').style.display = 'none';
+        showResult({
+          floorCompleted: data.floorCompleted,
+          floorFailed: data.floorFailed,
+          round: { round: data.totalRounds },
+          result: {
+            heroWon: data.floorCompleted,
+            totalRounds: data.totalRounds,
+            goldEarned: data.goldEarned,
+            goldLost: data.floorFailed ? data.floorGoldValue : 0,
+            monstersDefeated: data.monstersDefeated,
+            totalMonsters: data.totalMonsters,
+            shardsEarned: data.shardsEarned,
+          },
+        });
+        // Refresh hero data so crafting tab has latest shards
+        refreshHero();
+        loadCrafting();
+      });
+    } else {
+      // No rounds — show result immediately
+      showResult({
+        floorCompleted: data.floorCompleted,
+        floorFailed: data.floorFailed,
+        round: { round: 0 },
+        result: {
+          heroWon: data.floorCompleted,
+          totalRounds: 0,
+          goldEarned: data.goldEarned,
+          goldLost: data.floorFailed ? data.floorGoldValue : 0,
+          monstersDefeated: data.monstersDefeated,
+          totalMonsters: data.totalMonsters,
+          shardsEarned: data.shardsEarned,
+        },
+      });
+      refreshHero();
+      loadCrafting();
     }
   })
   .catch(function(err) {
@@ -651,7 +718,6 @@ function loopRetry() {
   document.getElementById('monster-row').innerHTML = '';
   document.getElementById('hero-row').innerHTML = '';
 
-  // Re-enter — tick loop handles round processing
   var floor = parseInt(document.getElementById('floor-select').value);
   fetch('/api/heroes/' + hero.id + '/combat/start', {
     method: 'POST',
@@ -659,17 +725,64 @@ function loopRetry() {
     body: JSON.stringify({ floor: floor }),
   })
   .then(function(res) { return res.json().then(function(d) { if (!res.ok) throw new Error(d.error || 'Failed'); return d; }); })
-  .then(function() {
+  .then(function(data) {
     loopRetryCount = 0;
     combatGen++;
     showingResult = false;
     document.getElementById('combat-arena').classList.add('active');
     document.getElementById('start-btn').style.display = 'none';
     document.getElementById('stop-btn').style.display = '';
+
+    if (data.heroes && data.heroes.length > 0) {
+      renderPartyHeroes(data.heroes);
+    }
+    if (data.monsters && data.monsters.length > 0) {
+      renderMonsters(data.monsters);
+    }
+
+    if (data.roundStates && data.roundStates.length > 0) {
+      playCombatCutscene(data.roundStates, function() {
+        document.getElementById('combat-arena').classList.remove('active');
+        document.getElementById('start-btn').style.display = '';
+        document.getElementById('stop-btn').style.display = 'none';
+        showResult({
+          floorCompleted: data.floorCompleted,
+          floorFailed: data.floorFailed,
+          round: { round: data.totalRounds },
+          result: {
+            heroWon: data.floorCompleted,
+            totalRounds: data.totalRounds,
+            goldEarned: data.goldEarned,
+            goldLost: data.floorFailed ? data.floorGoldValue : 0,
+            monstersDefeated: data.monstersDefeated,
+            totalMonsters: data.totalMonsters,
+            shardsEarned: data.shardsEarned,
+          },
+        });
+        refreshHero();
+        loadCrafting();
+      });
+    } else {
+      showResult({
+        floorCompleted: data.floorCompleted,
+        floorFailed: data.floorFailed,
+        round: { round: 0 },
+        result: {
+          heroWon: data.floorCompleted,
+          totalRounds: 0,
+          goldEarned: data.goldEarned,
+          goldLost: data.floorFailed ? data.floorGoldValue : 0,
+          monstersDefeated: data.monstersDefeated,
+          totalMonsters: data.totalMonsters,
+          shardsEarned: data.shardsEarned,
+        },
+      });
+      refreshHero();
+      loadCrafting();
+    }
   })
   .catch(function(err) {
     if (isLooping) {
-      // Tick loop auto-retries on next tick if combat is active
       setTimeout(loopRetry, 2000);
     } else {
       alert(err.message);
@@ -738,75 +851,7 @@ if (hero.photoUrl && avatarImg) {
   document.getElementById('hero-avatar-placeholder').style.display = 'none';
 }
 
-// ─── Server-Sent Events ─────────────────────────────────────
-var eventSource = null;
-var combatState = null;
-if (token && hero && hero.id) {
-  eventSource = new EventSource('/api/heroes/' + encodeURIComponent(hero.id) + '/combat/events?token=' + encodeURIComponent(token));
-  eventSource.addEventListener('connected', function(e) {
-    console.log('[SSE] Connected');
-    fetch('/api/party', { headers: { 'Authorization': 'Bearer ' + token } })
-      .then(function(r) { return r.json(); })
-      .then(function(d) {
-        if (d.party) {
-          currentParty = d.party;
-        }
-      })
-      .catch(function() {});
-  });
-  eventSource.addEventListener('party:formation', function(e) { loadParty(); });
-  eventSource.onerror = function(err) { console.error('[SSE] Error:', err); };
-
-  // Server-authoritative combat ticks — replaces all polling
-  eventSource.addEventListener('party:combat-update', async function(e) {
-    var state = JSON.parse(e.data);
-    if (state.finished) {
-      if (state.round && combatState && combatState.round &&
-          state.round.round > combatState.round.round) {
-        await (window.handleCombatEvents ? window.handleCombatEvents(state.events, state.monsters, state.round?.partyHeroes, state.round?.round) : Promise.resolve());
-      }
-      document.getElementById('combat-arena').classList.remove('active');
-      document.getElementById('start-btn').style.display = '';
-      document.getElementById('stop-btn').style.display = 'none';
-      showResult({
-        floorCompleted: state.floorCompleted,
-        floorFailed: state.floorFailed,
-        round: state.round,
-        result: state.result || {},
-        hero: state.hero,
-      });
-      // Refresh hero data so crafting tab has latest shards
-      refreshHero();
-      loadCrafting();
-      combatState = null;
-      return;
-    }
-
-    document.getElementById('combat-arena').classList.add('active');
-    document.getElementById('start-btn').style.display = 'none';
-    document.getElementById('stop-btn').style.display = '';
-
-    if (combatState && state.round && state.round.round > combatState.round.round) {
-      await (window.handleCombatEvents ? window.handleCombatEvents(state.events, state.monsters, state.round?.partyHeroes, state.round?.round) : Promise.resolve());
-    } else {
-      if (state.monsters) renderMonsters(state.monsters);
-      if (state.round && state.round.partyHeroes) {
-        renderPartyHeroes(state.round.partyHeroes);
-        updateHeroBars(state.round.partyHeroes);
-      }
-      if (state.round && state.round.currentMonsterName) {
-        addLog('info', state.round.currentMonsterName + ' appears!');
-      }
-    }
-
-    if (state.round) {
-      document.getElementById('round-counter').textContent = 'Round ' + state.round.round;
-      combatState = state;
-    }
-  });
-}
-
-// ─── Initial state fetch on page load (catches up after refresh) ──
+// ─── Initial state fetch on page load ──
 if (token) {
   (function() {
     fetch('/api/heroes/' + hero.id + '/combat/status', {
@@ -828,11 +873,10 @@ if (token) {
   })();
 }
 
-// ─── Periodic catch-up refresh (SSE drives real-time updates) ──
+// ─── Periodic catch-up refresh ──
 setInterval(function() {
   var tab = document.querySelector('.tab-content.active');
   if (!tab) return;
-  // Only refresh equipment/crafting tabs; party is updated via SSE
   if (tab.id === 'tab-equipment') loadEquipment();
   if (tab.id === 'tab-crafting') loadCrafting();
 }, 30000);

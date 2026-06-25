@@ -16,12 +16,18 @@ export function requireAuth(
   next: NextFunction,
 ): void {
   const authHeader = req.headers.authorization;
-  if (!authHeader?.startsWith("Bearer ")) {
+  let token: string | undefined;
+  if (authHeader?.startsWith("Bearer ")) {
+    token = authHeader.slice(7);
+  } else if (typeof req.query?.token === "string") {
+    token = req.query.token;
+  }
+
+  if (!token) {
     res.status(401).json({ error: "Missing or invalid authorization header" });
     return;
   }
 
-  const token = authHeader.slice(7);
   const payload = verifyToken(token);
   if (!payload) {
     res.status(401).json({ error: "Invalid or expired token" });

@@ -3,24 +3,18 @@ import { requireAuth } from "../auth/middleware.js";
 import { combatService } from "../services/combat-service.js";
 import { heroService } from "../services/hero-service.js";
 import { partyService } from "../services/party-service.js";
-import { db } from "../db/connection.js";
-import { heroes } from "../db/schema/index.js";
-import { eq, sql } from "drizzle-orm";
-import { combatSerializer } from "../game/serializers/combat-serializer.js";
-import { sseManager } from "../game/sse-manager.js";
 import { createChildLogger } from "../observability/logger.js";
 
 const log = createChildLogger("combat-route");
 
 const router = Router();
 
-// POST /:id/combat/start — start floor combat with party members
+// POST /:id/combat/start — simulate an entire floor run instantly
 router.post("/:id/combat/start", requireAuth, async (req, res) => {
   const heroId = req.params.id as string;
   const hero = await heroService.getHero(heroId);
   if (!hero) { res.status(404).json({ error: "Hero not found" }); return; }
   if (hero.playerId !== req.player!.id) { res.status(403).json({ error: "Not your hero" }); return; }
-  if (combatService.isInCombat(heroId)) { res.status(409).json({ error: "Hero is already in combat" }); return; }
 
   const floor = req.body?.floor ? parseInt(String(req.body.floor), 10) : hero.currentFloor;
   if (isNaN(floor) || floor < 1) { res.status(400).json({ error: "Invalid floor number" }); return; }
@@ -30,8 +24,6 @@ router.post("/:id/combat/start", requireAuth, async (req, res) => {
   const party = partyService.getPartyByPlayer(req.player!.id);
 
   if (party) {
-    if (combatService.isPartyInCombat(party.id)) { res.status(409).json({ error: "Party is already in combat" }); return; }
-
     // Sync all bots to the initiator hero's level and gear
     for (const memberId of party.memberIds) {
       if (partyService.isBot(memberId)) {
@@ -69,100 +61,50 @@ router.post("/:id/combat/start", requireAuth, async (req, res) => {
       }
     }
 
-    const floorInfo = await combatService.startFloorRun(party.id, heroId, floor, memberData);
-    res.status(201).json({ ...floorInfo, partyCombat: true });
+    const result = await combatService.simulateFloorRun(party.id, heroId, floor, memberData);
+    res.status(201).json({ ...result, partyCombat: true });
     return;
   }
 
   // Solo — party of one
   const role = "dps" as import("@jake-idler/game").CombatRole;
   const position = "middle" as import("@jake-idler/game").CombatPosition;
-  const floorInfo = await combatService.startFloorRun(`solo_${heroId}`, heroId, floor, [{
+  const result = await combatService.simulateFloorRun(`solo_${heroId}`, heroId, floor, [{
     heroId, name: hero.name, role, position, level: hero.level, equipped: hero.equipped, photoUrl: hero.photoUrl ?? null,
   }]);
-  res.status(201).json({ ...floorInfo, partyCombat: false });
+  res.status(201).json({ ...result, partyCombat: false });
 });
 
-// GET /:id/combat/status — check combat progress
+// GET /:id/combat/status — kept for initial page load catch-up
+// With instant combat there is no active run state; always returns not in combat.
 router.get("/:id/combat/status", requireAuth, async (req, res) => {
   const heroId = req.params.id as string;
   const hero = await heroService.getHero(heroId);
   if (!hero) { res.status(404).json({ error: "Hero not found" }); return; }
   if (hero.playerId !== req.player!.id) { res.status(403).json({ error: "Not your hero" }); return; }
 
-  const runId = combatService.getPartyIdForHero(heroId);
-  if (!runId) {
-    res.json({ inCombat: false, finished: false, floorCompleted: false, floorFailed: false });
-    return;
-  }
-
-  const run = combatService.getPartyFloorRun(runId);
-  if (!run) {
-    res.json({ inCombat: false, finished: false, floorCompleted: false, floorFailed: false });
-    return;
-  }
-
-  // Deduct floor gold on wipe (only once)
-  if (run.floorFailed && run.floorGoldValue > 0 && !run.goldPenaltyApplied) {
-    run.goldPenaltyApplied = true;
-    await db
-      .update(heroes)
-      .set({
-        gold: sql`MAX(0, ${heroes.gold} - ${run.floorGoldValue})`,
-        lastActive: new Date().toISOString(),
-      })
-      .where(eq(heroes.id, heroId));
-  }
-
-  const isPartyCombat = !runId.startsWith("solo_");
-
-  if (!run.floorCompleted && !run.floorFailed) {
-    // State broadcast to party room is handled by onTick callback — not here
-    res.json(combatSerializer.toView(run, heroId));
-    return;
-  }
-
-  const heroAfter = await heroService.getHero(heroId);
-
   res.json({
-    ...combatSerializer.toView(run, heroId),
-    hero: heroAfter,
+    inCombat: false,
+    finished: false,
+    floorCompleted: false,
+    floorFailed: false,
+    partyCombat: false,
+    monsters: [],
+    round: null,
+    events: [],
+    floorProgress: {
+      monstersDefeated: 0,
+      totalMonsters: 0,
+      currentMonsterName: "",
+      currentMonsterIsBoss: false,
+    },
   });
-});
-
-// GET /:id/combat/events — SSE stream for real-time combat & party updates
-router.get("/:id/combat/events", requireAuth, async (req, res) => {
-  const heroId = req.params.id as string;
-  const hero = await heroService.getHero(heroId);
-  if (!hero) { res.status(404).json({ error: "Hero not found" }); return; }
-  if (hero.playerId !== req.player!.id) { res.status(403).json({ error: "Not your hero" }); return; }
-
-  sseManager.addClient(heroId, req.player!.id, res);
 });
 
 // GET /:id/combat/monster — get current monster details
+// With instant combat there is no active encounter; always 404s.
 router.get("/:id/combat/monster", requireAuth, async (req, res) => {
-  const heroId = req.params.id as string;
-  const runId = combatService.getPartyIdForHero(heroId);
-  if (!runId) { res.status(404).json({ error: "No active combat encounter" }); return; }
-  const run = combatService.getPartyFloorRun(runId);
-  if (!run || run.floorCompleted || run.floorFailed) { res.status(404).json({ error: "No active combat encounter" }); return; }
-  const currentMonster = run.monsters[run.currentMonsterIndex];
-  if (!currentMonster) { res.status(404).json({ error: "No current monster" }); return; }
-  res.json({
-    monster: {
-      id: currentMonster.data.id,
-      name: currentMonster.data.name,
-      isBoss: currentMonster.data.isBoss,
-      floor: currentMonster.data.floor,
-      stats: {
-        atk: currentMonster.data.stats.atk.toNumber(),
-        def: currentMonster.data.stats.def.toNumber(),
-        hp: currentMonster.currentHp,
-        maxHp: currentMonster.maxHp,
-      },
-    },
-  });
+  res.status(404).json({ error: "No active combat encounter" });
 });
 
 export default router;

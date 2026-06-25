@@ -8,13 +8,14 @@ import {
   calculateDamage,
   calculateCrit,
   CRIT_MULTIPLIER,
+  processMonsterLoot,
+  generateFloorLoot,
+  shardKey,
 } from "@jake-idler/game";
 import type { Equipment, Monster, CombatPosition, CombatRole } from "@jake-idler/game";
-import { lootService } from "./loot-service.js";
+import { combatSerializer } from "../game/serializers/combat-serializer.js";
+import type { CombatEventView } from "../game/serializers/combat-serializer.js";
 import { createChildLogger } from "../observability/logger.js";
-import { sessionManager } from "../game/session-manager.js";
-import { combatScheduler } from "../game/tick-scheduler.js";
-import { gameEvents } from "../game/event-bus.js";
 
 // ─── Exported Types ────────────────────────────────────────────
 
@@ -55,8 +56,6 @@ export interface CombatRoundState {
   partyHeroes: PartyHeroRoundData[];
 }
 
-// ─── Combat Events (explicit action log for client) ─────────
-
 export type CombatEvent = {
   type: string;
   heroId?: string;
@@ -67,6 +66,22 @@ export type CombatEvent = {
   healAmount?: number;
   monsterName?: string;
 };
+
+export interface MonsterView {
+  id: string;
+  name: string;
+  isBoss: boolean;
+  hp: number;
+  maxHp: number;
+  isCurrentFocus: boolean;
+}
+
+export interface CombatStateLog {
+  round: number;
+  events: CombatEventView[];
+  monsters: MonsterView[];
+  partyHeroes: PartyHeroRoundData[];
+}
 
 // ─── Internal Types ──────────────────────────────────────────
 
@@ -134,23 +149,9 @@ const HEAL_PRIORITY: CombatRole[] = [
 class CombatService {
   private log = createChildLogger("combat");
 
-  isInCombat(heroId: string): boolean {
-    return this.getActivePartyIdForHero(heroId) !== null;
-  }
+  // ─── Simulate Floor Run ───────────────────────────────────
 
-  /** Find an active (not completed/failed) run for a hero. */
-  private getActivePartyIdForHero(heroId: string): string | null {
-    return sessionManager.getActivePartyIdForHero(heroId);
-  }
-
-  /** Find any run (active OR recently completed) for a hero — used by status route. */
-  getPartyIdForHero(heroId: string): string | null {
-    return sessionManager.getPartyIdForHero(heroId);
-  }
-
-  // ─── Start Combat ─────────────────────────────────────────
-
-  async startFloorRun(
+  async simulateFloorRun(
     partyId: string,
     initiatorHeroId: string,
     floorNumber: number,
@@ -164,10 +165,18 @@ class CombatService {
       photoUrl: string | null;
     }>,
   ): Promise<{
+    victory: boolean;
+    totalRounds: number;
+    roundStates: CombatStateLog[];
+    goldEarned: number;
+    monstersDefeated: number;
     totalMonsters: number;
-    isBracketBossFloor: boolean;
-    monsters: Array<{ id: string; name: string; isBoss: boolean; hp: number; atk: number; def: number }>;
+    shardsEarned: Record<string, number>;
+    floorCompleted: boolean;
+    floorFailed: boolean;
+    monsters: Array<{ id: string; name: string; isBoss: boolean; hp: number; maxHp: number; atk: number; def: number }>;
     heroes: Array<{ heroId: string; role: CombatRole; position: CombatPosition; hp: number; maxHp: number; atk: number; def: number; healing: number }>;
+    isBracketBossFloor: boolean;
   }> {
     const partySize = partyMembers.length;
     const monsters = this.generateMonsterQueue(floorNumber, partySize);
@@ -179,7 +188,167 @@ class CombatService {
       m.currentHp = Math.round(m.currentHp * hpScale);
     }
 
+    const heroes_ = this.initHeroes(partyMembers);
+    const floorGoldValue = monsters.reduce((sum, m) => sum + m.goldReward, 0);
+
+    const run: PartyFloorRunState = {
+      partyId,
+      initiatorHeroId,
+      floorNumber,
+      heroes: heroes_,
+      monsters,
+      currentMonsterIndex: 0,
+      totalMonsters: monsters.length,
+      monstersDefeated: 0,
+      floorCompleted: false,
+      floorFailed: false,
+      tickCount: 0,
+      roundIndex: 0,
+      lastRound: null,
+      totalGoldRewarded: 0,
+      floorGoldValue,
+      shardsEarned: {},
+      finishedAt: null,
+      events: [],
+    };
+
+    // Fetch hero rows once for reward accumulation
+    const heroIds = heroes_.map((h) => h.heroId);
+    const heroRows = await db.select().from(heroes).where(sql`${heroes.id} IN ${heroIds}`);
+    const heroMap = new Map(heroRows.map((r) => [r.id, r]));
+
+    // Accumulators for deferred DB writes
+    const heroGoldAccum: Record<string, number> = {};
+    const heroShardAccum: Record<string, Record<string, number>> = {};
+    const heroEquipAccum: Record<string, Equipment[]> = {};
+    for (const h of heroes_) {
+      const row = heroMap.get(h.heroId);
+      heroGoldAccum[h.heroId] = row?.gold || 0;
+      heroShardAccum[h.heroId] = { ...(row?.shards as unknown as Record<string, number> || {}) };
+      heroEquipAccum[h.heroId] = [...((row?.inventory as unknown as Equipment[]) || [])];
+    }
+
+    const roundStates: CombatStateLog[] = [];
+
+    while (!run.floorCompleted && !run.floorFailed) {
+      const currentMonsterBefore = run.monsters[run.currentMonsterIndex];
+      const { monsterDied } = await this.processRound(partyId, run);
+
+      const weaponTypes: Record<string, string> = {};
+      for (const h of run.heroes) {
+        weaponTypes[h.heroId] = h.weaponType || "melee";
+      }
+      const events = combatSerializer.buildEvents(run.lastRound, weaponTypes);
+
+      const monstersSnapshot: MonsterView[] = run.monsters.map((m) => ({
+        id: m.data.id,
+        name: m.data.name,
+        isBoss: m.data.isBoss,
+        hp: m.currentHp,
+        maxHp: m.maxHp,
+        isCurrentFocus: m === run.monsters[run.currentMonsterIndex],
+      }));
+
+      roundStates.push({
+        round: run.lastRound!.round,
+        events,
+        monsters: monstersSnapshot,
+        partyHeroes: run.lastRound!.partyHeroes,
+      });
+
+      if (monsterDied && currentMonsterBefore && run.heroes.some((h) => h.alive)) {
+        this.accumulateKillRewards(
+          run,
+          currentMonsterBefore,
+          heroMap,
+          heroGoldAccum,
+          heroShardAccum,
+          heroEquipAccum,
+        );
+      }
+    }
+
+    // Apply wipe penalty to initiator (preserves old status-route behaviour)
+    if (run.floorFailed && run.floorGoldValue > 0) {
+      heroGoldAccum[run.initiatorHeroId] = Math.max(0, heroGoldAccum[run.initiatorHeroId] - run.floorGoldValue);
+    }
+
+    // Deferred DB writes — apply all accumulated rewards once
+    for (const h of run.heroes) {
+      const row = heroMap.get(h.heroId);
+      if (!row) continue; // Skip bots
+
+      if (run.floorCompleted && h.alive) {
+        await db
+          .update(heroes)
+          .set({
+            level: run.floorNumber,
+            currentFloor: sql`MAX(${heroes.currentFloor}, ${run.floorNumber})`,
+            lastActive: new Date().toISOString(),
+          })
+          .where(eq(heroes.id, h.heroId));
+      }
+
+      await db
+        .update(heroes)
+        .set({
+          gold: heroGoldAccum[h.heroId],
+          shards: heroShardAccum[h.heroId] as any,
+          inventory: heroEquipAccum[h.heroId] as any,
+          lastActive: new Date().toISOString(),
+        })
+        .where(eq(heroes.id, h.heroId));
+    }
+
+    return {
+      victory: run.floorCompleted,
+      totalRounds: run.roundIndex,
+      roundStates,
+      goldEarned: run.totalGoldRewarded,
+      monstersDefeated: run.monstersDefeated,
+      totalMonsters: run.totalMonsters,
+      shardsEarned: run.shardsEarned,
+      floorCompleted: run.floorCompleted,
+      floorFailed: run.floorFailed,
+      monsters: monsters.map((m) => ({
+        id: m.data.id,
+        name: m.data.name,
+        isBoss: m.data.isBoss,
+        hp: m.maxHp,
+        maxHp: m.maxHp,
+        atk: m.data.stats.atk.toNumber(),
+        def: m.data.stats.def.toNumber(),
+      })),
+      heroes: heroes_.map((h) => ({
+        heroId: h.heroId,
+        role: h.role,
+        position: h.position,
+        hp: h.hp,
+        maxHp: h.maxHp,
+        atk: h.atk,
+        def: h.def,
+        healing: h.healing,
+      })),
+      isBracketBossFloor: floorNumber % 10 === 0,
+    };
+  }
+
+  // ─── Hero Initialization ──────────────────────────────────
+
+  private initHeroes(
+    partyMembers: Array<{
+      heroId: string;
+      name: string;
+      role: CombatRole;
+      position: CombatPosition;
+      level: number;
+      equipped: Record<string, Equipment | null>;
+      photoUrl: string | null;
+    }>,
+  ): PartyHeroRunState[] {
+    const partySize = partyMembers.length;
     const heroes_: PartyHeroRunState[] = [];
+
     for (const pm of partyMembers) {
       const computed = computeHeroStats({ level: pm.level, equipped: pm.equipped });
       const rawAtk = computed.atk.toNumber();
@@ -227,80 +396,18 @@ class CombatService {
       });
     }
 
-    const floorGoldValue = monsters.reduce((sum, m) => sum + m.goldReward, 0);
-    const run = sessionManager.createRun(
-      partyId,
-      initiatorHeroId,
-      floorNumber,
-      heroes_,
-      monsters,
-      monsters.length,
-      floorGoldValue,
-    );
-
-    return {
-      totalMonsters: run.totalMonsters,
-      isBracketBossFloor: floorNumber % 10 === 0,
-      monsters: monsters.map(m => ({
-        id: m.data.id,
-        name: m.data.name,
-        isBoss: m.data.isBoss,
-        hp: m.maxHp,
-        maxHp: m.maxHp,
-        atk: m.data.stats.atk.toNumber(),
-        def: m.data.stats.def.toNumber(),
-      })),
-      heroes: heroes_.map(h => ({
-        heroId: h.heroId,
-        role: h.role,
-        position: h.position,
-        hp: h.hp,
-        maxHp: h.maxHp,
-        atk: h.atk,
-        def: h.def,
-        healing: h.healing,
-      })),
-    };
-  }
-
-  getPartyFloorRun(partyId: string): PartyFloorRunState | undefined {
-    return sessionManager.getRun(partyId);
-  }
-
-  isPartyInCombat(partyId: string): boolean {
-    const run = sessionManager.getRun(partyId);
-    return run !== undefined && !run.floorCompleted && !run.floorFailed;
-  }
-
-  // ─── Tick Loop ─────────────────────────────────────────────
-
-  async tick(): Promise<void> {
-    for (const run of sessionManager.listActiveRuns()) {
-      if (run.floorCompleted || run.floorFailed) continue;
-      try {
-        await this.processRound(run.partyId, run);
-        gameEvents.emit("round:processed", {
-          runId: run.partyId,
-          round: run.tickCount,
-          state: run,
-        });
-      } catch (err) {
-        this.log.error({ partyId: run.partyId, err }, "Error processing run");
-      }
-    }
-
-    sessionManager.cleanupOldRuns();
+    return heroes_;
   }
 
   // ─── Round Processing ──────────────────────────────────────
 
-  private async processRound(partyId: string, run: PartyFloorRunState): Promise<void> {
+  private async processRound(partyId: string, run: PartyFloorRunState): Promise<{ monsterDied: boolean }> {
     run.tickCount++;
 
     const currentMonster = run.monsters[run.currentMonsterIndex];
     if (!currentMonster) {
       run.floorCompleted = true;
-      return;
+      return { monsterDied: false };
     }
 
     const aliveHeroes = run.heroes.filter((h) => h.alive);
@@ -308,7 +415,7 @@ class CombatService {
       run.floorFailed = true;
       run.finishedAt = Date.now();
       this.finaliseRound(run, currentMonster, 0, false, 0, false, 0, []);
-      return;
+      return { monsterDied: false };
     }
 
     const heroData: PartyHeroRoundData[] = [];
@@ -476,22 +583,10 @@ class CombatService {
             heroWon: true,
           };
         }
-        for (const h of run.heroes) {
-          if (h.alive) {
-            await db.update(heroes)
-              .set({ level: run.floorNumber, currentFloor: sql`MAX(${heroes.currentFloor}, ${run.floorNumber})`, lastActive: new Date().toISOString() })
-              .where(eq(heroes.id, h.heroId));
-          }
-        }
+        // DB level updates deferred to end of simulation
       }
 
-      try {
-        this.processKillRewards(run, currentMonster).catch((err) => {
-          this.log.error({ partyId, err }, "Kill rewards failed");
-        });
-      } catch (err) {
-        this.log.error({ partyId, err }, "Kill rewards sync error");
-      }
+      // Kill rewards deferred to end of simulation
     }
 
     // ─── 6. Wipe check ──────────────────────────────────────
@@ -507,6 +602,8 @@ class CombatService {
         };
       }
     }
+
+    return { monsterDied };
   }
 
   private makeHeroData(
@@ -604,10 +701,16 @@ class CombatService {
     return monsters;
   }
 
-  private async processKillRewards(
+  // ─── Reward Accumulation (deferred DB writes) ────────────
+
+  private accumulateKillRewards(
     run: PartyFloorRunState,
     currentMonster: FloorMonster,
-  ): Promise<void> {
+    heroMap: Map<string, any>,
+    heroGoldAccum: Record<string, number>,
+    heroShardAccum: Record<string, Record<string, number>>,
+    heroEquipAccum: Record<string, Equipment[]>,
+  ): void {
     if (currentMonster.lootProcessed) return;
     currentMonster.lootProcessed = true;
 
@@ -617,39 +720,36 @@ class CombatService {
     const isBoss = currentMonster.data.isBoss;
     const isBracketBoss = run.floorNumber % 10 === 0;
 
-    // Fetch each hero's progression level so loot is capped to their own floor,
-    // preventing high-level players from boosting low-level alts through high floors.
-    const heroIds = aliveHeroes.map((h) => h.heroId);
-    if (heroIds.length === 0) return;
-    const heroRows = await db.select({ id: heroes.id, currentFloor: heroes.currentFloor }).from(heroes).where(sql`${heroes.id} IN ${heroIds}`);
-
-    const heroFloorMap = new Map<string, number>();
-    for (const row of heroRows) {
-      heroFloorMap.set(row.id, row.currentFloor);
-    }
-
     for (const h of aliveHeroes) {
-      // Skip bots — they don't have real hero records in the DB
-      if (!heroFloorMap.has(h.heroId)) continue;
+      const row = heroMap.get(h.heroId);
+      if (!row) continue; // Skip bots
 
-      const heroFloor = heroFloorMap.get(h.heroId)!;
+      const heroFloor = row.currentFloor;
       const cappedFloor = Math.min(run.floorNumber, Math.max(1, heroFloor));
 
-      await db
-        .update(heroes)
-        .set({
-          gold: sql`${heroes.gold} + ${currentMonster.goldReward}`,
-          lastActive: new Date().toISOString(),
-        })
-        .where(eq(heroes.id, h.heroId));
+      // Gold from monster's goldReward (first source)
+      heroGoldAccum[h.heroId] += currentMonster.goldReward;
 
-      const lootResult = await lootService.processKillLoot(h.heroId, cappedFloor, isBoss, isBracketBoss);
+      // Loot roll (second gold source + shards + equipment)
+      const loot = processMonsterLoot(cappedFloor, isBoss, isBracketBoss);
+      heroGoldAccum[h.heroId] += loot.gold;
 
-      // Accumulate shard tracking from the initiator's drops only (avoid double-counting)
+      for (const drop of loot.shards) {
+        const key = shardKey(drop.rarity, drop.bracketLevel);
+        heroShardAccum[h.heroId][key] = (heroShardAccum[h.heroId][key] || 0) + drop.amount;
+      }
+
+      if (isBracketBoss) {
+        const equipment = generateFloorLoot(run.floorNumber);
+        heroEquipAccum[h.heroId].push(equipment);
+      }
+
+      // Track initiator rewards for response
       if (h.heroId === run.initiatorHeroId) {
         run.totalGoldRewarded += currentMonster.goldReward;
-        for (const [key, val] of Object.entries(lootResult.shardDrops)) {
-          run.shardsEarned[key] = (run.shardsEarned[key] || 0) + val;
+        for (const drop of loot.shards) {
+          const key = shardKey(drop.rarity, drop.bracketLevel);
+          run.shardsEarned[key] = (run.shardsEarned[key] || 0) + drop.amount;
         }
       }
     }
@@ -657,8 +757,3 @@ class CombatService {
 }
 
 export const combatService = new CombatService();
-
-export function initCombatTick(): void {
-  combatScheduler.start();
-  combatScheduler.subscribe(() => combatService.tick(), "combat");
-}
