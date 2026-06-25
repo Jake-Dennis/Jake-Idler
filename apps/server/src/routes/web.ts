@@ -1178,10 +1178,6 @@ if (typeof io !== 'undefined' && token) {
       }
     }
 
-    // Re-render monster/hero cards to remove dead monsters (server filters currentHp <= 0)
-    if (state.monsters) renderMonsters(state.monsters);
-    if (state.round && state.round.partyHeroes) renderPartyHeroes(state.round.partyHeroes);
-
     if (state.round) {
       document.getElementById('round-counter').textContent = 'Round ' + state.round.round;
       combatState = state;
@@ -1220,48 +1216,7 @@ setInterval(function() {
   if (tab.id === 'tab-crafting') loadCrafting();
 }, 5000);
 
-// ─── Combat status polling — state sync + animations ──
-var pollCombatState = null;
-var pollInterval = setInterval(function() {
-  if (!document.getElementById('combat-arena').classList.contains('active')) return;
-  fetch('/api/heroes/' + hero.id + '/combat/status', {
-    headers: { 'Authorization': 'Bearer ' + token },
-  })
-  .then(function(r) { return r.json(); })
-  .then(function(state) {
-    if (!state || !state.round) return;
 
-    // Animate on round advance
-    if (pollCombatState && state.round.round > pollCombatState.round.round) {
-      if (window.handleCombatEvents) window.handleCombatEvents(state.events, state.monsters, state.round?.partyHeroes, state.round?.round);
-    }
-    pollCombatState = state;
-
-    if (state.monsters) {
-      if (document.querySelector('.monster-card')) updateMonsterBars(state.monsters);
-      else renderMonsters(state.monsters);
-    }
-    if (state.round && state.round.partyHeroes) {
-      if (!document.querySelector('.hero-card')) renderPartyHeroes(state.round.partyHeroes);
-      updateHeroBars(state.round.partyHeroes);
-    }
-    document.getElementById('round-counter').textContent = 'Round ' + state.round.round;
-    if (state.finished) {
-      clearInterval(pollInterval);
-      document.getElementById('combat-arena').classList.remove('active');
-      document.getElementById('start-btn').style.display = '';
-      document.getElementById('stop-btn').style.display = 'none';
-      showResult({
-        floorCompleted: state.floorCompleted,
-        floorFailed: state.floorFailed,
-        round: state.round,
-        result: state.result || {},
-        hero: state.hero,
-      });
-    }
-  })
-  .catch(function() {});
-}, 1000);
 
 // ─── Equipment ─────────────────────────────────────────────
 var SLOT_NAMES = {
