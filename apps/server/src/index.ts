@@ -16,6 +16,7 @@ import { initDatabase } from "./db/connection.js";
 import { config } from "./config/index.js";
 import { setUpPinoHttp } from "./observability/logger.js";
 import { authLimiter, partyCreateLimiter, lootCraftLimiter } from "./middleware/rate-limit.js";
+import { presenceService } from "./services/presence-service.js";
 
 // Boot-time safety checks
 if (process.env.NODE_ENV === "production") {
@@ -84,6 +85,7 @@ app.use("/game", webRoutes);
 
 server.listen(PORT, () => {
   initDatabase();
+  presenceService.startSweeper();
   console.log(`Server running on http://localhost:${PORT}`);
 });
 
