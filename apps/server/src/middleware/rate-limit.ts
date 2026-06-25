@@ -72,7 +72,7 @@ export const guildCreateLimiter = createRateLimiter({
 
 export const heartbeatLimiter = createRateLimiter({
   windowMs: 60 * 1000, // 1 min
-  max: 10,
+  max: 30,
   keyPrefix: "heartbeat",
   skip: (req) => req.method !== "POST",
 });

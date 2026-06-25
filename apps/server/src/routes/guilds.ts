@@ -3,6 +3,7 @@ import { z } from "zod";
 import { requireAuth } from "../auth/middleware.js";
 import { guildService, GuildError } from "../services/guild-service.js";
 import { presenceService } from "../services/presence-service.js";
+import { guildCreateLimiter, heartbeatLimiter } from "../middleware/rate-limit.js";
 
 const router = Router();
 
@@ -47,7 +48,7 @@ router.get("/mine", requireAuth, async (req, res) => {
 
 // ─── POST / — create guild ─────────────────────────────────────
 
-router.post("/", requireAuth, async (req, res) => {
+router.post("/", guildCreateLimiter, requireAuth, async (req, res) => {
   try {
     const parsed = createSchema.safeParse(req.body);
     if (!parsed.success) {
@@ -120,7 +121,7 @@ router.delete("/:id", requireAuth, async (req, res) => {
 
 // ─── POST /heartbeat — presence ping ───────────────────────────
 
-router.post("/heartbeat", requireAuth, async (_req, res) => {
+router.post("/heartbeat", heartbeatLimiter, requireAuth, async (_req, res) => {
   // Heartbeat is called even if not in a guild — still updates onlinePlayers
   presenceService.heartbeat(_req.player!.id);
   res.status(204).send();
