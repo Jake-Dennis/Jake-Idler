@@ -149,7 +149,7 @@ export function initSocketIO(server: HttpServer): Server {
   initGodotWebSocket(server);
 
   io = new Server(server, {
-    transports: ["polling"],
+    transports: ["websocket", "polling"],
     cors: {
       origin: process.env.CORS_ORIGIN || "*",
       credentials: true,
