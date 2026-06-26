@@ -192,8 +192,8 @@ class CombatService {
     const partySize = partyMembers.length;
     const monsters = this.generateMonsterQueue(floorNumber, partySize);
 
-    // Scale monster HP by party size — each additional member adds meaningful difficulty
-    const hpScale = 1 + (partySize - 1) * 0.85;
+    // Scale monster HP by party size — base 5x for solo, less per-member penalty
+    const hpScale = 5 + (partySize - 1) * 0.35;
     for (const m of monsters) {
       m.maxHp = Math.round(m.maxHp * hpScale);
       m.currentHp = Math.round(m.currentHp * hpScale);
