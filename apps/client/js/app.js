@@ -274,6 +274,7 @@ var totalGoldEarned = 0;
 var loopRetryCount = 0;
 var showingResult = false;
 var combatGen = 0;
+var combatStartTime = 0;
 var currentParty = null;
 
 // ─── Weapon Type ───────────────────────────────────────────
@@ -630,6 +631,7 @@ function enterDungeon() {
   .then(function(res) { return res.json().then(function(d) { if (!res.ok) throw new Error(d.error || 'Failed'); return d; }); })
   .then(function(data) {
     combatGen++;
+    combatStartTime = Date.now();
     showingResult = false;
     document.getElementById('combat-arena').classList.add('active');
     document.getElementById('start-btn').style.display = 'none';
@@ -758,6 +760,18 @@ function showResult(state) {
   var roundInfo = state.round || {};
   details.innerHTML = '';
 
+  // Calculate elapsed time
+  var elapsed = combatStartTime > 0 ? Date.now() - combatStartTime : 0;
+  var elapsedSec = Math.round(elapsed / 1000);
+  var timeStr = '';
+  if (elapsedSec >= 60) {
+    var min = Math.floor(elapsedSec / 60);
+    var sec = elapsedSec % 60;
+    timeStr = min + 'm ' + sec + 's';
+  } else {
+    timeStr = elapsedSec + 's';
+  }
+
   if (won) {
     var shardLines = '';
     var keyLine = '';
@@ -773,7 +787,8 @@ function showResult(state) {
         shardLines += '<br /><span style="color:' + sc + ';font-size:.78rem">' + parts[0].charAt(0).toUpperCase() + parts[0].slice(1) + ' Lv.' + (parts[1] || '?') + ' shard ×' + r.shardsEarned[sk] + '</span>';
       }
     }
-    details.innerHTML = 'Cleared in ' + (r.totalRounds || roundInfo.round || '?') + ' rounds!' +
+    details.innerHTML = 'Cleared in ' + (r.totalRounds || roundInfo.round || '?') + ' rounds' +
+      (timeStr ? ' (' + timeStr + ')' : '!') +
       '<br />Monsters defeated: ' + (r.monstersDefeated || 0) + '/' + (r.totalMonsters || '?') +
       '<br />Gold earned: <strong style="color:#fbbf24">' + (r.goldEarned || 0) + '</strong>' +
       keyLine +
@@ -885,6 +900,7 @@ function loopRetry() {
   .then(function(data) {
     loopRetryCount = 0;
     combatGen++;
+    combatStartTime = Date.now();
     showingResult = false;
     document.getElementById('combat-arena').classList.add('active');
     document.getElementById('start-btn').style.display = 'none';
