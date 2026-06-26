@@ -18,9 +18,16 @@
     "legendary": 50
   },
   "HERO_STAT_MULTIPLIER": 0,
-  "FLOOR_SCALE_EXPONENT": 0.3,
+  "FLOOR_SCALE_EXPONENT": 0.55,
   "FLOOR_SCALE_FACTOR": 0.02,
   "GOLD_SCALE_FACTOR": 0.1,
+  "SALVAGE_SHARDS": {
+    "common": 1,
+    "uncommon": 1,
+    "rare": 1,
+    "epic": 1,
+    "legendary": 1
+  },
   "CRAFT_COST": {
     "common": 1,
     "uncommon": 1,
@@ -28,6 +35,7 @@
     "epic": 1,
     "legendary": 1
   },
+  "KEY_DROP_CHANCE_MAX": 0.25,
   "COMBAT_COOLDOWN_MS": 5000,
   "STALE_TIMEOUT_MS": 75000,
   "GUILD_MAX_MEMBERS": 50

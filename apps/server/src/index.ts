@@ -20,6 +20,8 @@ import { config } from "./config/index.js";
 import { setUpPinoHttp } from "./observability/logger.js";
 import { authLimiter, lootCraftLimiter } from "./middleware/rate-limit.js";
 import { presenceService } from "./services/presence-service.js";
+import { balancingService } from "./services/balancing-service.js";
+import { applyConfigOverrides } from "@jake-idler/game";
 
 // Boot-time safety checks
 if (process.env.NODE_ENV === "production") {
@@ -92,6 +94,14 @@ app.use("/game", webRoutes);
 server.listen(PORT, () => {
   initDatabase();
   presenceService.startSweeper();
+
+  // Apply runtime config from balancing.json to the game engine
+  const balancing = balancingService.load();
+  if (Object.keys(balancing).length > 0) {
+    applyConfigOverrides(balancing);
+    console.log("[Config] Applied runtime overrides from balancing.json");
+  }
+
   console.log(`Server running on http://localhost:${PORT}`);
 });
 

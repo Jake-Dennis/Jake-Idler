@@ -124,30 +124,64 @@ function playHeroAttack(e) {
         createProjectile(el, monEl, color, false);
         await sleep(380);
         createExplosion(monEl, color);
+        var mr = monEl.getBoundingClientRect();
+        floatText(mr.left + mr.width/2 - 20, mr.top + mr.height/2 - 10, e.damage, 'damage');
       } else {
-        createProjectile(el, monEl, '#88ccff', true);
-        await sleep(430);
-        monEl.classList.add('animate-flash-white');
-        var hr = monEl.getBoundingClientRect();
-        floatText(hr.left + hr.width/2 - 20, hr.top - 10, 'HIT!', 'damage');
-        await sleep(400);
-        monEl.classList.remove('animate-flash-white');
+        // Range volley — fire 3 arrows in quick succession
+        var volleyCount = 3;
+        for (var vi = 0; vi < volleyCount; vi++) {
+          var delay = vi * 120;
+          setTimeout(function(idx) {
+            createProjectile(el, monEl, '#c8a060', true);
+            // Last arrow hits with flash
+            if (idx === volleyCount - 1) {
+              setTimeout(function() {
+                monEl.classList.add('animate-flash-white');
+                var hr = monEl.getBoundingClientRect();
+                floatText(hr.left + hr.width/2 - 20, hr.top + hr.height/2 - 10, e.damage, 'damage');
+                setTimeout(function() { monEl.classList.remove('animate-flash-white'); }, 400);
+              }, 450);
+            }
+          }, delay, vi);
+        }
+        await sleep(volleyCount * 120 + 500);
       }
       if (e.crit) {
         var arena = document.querySelector('.arena');
         if (arena) { arena.classList.add('animate-shake-screen'); setTimeout(function() { arena.classList.remove('animate-shake-screen'); }, 500); }
       }
     } else {
-      // Melee
+      // Melee — slash mark on the monster
       var animClass = (e.role === 'tank') ? 'animate-shield' : 'animate-slash';
       el.classList.add(animClass);
-      await sleep(getAnimDuration(animClass) + 50);
-      el.classList.remove(animClass);
       if (monEl && e.role !== 'tank') {
+        var mr = monEl.getBoundingClientRect();
+        monEl.style.position = 'relative';
+        // Add two crossing slash marks
+        for (var si = 0; si < 2; si++) {
+          var slash = document.createElement('div');
+          slash.className = 'slash-mark';
+          slash.style.top = (20 + Math.random() * 30) + '%';
+          slash.style.left = (15 + Math.random() * 30) + '%';
+          if (si === 1) { slash.style.transform = 'rotate(25deg) scaleX(0)'; slash.style.animationDelay = '.05s'; }
+          monEl.appendChild(slash);
+        }
+        emitParticles('hit', mr.left + mr.width/2, mr.top + mr.height/2, 8);
+        monEl.classList.add('animate-flash-white');
+        // Show damage number on monster
+        floatText(mr.left + mr.width/2 - 20, mr.top + mr.height/2 - 10, e.damage, 'damage');
         monEl.style.animationPlayState = 'paused';
-        await sleep(80);
+        await sleep(120);
         monEl.style.animationPlayState = '';
+        await sleep(getAnimDuration(animClass) - 120);
+        monEl.classList.remove('animate-flash-white');
+        // Remove slash marks
+        var marks = monEl.querySelectorAll('.slash-mark');
+        for (var si = 0; si < marks.length; si++) marks[si].remove();
+      } else {
+        await sleep(getAnimDuration(animClass) + 50);
       }
+      el.classList.remove(animClass);
       if (e.crit) {
         var arena = document.querySelector('.arena');
         if (arena) { arena.classList.add('animate-shake-screen'); setTimeout(function() { arena.classList.remove('animate-shake-screen'); }, 500); }
@@ -160,12 +194,66 @@ function playMonsterHit(e) {
   return (async function() {
     var monEl = findMonsterCard(e.monsterName);
     if (!monEl) return;
-    monEl.classList.add('animate-flash-red', 'animate-shake');
-    var mr = monEl.getBoundingClientRect();
-    floatText(mr.left + mr.width/2 - 20, mr.top - 10, Math.round(e.damage), 'damage');
-    emitParticles('hit', mr.left + mr.width/2, mr.top + mr.height/2, 6);
-    await animSleep('animate-flash-red');
-    monEl.classList.remove('animate-flash-red', 'animate-shake');
+    var heroEl = document.getElementById('hero-' + e.heroId);
+    var targetRect = heroEl ? heroEl.getBoundingClientRect() : monEl.getBoundingClientRect();
+    floatText(targetRect.left + targetRect.width/2 - 20, targetRect.top + targetRect.height/2 - 10, e.damage, 'damage');
+    emitParticles('hit', targetRect.left + targetRect.width/2, targetRect.top + targetRect.height/2, 6);
+
+    // Determine monster attack type from name hash (consistent per monster)
+    var nameHash = 0;
+    var name = e.monsterName || '';
+    for (var hi = 0; hi < name.length; hi++) nameHash = (nameHash * 31 + name.charCodeAt(hi)) & 0xffff;
+    var atkType = nameHash % 3; // 0=melee, 1=range, 2=mage
+
+    if (atkType === 2 && heroEl) {
+      // Mage-style: magic projectile from monster to hero
+      var colors = ['#ff4444', '#44ff44', '#ff44ff', '#ffff44'];
+      var color = colors[nameHash % colors.length];
+      createProjectile(monEl, heroEl, color, false);
+      await sleep(350);
+      createExplosion(heroEl, color);
+      heroEl.classList.add('animate-flash-red');
+      await sleep(200);
+      heroEl.classList.remove('animate-flash-red');
+    } else if (atkType === 1 && heroEl) {
+      // Range-style: volley of arrows from monster to hero
+      var hr2 = heroEl.getBoundingClientRect();
+      var volleyCount = 3;
+      for (var vi = 0; vi < volleyCount; vi++) {
+        (function(idx) {
+          setTimeout(function() {
+            createProjectile(monEl, heroEl, '#ff8844', true);
+            if (idx === volleyCount - 1) {
+              setTimeout(function() {
+                heroEl.classList.add('animate-flash-white');
+                floatText(hr2.left + hr2.width/2 - 20, hr2.top + hr2.height/2 - 10, e.damage, 'damage');
+                setTimeout(function() { heroEl.classList.remove('animate-flash-white'); }, 200);
+              }, 450);
+            }
+          }, idx * 120);
+        })(vi);
+      }
+      await sleep(volleyCount * 120 + 500);
+    } else {
+      // Melee-style: slash marks on hero
+      if (heroEl) {
+        for (var si = 0; si < 2; si++) {
+          var slash = document.createElement('div');
+          slash.className = 'slash-mark';
+          var hr = heroEl.getBoundingClientRect();
+          slash.style.position = 'fixed';
+          slash.style.top = (hr.top + hr.height * (0.2 + Math.random() * 0.3)) + 'px';
+          slash.style.left = (hr.left + hr.width * (0.15 + Math.random() * 0.3)) + 'px';
+          if (si === 1) { slash.style.transform = 'rotate(25deg) scaleX(0)'; slash.style.animationDelay = '.05s'; }
+          document.body.appendChild(slash);
+          setTimeout(function(el) { if (el) el.remove(); }, 400, slash);
+        }
+      }
+      monEl.classList.add('animate-flash-red', 'animate-shake');
+      await animSleep('animate-flash-red');
+      monEl.classList.remove('animate-flash-red', 'animate-shake');
+    }
+
     if (e.crit) {
       var arena = document.querySelector('.arena');
       if (arena) { arena.classList.add('animate-shake-screen'); setTimeout(function() { arena.classList.remove('animate-shake-screen'); }, getAnimDuration('animate-shake-screen') + 50); }
@@ -177,12 +265,33 @@ function playBlockEffect(e) {
   return (async function() {
     var hel = document.getElementById('hero-' + e.heroId);
     if (!hel) return;
-    hel.classList.add('animate-shield', 'animate-block-burst');
+    // Shield bubble overlay
     var br = hel.getBoundingClientRect();
-    emitParticles('block', br.left + br.width/2, br.top + br.height/2, 4);
-    floatText(br.left + br.width/2 - 20, br.top - 10, 'BLOCK', 'block');
-    await animSleep('animate-block-burst');
-    hel.classList.remove('animate-shield', 'animate-block-burst');
+    var shield = document.createElement('div');
+    shield.style.cssText = 'position:fixed;pointer-events:none;z-index:550;left:' + (br.left - 10) + 'px;top:' + (br.top - 10) + 'px;width:' + (br.width + 20) + 'px;height:' + (br.height + 20) + 'px;border:3px solid rgba(100,150,255,.7);border-radius:50%;box-shadow:0 0 30px rgba(100,150,255,.4),inset 0 0 20px rgba(100,150,255,.1);animation:shieldBubble .5s ease-out forwards';
+    document.body.appendChild(shield);
+    // Spark burst at impact point
+    var cx = br.left + br.width/2;
+    var cy = br.top + 10;
+    for (var si = 0; si < 10; si++) {
+      var spark = document.createElement('div');
+      spark.style.cssText = 'position:fixed;pointer-events:none;z-index:551;width:4px;height:4px;border-radius:50%;background:#88bbff;box-shadow:0 0 6px #88bbff';
+      var angle2 = Math.random() * Math.PI * 2;
+      var dist2 = 15 + Math.random() * 30;
+      spark.style.left = cx + 'px';
+      spark.style.top = cy + 'px';
+      spark.style.setProperty('--tx', Math.cos(angle2) * dist2 + 'px');
+      spark.style.setProperty('--ty', Math.sin(angle2) * dist2 + 'px');
+      spark.style.animation = 'explode .4s ease-out forwards';
+      spark.style.animationDelay = (Math.random() * 0.1) + 's';
+      document.body.appendChild(spark);
+      setTimeout(function(el) { if (el) el.remove(); }, 500, spark);
+    }
+    hel.classList.add('animate-flash-white');
+    floatText(br.left + br.width/2 - 20, br.top + br.height/2 - 10, 'BLOCK', 'block');
+    await sleep(500);
+    hel.classList.remove('animate-flash-white');
+    shield.remove();
   })();
 }
 
@@ -191,6 +300,18 @@ function playHealCast(e) {
     var el = document.getElementById('hero-' + e.heroId);
     if (!el) return;
     el.classList.add('animate-heal-cast');
+    var er = el.getBoundingClientRect();
+    // Rising green sparkles
+    for (var hsi = 0; hsi < 6; hsi++) {
+      var spark = document.createElement('div');
+      spark.style.cssText = 'position:fixed;pointer-events:none;z-index:550;width:5px;height:5px;border-radius:50%;background:#4ade80;box-shadow:0 0 10px #4ade80';
+      spark.style.left = (er.left + er.width/2 + (Math.random() - 0.5) * 40) + 'px';
+      spark.style.top = (er.top + er.height/2 + (Math.random() - 0.5) * 20) + 'px';
+      spark.style.animation = 'healSparkle 1s ease-out forwards';
+      spark.style.animationDelay = (Math.random() * 0.3) + 's';
+      document.body.appendChild(spark);
+      setTimeout(function(el2) { if (el2) el2.remove(); }, 1200, spark);
+    }
     await animSleep('animate-heal-cast');
     el.classList.remove('animate-heal-cast');
   })();
@@ -201,11 +322,25 @@ function playHealed(e) {
     var hel = document.getElementById('hero-' + e.heroId);
     if (!hel) return;
     var hr = hel.getBoundingClientRect();
-    emitParticles('heal', hr.left + hr.width/2, hr.top + hr.height/2, 8);
+    // Green cross burst
+    for (var hi = 0; hi < 8; hi++) {
+      var cross = document.createElement('div');
+      cross.style.cssText = 'position:fixed;pointer-events:none;z-index:550;width:6px;height:6px;background:#4ade80;border-radius:1px;box-shadow:0 0 8px #4ade80';
+      var angle = hi * Math.PI / 4;
+      cross.style.left = (hr.left + hr.width/2) + 'px';
+      cross.style.top = (hr.top + 10) + 'px';
+      cross.style.setProperty('--tx', Math.cos(angle) * 35 + 'px');
+      cross.style.setProperty('--ty', Math.sin(angle) * 35 + 'px');
+      cross.style.animation = 'explode .5s ease-out forwards';
+      cross.style.animationDelay = (Math.random() * 0.1) + 's';
+      document.body.appendChild(cross);
+      setTimeout(function(el3) { if (el3) el3.remove(); }, 600, cross);
+    }
+    emitParticles('heal', hr.left + hr.width/2, hr.top + hr.height/2, 12);
     hel.classList.add('animate-heal-received');
     await animSleep('animate-heal-received');
     hel.classList.remove('animate-heal-received');
-    floatText(hr.left + hr.width/2 - 20, hr.top - 20, '+' + Math.round(e.healAmount), 'heal');
+    floatText(hr.left + hr.width/2 - 20, hr.top + hr.height/2 - 10, '+' + e.healAmount, 'heal');
   })();
 }
 
@@ -249,34 +384,85 @@ function createProjectile(fromEl, toEl, color, isArc) {
   var fromRect = fromEl.getBoundingClientRect();
   var toRect = toEl.getBoundingClientRect();
 
-  var startX = fromRect.left + fromRect.width/2 - 6;
-  var startY = fromRect.top + fromRect.height/2 - 6;
-  var endX = toRect.left + toRect.width/2 - 6;
+  var startX = fromRect.left + fromRect.width/2;
+  var startY = fromRect.top + fromRect.height/2;
+  var endX = toRect.left + toRect.width/2;
   var endY = toRect.top + 10;
 
+  var isArrow = isArc; // arc projectiles use arrow shape
   var proj = document.createElement('div');
-  proj.className = 'projectile';
-  proj.style.background = 'radial-gradient(circle, ' + color + ', ' + color + ')';
-  proj.style.boxShadow = '0 0 16px ' + color;
-  proj.style.left = startX + 'px';
-  proj.style.top = startY + 'px';
-  proj.style.width = '14px';
-  proj.style.height = '14px';
+
+  if (isArrow) {
+    // Arrow-shaped projectile
+    var dx = endX - startX;
+    var dy = endY - startY;
+    var angle = Math.atan2(dy, dx) * 180 / Math.PI;
+    var dist = Math.sqrt(dx*dx + dy*dy);
+    proj.className = 'projectile';
+    proj.style.cssText = 'position:fixed;pointer-events:none;z-index:500;background:#c8a060;border-radius:0;box-shadow:0 2px 6px rgba(0,0,0,.3)';
+    proj.style.width = '24px';
+    proj.style.height = '4px';
+    proj.style.left = startX + 'px';
+    proj.style.top = (startY - 2) + 'px';
+    proj.style.transform = 'rotate(' + angle + 'deg)';
+    proj.style.transformOrigin = 'left center';
+    // Arrowhead
+    var head = document.createElement('div');
+    head.style.cssText = 'position:absolute;right:-6px;top:-4px;width:0;height:0;border-top:5px solid transparent;border-bottom:5px solid transparent;border-left:8px solid #c8a060';
+    proj.appendChild(head);
+    // Fletching
+    var fletch = document.createElement('div');
+    fletch.style.cssText = 'position:absolute;left:0;top:-3px;width:8px;height:10px;background:linear-gradient(45deg,transparent 30%,#8a6a3a 30%,#8a6a3a 50%,transparent 50%,transparent 70%,#8a6a3a 70%);border-radius:1px';
+    proj.appendChild(fletch);
+  } else {
+    // Magic projectile — glowing orb with orbiting rings
+    proj.className = 'projectile';
+    proj.style.cssText = 'position:fixed;pointer-events:none;z-index:500';
+    proj.style.left = (startX) + 'px';
+    proj.style.top = (startY) + 'px';
+    // Core orb
+    var orb = document.createElement('div');
+    orb.style.cssText = 'position:absolute;left:-8px;top:-8px;width:16px;height:16px;border-radius:50%;background:radial-gradient(circle,#fff 0%,' + color + ' 40%,transparent 70%);box-shadow:0 0 20px ' + color + ',0 0 40px ' + color + ';animation:mageOrbPulse .5s ease-in-out infinite';
+    proj.appendChild(orb);
+    // Outer glow ring
+    var ring = document.createElement('div');
+    ring.style.cssText = 'position:absolute;left:-16px;top:-16px;width:32px;height:32px;border-radius:50%;border:2px solid ' + color + ';opacity:.5;box-shadow:0 0 10px ' + color + ';animation:mageRingSpin .8s linear infinite';
+    proj.appendChild(ring);
+    // Inner sparkle dots
+    for (var di = 0; di < 4; di++) {
+      var dot = document.createElement('div');
+      var angle = di * 90;
+      dot.style.cssText = 'position:absolute;left:-2px;top:-10px;width:4px;height:4px;border-radius:50%;background:' + color + ';box-shadow:0 0 6px ' + color + ';animation:mageOrbit' + (di % 2 + 1) + ' .6s ease-in-out infinite';
+      dot.style.animationDelay = (di * 0.15) + 's';
+      proj.appendChild(dot);
+    }
+  }
   document.body.appendChild(proj);
 
   var trailInterval = setInterval(function() {
     if (!proj.parentNode) { clearInterval(trailInterval); return; }
-    var trail = document.createElement('div');
-    trail.className = 'projectile-trail';
-    trail.style.background = color;
-    trail.style.opacity = '0.5';
-    trail.style.width = '8px';
-    trail.style.height = '8px';
-    trail.style.left = proj.style.left;
-    trail.style.top = proj.style.top;
-    document.body.appendChild(trail);
-    setTimeout(function() { trail.remove(); }, 300);
-  }, 50);
+    if (isArrow) {
+      // Arrow wind trail
+      var trail = document.createElement('div');
+      trail.style.cssText = 'position:fixed;pointer-events:none;z-index:499;width:12px;height:2px;border-radius:1px;opacity:0.4';
+      trail.style.background = '#d4c090';
+      trail.style.left = parseFloat(proj.style.left) - 12 + 'px';
+      trail.style.top = parseFloat(proj.style.top) + 'px';
+      document.body.appendChild(trail);
+      setTimeout(function() { trail.remove(); }, 200);
+    } else {
+      var trail = document.createElement('div');
+      trail.className = 'projectile-trail';
+      trail.style.background = color;
+      trail.style.opacity = '0.5';
+      trail.style.width = '8px';
+      trail.style.height = '8px';
+      trail.style.left = proj.style.left;
+      trail.style.top = proj.style.top;
+      document.body.appendChild(trail);
+      setTimeout(function() { trail.remove(); }, 300);
+    }
+  }, isArrow ? 30 : 50);
 
   if (isArc) {
     var midX = (startX + endX) / 2;
@@ -309,22 +495,45 @@ function createExplosion(el, color) {
   var rect = el.getBoundingClientRect();
   var cx = rect.left + rect.width/2;
   var cy = rect.top + 10;
-  for (var i = 0; i < 8; i++) {
+
+  // Expanding magic rings
+  for (var ri = 0; ri < 3; ri++) {
+    var ring = document.createElement('div');
+    ring.className = 'mage-explosion-ring';
+    ring.style.left = (cx - 20) + 'px';
+    ring.style.top = (cy - 20) + 'px';
+    ring.style.width = '40px';
+    ring.style.height = '40px';
+    ring.style.borderColor = color;
+    ring.style.animationDelay = (ri * 0.1) + 's';
+    ring.style.opacity = (1 - ri * 0.25).toString();
+    document.body.appendChild(ring);
+    ring.addEventListener('animationend', function() { ring.remove(); }, { once: true });
+  }
+
+  // Particle burst
+  for (var i = 0; i < 16; i++) {
     var spark = document.createElement('div');
     spark.className = 'projectile-trail animate-explode';
     spark.style.background = color;
-    spark.style.width = '6px';
-    spark.style.height = '6px';
-    spark.style.left = (cx - 3) + 'px';
-    spark.style.top = (cy - 3) + 'px';
-    spark.style.setProperty('--tx', Math.cos(i * Math.PI/4) * 30 + 'px');
-    spark.style.setProperty('--ty', Math.sin(i * Math.PI/4) * 30 + 'px');
+    var size = 3 + Math.random() * 5;
+    spark.style.width = size + 'px';
+    spark.style.height = size + 'px';
+    spark.style.left = (cx - size/2) + 'px';
+    spark.style.top = (cy - size/2) + 'px';
+    var angle = Math.random() * Math.PI * 2;
+    var dist = 20 + Math.random() * 40;
+    spark.style.setProperty('--tx', Math.cos(angle) * dist + 'px');
+    spark.style.setProperty('--ty', Math.sin(angle) * dist + 'px');
+    spark.style.animationDelay = (Math.random() * 0.15) + 's';
     document.body.appendChild(spark);
     spark.addEventListener('animationend', function() { spark.remove(); }, { once: true });
   }
+
   el.classList.add('animate-flash-white');
   var rect2 = el.getBoundingClientRect();
-  floatText(rect2.left + rect2.width/2 - 20, rect2.top - 15, 'BOOM!', 'crit');
+  var boomText = ['BOOM!', 'KA-POW!', 'BLAST!', 'WHAM!'][Math.floor(Math.random() * 4)];
+  floatText(rect2.left + rect2.width/2 - 20, rect2.top + rect2.height/2 - 10, boomText, 'crit');
   el.addEventListener('animationend', function() { el.classList.remove('animate-flash-white'); }, { once: true });
 }
 
@@ -350,7 +559,7 @@ window.handleCombatEvents = async function(events, monsters, partyHeroes, roundN
     var promises = [];
     for (var i = 0; i < attackEvts.length; i++) {
       var evt = attackEvts[i];
-      if (window.addLog) window.addLog('attack', (evt.heroName || 'Hero') + ' attacks ' + (evt.monsterName || 'Monster'));
+      if (window.addLog) window.addLog('attack', (evt.heroName || 'Hero') + ' attacks ' + (evt.monsterName || 'Monster') + ' for ' + evt.damage);
       promises.push(playHeroAttack(evt));
     }
     await Promise.all(promises);
@@ -375,7 +584,7 @@ window.handleCombatEvents = async function(events, monsters, partyHeroes, roundN
       if (events[i].type === 'hero_hit') {
         var hitEvt = events[i];
         var critStr = hitEvt.isCrit ? ' (CRIT!)' : '';
-        if (window.addLog) window.addLog('hit', (hitEvt.heroName || 'Hero') + ' hits ' + (hitEvt.monsterName || 'Monster') + ' for ' + hitEvt.damage + critStr);
+        if (window.addLog) window.addLog('hit', (hitEvt.monsterName || 'Monster') + ' hits ' + (hitEvt.heroName || 'Hero') + ' for ' + hitEvt.damage + critStr);
         await playMonsterHit(hitEvt);
       }
       if (events[i].type === 'block') {
@@ -398,7 +607,7 @@ window.handleCombatEvents = async function(events, monsters, partyHeroes, roundN
         await playHealCast(events[i]);
       }
       if (events[i].type === 'healed') {
-        if (window.addLog) window.addLog('healed', (events[i].heroName || 'Hero') + ' healed for ' + events[i].amount);
+        if (window.addLog) window.addLog('healed', (events[i].heroName || 'Hero') + ' healed for ' + events[i].healAmount);
         await playHealed(events[i]);
       }
     }
@@ -420,6 +629,8 @@ window.handleCombatEvents = async function(events, monsters, partyHeroes, roundN
   // Update HP bars from snapshot
   if (monsters && window.updateMonsterBars) window.updateMonsterBars(monsters);
   if (partyHeroes && window.updateHeroBars) window.updateHeroBars(partyHeroes);
+  // Reveal mystery bosses once all trash are cleared
+  if (window.revealBoss) window.revealBoss();
 };
 
 // Export helpers for other scripts

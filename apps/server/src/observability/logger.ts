@@ -5,7 +5,7 @@ import pinoHttp from "pino-http";
 // ─── Root Logger ──────────────────────────────────────────────
 
 const rootLogger = pino({
-  level: process.env.LOG_LEVEL ?? "info",
+  level: process.env.LOG_LEVEL ?? "warn",
   redact: {
     paths: ["req.headers.authorization", "*.passwordHash", "*.password", "*.token"],
     censor: "[Redacted]",
@@ -29,7 +29,7 @@ export function setUpPinoHttp(app: Express): void {
     pinoHttp({
       logger: rootLogger,
       autoLogging: {
-        ignore: (req) => (req.url ?? "").startsWith("/api/health"),
+        ignore: (req) => (req.url ?? "").startsWith("/api/health") || (req.url ?? "") === "/api/guilds/heartbeat",
       },
     }),
   );

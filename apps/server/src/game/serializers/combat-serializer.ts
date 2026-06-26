@@ -28,6 +28,7 @@ interface PartyHeroRoundData {
   damageTaken: number;
   monsterCrit: boolean;
   healingReceived: number;
+  weaponType?: string;
 }
 
 interface CombatRoundState {
@@ -247,15 +248,15 @@ function buildEvents(
     if (h.damage > 0) {
       const wType = (weaponTypes && weaponTypes[h.heroId]) || "melee";
       events.push({
-        type: "hero_attack",
-        heroId: h.heroId,
-        heroName: h.name,
-        damage: Math.round(h.damage),
-        crit: h.crit,
-        weaponType: wType,
-        role: h.role,
-        monsterName: lastRound.currentMonsterName,
-      });
+          type: "hero_attack",
+          heroId: h.heroId,
+          heroName: h.name,
+          damage: h.damage,
+          crit: h.crit,
+          weaponType: wType,
+          role: h.role,
+          monsterName: lastRound.currentMonsterName,
+        });
       }
       if (h.healingDone > 0) {
         events.push({
@@ -278,7 +279,7 @@ function buildEvents(
         type: "hero_hit",
         heroId: h.heroId,
         heroName: h.name,
-        damage: Math.round(h.damageTaken),
+        damage: h.damageTaken,
         crit: h.monsterCrit,
         monsterName: lastRound.currentMonsterName,
       });
@@ -287,7 +288,7 @@ function buildEvents(
             type: "block",
             heroId: h.heroId,
             heroName: h.name,
-            damage: Math.round(h.damageTaken),
+            damage: h.damageTaken,
           });
         }
       }

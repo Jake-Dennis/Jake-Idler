@@ -8,8 +8,10 @@ import type { Party } from "./social.js";
  *
  * All balance-tuning knobs live here so they can be adjusted in one place
  * without scattering magic numbers across the codebase.
+ *
+ * Runtime overrides from balancing.json are applied via {@link applyConfigOverrides}.
  */
-export const GameConfig = {
+const BASE_CONFIG = {
   /** Maximum number of items a hero can hold in their inventory. */
   MAX_INVENTORY: 30,
 
@@ -107,7 +109,51 @@ export const GameConfig = {
     [Rarity.Epic]: 1,
     [Rarity.Legendary]: 1,
   } as Record<Rarity, number>,
+
+  /**
+   * Maximum key drop chance for boss kills (as a decimal 0-1).
+   * Scales linearly with floor position within bracket:
+   *   floor pos 1 → KEY_DROP_CHANCE_MIN (below)
+   *   floor pos 10 → KEY_DROP_CHANCE_MAX
+   * Bracket bosses (floor 10, 20, 30...) use the max chance.
+   */
+  KEY_DROP_CHANCE_MAX: 0.25,
 } as const;
+
+/** Runtime-mutable version of GameConfig. Starts as a copy of the base config. */
+const runtimeOverrides: Record<string, unknown> = {};
+
+/**
+ * Public config object. Returns base values by default; runtime overrides
+ * applied via {@link applyConfigOverrides} take precedence.
+ *
+ * IMPORTANT: Only read — do NOT mutate directly. Use applyConfigOverrides().
+ */
+export const GameConfig: typeof BASE_CONFIG = new Proxy(BASE_CONFIG as any, {
+  get(target, prop: string) {
+    if (prop in runtimeOverrides) {
+      return (runtimeOverrides as any)[prop];
+    }
+    return (target as any)[prop];
+  },
+});
+
+/**
+ * Apply runtime overrides from balancing.json.
+ * Supports both flat keys (FLOOR_SCALE_EXPONENT) and nested objects (BASE_DROP_RATES).
+ */
+export function applyConfigOverrides(overrides: Record<string, unknown>): void {
+  for (const [key, value] of Object.entries(overrides)) {
+    if (!(key in BASE_CONFIG)) continue;
+    const baseVal = (BASE_CONFIG as any)[key];
+    if (typeof value === "object" && value !== null && !Array.isArray(value) && typeof baseVal === "object") {
+      // Merge nested objects (e.g. BASE_DROP_RATES)
+      runtimeOverrides[key] = { ...baseVal, ...value };
+    } else {
+      runtimeOverrides[key] = value;
+    }
+  }
+}
 
 /** Type-safe keys for GameConfig (useful for dynamic lookups). */
 export type GameConfigKey = keyof typeof GameConfig;

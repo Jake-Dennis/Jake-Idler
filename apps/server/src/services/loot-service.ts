@@ -126,9 +126,6 @@ class LootService {
 
     // Check inventory space
     const inventory = (hero.inventory as Equipment[]) || [];
-    if (inventory.length >= 30) {
-      return { success: false, error: "Inventory is full (max 30 items)" };
-    }
 
     // Check for valid slot/type combination
     const validTypes = CRAFTABLE_EQUIPMENT_TYPES[slot];

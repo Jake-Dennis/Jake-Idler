@@ -71,7 +71,7 @@
   </div>
 
   <!-- ═══════════ GAME CONTAINER ═══════════ -->
-  <div id="game-container" style="display:none;flex-direction:column;height:100vh;">
+  <div id="game-container" style="display:none;flex-direction:column;height:100vh;overflow:visible;">
 
     <!-- ═══════════ HERO BAR ═══════════ -->
     <div class="hero-bar animate-torch-flicker" id="hero-bar">
@@ -90,6 +90,7 @@
         <span id="hero-bar-hp">0</span>/<span id="hero-bar-maxhp">0</span>
       </span>
       <span class="h-stat"><i data-lucide="coins" style="width:14px;height:14px"></i> <span class="h-val" id="hero-bar-gold">0</span></span>
+      <span class="h-stat" id="hero-bar-keys-wrap" style="display:none"><i data-lucide="key" style="width:14px;height:14px"></i> Keys: <span class="h-val" id="hero-bar-keys">0</span></span>
       <span class="h-stat">
         <label for="floor-select" style="color:#4a454a;font-weight:700;font-size:.7rem;letter-spacing:1px;margin-right:4px">FLOOR</label>
         <select id="floor-select" style="padding:2px 6px;background:#0a080a;border:1px solid #2a2020;border-radius:4px;color:#9a949a;font-size:.8rem;cursor:pointer"></select>
@@ -118,15 +119,18 @@
         <div class="round-counter" id="round-counter">Round 0</div>
 
         <div class="arena">
-          <div class="arena-row" id="boss-row"></div>
-          <div class="arena-row" id="monster-row"></div>
-          <div id="arena-divider" style="border-top:1px solid #1a1518;margin:6px 0"></div>
-          <div class="hero-row" id="hero-row"></div>
+          <div class="arena-heroes" id="arena-heroes"></div>
+          <div class="arena-divider-v" id="arena-divider-v"></div>
+          <div class="arena-enemies" id="arena-enemies">
+            <div class="enemy-mobs" id="monster-row"></div>
+            <div class="enemy-boss" id="boss-row"></div>
+          </div>
           <div class="vignette-flash" id="vignette-flash"></div>
           <div class="floor-announce" id="floor-announce"></div>
         </div>
 
         <button id="log-toggle" style="background:transparent;border:1px solid #1a1518;border-radius:3px;color:#4a454a;font-size:.65rem;cursor:pointer;padding:2px 8px;margin-top:4px;align-self:center">Hide log</button>
+        <button id="test-boss-btn" style="background:transparent;border:1px solid #5a4a2a;border-radius:3px;color:#6a623a;font-size:.65rem;cursor:pointer;padding:2px 8px;margin-top:4px;margin-left:4px;align-self:center">Test Boss Phase</button>
         <div class="combat-log" id="combat-log"></div>
 
         <div id="loop-info" class="loop-info"></div>
@@ -141,6 +145,7 @@
         <div class="equip-inventory-panel">
           <div class="equip-section-title" style="margin-bottom:6px">Inventory <span class="inv-count" id="inv-count"></span></div>
           <div class="equip-inventory-wrap" id="equip-inventory"></div>
+          <div id="stats-key-list" style="margin-top:10px;padding:8px 12px;background:#080608;border:1px solid #1a1518;border-radius:6px"></div>
         </div>
       </div>
     </div>
@@ -198,8 +203,11 @@
                 <option value="healer">Healer</option>
               </select>
               <button onclick="addBot()" class="btn btn-ghost btn-sm">Add Bot</button>
-              <button onclick="leaveParty()" class="btn btn-danger btn-sm" style="margin-left:auto">Leave Party</button>
             </div>
+          </div>
+
+          <div class="party-section" style="margin-top:16px;border-top:1px solid rgba(255,255,255,0.06);padding-top:16px">
+            <button onclick="leaveParty()" class="btn btn-danger" style="width:100%">Leave Party</button>
           </div>
         </div>
       </div>

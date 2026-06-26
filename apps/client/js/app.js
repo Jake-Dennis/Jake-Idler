@@ -260,6 +260,13 @@ if (hero && hero.id) {
 
   // Start periodic heartbeat for guild presence
   startHeartbeat();
+  loadKeys(hero.currentFloor);
+
+  // Re-filter keys when floor selector changes
+  document.getElementById('floor-select')?.addEventListener('change', function() {
+    var f = parseInt(this.value);
+    loadKeys(f);
+  });
 
 var isLooping = false;
 var loopCount = 0;
@@ -303,7 +310,7 @@ document.querySelectorAll('.tab').forEach(function(tab) {
   for (var i = 1; i <= hero.currentFloor; i++) {
     var opt = document.createElement('option');
     opt.value = i;
-    opt.textContent = 'Floor ' + i + (i % 10 === 0 ? ' [BOSS]' : '') + (i === hero.currentFloor ? ' (current)' : '');
+    opt.textContent = 'Floor ' + i + (i === hero.currentFloor ? ' (current)' : '');
     sel.appendChild(opt);
   }
 })();
@@ -357,29 +364,57 @@ function renderMonsters(monsters) {
   bossRow.innerHTML = '';
   monsterRow.innerHTML = '';
 
+  // Check if any trash monsters are alive (mystery boss until they're cleared)
+  var hasAliveTrash = monsters.some(function(m) { return !m.isBoss && m.hp > 0; });
+
+  var weaponIcons = { melee: 'sword', range: 'crosshair', mage: 'wand' };
   monsters.forEach(function(m) {
     var card = document.createElement('div');
-    card.className = 'monster-card' + (m.isBoss ? ' boss' : '') + (m.isCurrentFocus ? ' is-focus' : '');
+    var mystery = m.isBoss && hasAliveTrash;
+    card.className = 'monster-card' + (m.isBoss ? ' boss' : '') + (m.isCurrentFocus ? ' is-focus' : '') + (mystery ? ' mystery' : '');
     card.setAttribute('data-monster-name', m.name);
     card.id = 'monster-' + m.id;
     var pct = m.maxHp > 0 ? (m.hp / m.maxHp) * 100 : 0;
-    var icon;
-    if (m.isBoss && m.name && m.name.toLowerCase().indexOf('skeleton') !== -1) {
-      icon = '<img src="/assets/Boss/Boss-Viciouse-Skeleton.png" style="width:56px;height:56px;object-fit:contain;display:block;margin:0 auto" alt="Skeleton Boss">';
-    } else if (m.isBoss) {
-      icon = '<i data-lucide="skull" style="width:36px;height:36px"></i>';
-    } else if (m.name && m.name.toLowerCase().indexOf('skeleton') !== -1) {
-      icon = '<img src="/assets/Trash-Mobs/Aggressive%20skeleton%20warrior%20in%20battle%20stance.png" style="width:44px;height:44px;object-fit:contain;display:block;margin:0 auto" alt="Skeleton">';
+    // Consistent weapon type from name hash
+    var nameHash = 0;
+    for (var hi = 0; hi < (m.name || '').length; hi++) nameHash = (nameHash * 31 + m.name.charCodeAt(hi)) & 0xffff;
+    var wTypes = ['melee', 'range', 'mage'];
+    var monWType = wTypes[nameHash % 3];
+    var wIcon = weaponIcons[monWType];
+
+    if (mystery) {
+      // Store real boss data for later reveal
+      card.dataset.realName = m.name;
+      card.dataset.realHp = m.hp;
+      card.dataset.realMaxHp = m.maxHp;
+      card.dataset.realWType = monWType;
+      card.dataset.realWIcon = wIcon;
+      card.innerHTML =
+        '<div class="monster-icon">' +
+          '<div style="width:60px;height:60px;border:2px dashed #3a373a;border-radius:8px;display:flex;align-items:center;justify-content:center;margin:0 auto;background:#080608">' +
+            '<span style="font-size:1.5rem;color:#3a373a;font-weight:700">?</span>' +
+          '</div>' +
+        '</div>' +
+        '<div class="monster-name" style="color:#3a373a">???</div>' +
+        '<div class="hp-bar-outer" style="width:100%"><div class="hp-bar-inner" style="width:0%;background:#1a1518"></div></div>' +
+        '<div class="monster-hp" style="color:#3a373a">???</div>';
     } else {
-      icon = '<i data-lucide="bug" style="width:22px;height:22px"></i>';
+      var icon;
+      var imgTag;
+      if (m.isBoss) {
+        imgTag = monsterImg('boss', m.name);
+        icon = imgTag || '<i data-lucide="skull" style="width:36px;height:36px"></i>';
+      } else {
+        imgTag = monsterImg('trash', m.name, 'width:60px;height:60px;object-fit:contain;display:block;margin:0 auto;border-radius:4px');
+        icon = imgTag || '<i data-lucide="bug" style="width:22px;height:22px"></i>';
+      }
+      card.innerHTML = '<div class="monster-icon">' + icon + '</div>' +
+        '<div class="monster-name">' + escHtml(m.name) + '</div>' +
+        '<div class="hp-bar-outer" style="width:100%"><div class="hp-bar-inner ' + hpColorClass(m.hp, m.maxHp) + '" style="width:' + pct + '%"></div></div>' +
+        '<div class="monster-hp"><i data-lucide="' + wIcon + '" style="width:12px;height:12px;margin-right:4px;vertical-align:middle"></i><span class="monster-hp-text">' + Math.round(m.hp) + '/' + Math.round(m.maxHp) + '</span></div>';
     }
-    card.innerHTML = '<div class="monster-icon">' + icon + '</div>' +
-      '<div class="monster-name">' + escHtml(m.name) + '</div>' +
-      '<div class="hp-bar-outer" style="width:100%"><div class="hp-bar-inner ' + hpColorClass(m.hp, m.maxHp) + '" style="width:' + pct + '%"></div></div>' +
-      '<div class="monster-hp">' + Math.round(m.hp) + '/' + Math.round(m.maxHp) + '</div>';
     if (m.isBoss) {
       bossRow.appendChild(card);
-      // Boss entrance animation
       setTimeout(function() { card.classList.add('animate-boss-entrance'); }, 50);
     }
     else monsterRow.appendChild(card);
@@ -387,43 +422,89 @@ function renderMonsters(monsters) {
   if (typeof lucide !== 'undefined') lucide.createIcons();
 }
 
+/** Reveal mystery bosses once all trash monsters are cleared. */
+function revealBoss() {
+  var bossCards = document.querySelectorAll('.monster-card.boss.mystery');
+  if (bossCards.length === 0) return;
+
+  // Check if any trash monster still exists in the DOM with visible HP
+  var trashCards = document.querySelectorAll('.monster-card:not(.boss)');
+  var trashAlive = false;
+  for (var ti = 0; ti < trashCards.length; ti++) {
+    var hpText = trashCards[ti].querySelector('.monster-hp-text');
+    if (hpText) {
+      var parts = hpText.textContent.split('/');
+      if (parts.length === 2 && parseInt(parts[0]) > 0) { trashAlive = true; break; }
+    }
+  }
+  if (trashAlive) return;
+
+  var weaponIcons = { melee: 'sword', range: 'crosshair', mage: 'wand' };
+  for (var bi = 0; bi < bossCards.length; bi++) {
+    var card = bossCards[bi];
+    var realName = card.dataset.realName || '???';
+    var realHp = parseFloat(card.dataset.realHp) || 1;
+    var realMaxHp = parseFloat(card.dataset.realMaxHp) || 1;
+    var realWIcon = card.dataset.realWIcon || 'sword';
+    var pct = (realHp / realMaxHp) * 100;
+
+    var imgTag = monsterImg('boss', realName);
+    var icon = imgTag || '<i data-lucide="skull" style="width:36px;height:36px"></i>';
+
+    card.classList.remove('mystery');
+    card.classList.add('reveal');
+    card.innerHTML =
+      '<div class="monster-icon">' + icon + '</div>' +
+      '<div class="monster-name">' + escHtml(realName) + '</div>' +
+      '<div class="hp-bar-outer" style="width:100%"><div class="hp-bar-inner ' + hpColorClass(realHp, realMaxHp) + '" style="width:' + pct + '%"></div></div>' +
+      '<div class="monster-hp"><i data-lucide="' + realWIcon + '" style="width:12px;height:12px;margin-right:4px;vertical-align:middle"></i><span class="monster-hp-text">' + Math.round(realHp) + '/' + Math.round(realMaxHp) + '</span></div>';
+
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+  }
+}
+
 // ─── Render Party Heroes ───────────────────────────────────
 function renderPartyHeroes(partyHeroes) {
-  var row = document.getElementById('hero-row');
-  row.innerHTML = '';
+  var col = document.getElementById('arena-heroes');
+  col.innerHTML = '';
+  var weaponIcons = { melee: 'sword', range: 'crosshair', mage: 'wand' };
   var icons = { tank: 'shield', dps: 'sword', healer: 'heart' };
-  var roleOrder = ['tank', 'dps', 'healer'];
+  var roleOrder = ['healer', 'dps', 'tank'];
+  var roleLabels = { tank: 'TANK', dps: 'DPS', healer: 'HEAL' };
 
   roleOrder.forEach(function(role) {
     var heroes = partyHeroes.filter(function(h) { return h.role === role; });
     if (heroes.length === 0) return;
 
-    // Horizontal row for this role's heroes
-    var heroRow = document.createElement('div');
-    heroRow.className = 'role-heroes-row';
+    var roleCol = document.createElement('div');
+    roleCol.className = 'hero-role-col role-' + role;
 
     heroes.forEach(function(h) {
       var card = document.createElement('div');
       card.className = 'hero-card role-' + role;
       card.id = 'hero-' + h.heroId;
       var pct = h.maxHp > 0 ? (h.hp / h.maxHp) * 100 : 0;
-      var heroName = (h.heroId === hero.id) ? hero.name : (h.name || h.heroId.substring(0, 10));
+      var heroName = (h.heroId === hero.id) ? hero.name : (h.name || h.heroId.substring(0, 8));
       var photoUrl = (h.heroId === hero.id) ? hero.photoUrl : (h.photoUrl || null);
+      var iconName = icons[role] || 'sword';
+      if (role === 'dps' && h.weaponType) {
+        iconName = weaponIcons[h.weaponType] || 'sword';
+      }
       var iconHtml;
       if (photoUrl) {
         iconHtml = '<img class="hero-card-photo" src="' + photoUrl + '" alt="">';
       } else {
-        iconHtml = '<div class="hero-role-icon"><i data-lucide="' + (icons[role] || 'sword') + '" style="width:18px;height:18px"></i></div>';
+        iconHtml = '<div class="hero-role-icon"><i data-lucide="' + iconName + '" style="width:14px;height:14px"></i></div>';
       }
       card.innerHTML = iconHtml +
-        '<div class="hero-card-name">' + heroName + '</div>' +
+        '<div class="hero-card-name">' + escHtml(heroName) + '</div>' +
         '<div class="hp-bar-outer"><div class="hp-bar-inner ' + hpColorClass(h.hp, h.maxHp) + '" style="width:' + pct + '%"></div></div>' +
-        '<div class="hero-hp"><i data-lucide="' + (icons[role] || 'sword') + '" style="width:12px;height:12px;margin-right:4px;vertical-align:middle"></i><span class="hero-hp-text">' + Math.round(h.hp) + '/' + Math.round(h.maxHp) + '</span></div>';
+        '<div class="hero-hp">' + Math.round(h.hp) + '/' + Math.round(h.maxHp) + '</div>';
       var img = card.querySelector('.hero-card-photo');
       if (img) img.onerror = function() { this.style.display = 'none'; };
-      heroRow.appendChild(card);
+      roleCol.appendChild(card);
     });
-    row.appendChild(heroRow);
+    col.appendChild(roleCol);
   });
   if (typeof lucide !== 'undefined') lucide.createIcons();
 }
@@ -433,7 +514,7 @@ function updateMonsterBars(monsters) {
   monsters.forEach(function(m) {
     var el = document.getElementById('monster-' + m.id);
     if (!el) return;
-    var hpText = el.querySelector('.monster-hp');
+    var hpText = el.querySelector('.monster-hp-text');
     if (hpText) hpText.textContent = Math.round(m.hp) + '/' + Math.round(m.maxHp);
     var pct = m.maxHp > 0 ? (m.hp / m.maxHp) * 100 : 0;
     var bar = el.querySelector('.hp-bar-inner');
@@ -454,7 +535,7 @@ function updateHeroBars(partyHeroes) {
       bar.style.width = pct + '%';
       bar.className = 'hp-bar-inner ' + hpColorClass(h.hp, h.maxHp);
     }
-    var hpText = el.querySelector('.hero-hp-text');
+    var hpText = el.querySelector('.hero-hp');
     if (hpText) hpText.textContent = Math.round(h.hp) + '/' + Math.round(h.maxHp);
 
     // Update hero bar (top menu) for player's hero
@@ -486,8 +567,43 @@ async function playCombatCutscene(roundStates, onComplete) {
     return;
   }
   var prevState = null;
+  var bossAnnounced = false;
   for (var i = 0; i < roundStates.length; i++) {
     var rs = roundStates[i];
+    // Detect boss phase: boss is focused AND no monster_died event in current round
+    // (so it's the round AFTER the death round, not the death round itself)
+    var bossNow = rs.monsters && rs.monsters.some(function(m) { return m.isBoss && m.isCurrentFocus; });
+    var deathThisRound = rs.events && rs.events.some(function(e) { return e.type === 'monster_death'; });
+    var isBossPhase = bossNow && !deathThisRound;
+
+    // Boss phase announcement — show once when transitioning
+    if (isBossPhase && !bossAnnounced) {
+      bossAnnounced = true;
+      var bossAnnounce = document.getElementById('floor-announce');
+      if (bossAnnounce) {
+        // Check if the boss has an asset image
+        var bossMon = rs.monsters && rs.monsters.find(function(m) { return m.isBoss; });
+        var bossImgHtml = bossMon ? monsterImg('boss', bossMon.name) : '';
+        bossAnnounce.innerHTML =
+          '<div style="display:flex;flex-direction:column;align-items:center;gap:8px">' +
+            bossImgHtml +
+            '<span style="font-size:2rem;font-weight:900;color:#ef4444;text-shadow:0 0 20px rgba(239,68,68,.6);letter-spacing:6px">BOSS PHASE</span>' +
+          '</div>';
+        bossAnnounce.style.opacity = '0';
+        bossAnnounce.style.transition = 'none';
+        bossAnnounce.style.transform = 'scale(0.2)';
+        bossAnnounce.offsetHeight;
+        bossAnnounce.style.transition = 'opacity .8s ease, transform .8s ease';
+        bossAnnounce.style.opacity = '1';
+        bossAnnounce.style.transform = 'scale(1)';
+        await new Promise(function(r) { setTimeout(r, 2500); });
+        bossAnnounce.style.opacity = '0';
+        bossAnnounce.style.transition = 'opacity .6s ease';
+        await new Promise(function(r) { setTimeout(r, 800); });
+        bossAnnounce.innerHTML = '';
+      }
+    }
+
     if (prevState) {
       await window.handleCombatEvents(rs.events, rs.monsters, rs.partyHeroes, rs.round);
     } else {
@@ -524,21 +640,30 @@ function enterDungeon() {
     // Floor announcement
     var announce = document.getElementById('floor-announce');
     if (announce) {
-      announce.textContent = 'Floor ' + floor;
+      var isBossFloor = floor % 10 === 0;
+      // Determine which trash mob appears on this floor and show its image if available
+      var trashNames = ['Goblin','Skeleton','Slime','Bat','Spider','Wolf','Zombie','Ghost','Orc','Demon'];
+      var trashName = trashNames[floor % trashNames.length];
+      var trashImgHtml = monsterImg('trash', trashName, 'width:75vw;height:auto;max-height:60vh;object-fit:contain;image-rendering:pixelated;filter:drop-shadow(0 0 20px rgba(251,191,36,.5))');
+      announce.innerHTML = '<div style="display:flex;flex-direction:column;align-items:center;gap:8px">' +
+        trashImgHtml +
+        '<span style="font-size:1.8rem;font-weight:800;color:#fbbf24;text-shadow:0 0 16px rgba(251,191,36,.5),0 2px 4px rgba(0,0,0,.8);letter-spacing:2px">Floor ' + floor + '</span>' +
+        (isBossFloor ? '<span style="font-size:.65rem;color:#ef4444;font-weight:700;letter-spacing:3px;text-shadow:0 0 8px rgba(239,68,68,.5)">BRACKET BOSS</span>' : '') +
+        '</div>';
       announce.style.opacity = '0';
       announce.style.transition = 'none';
       announce.style.animation = 'none';
       announce.offsetHeight;
-      announce.style.transition = 'opacity .8s ease, transform .8s ease';
-      announce.style.transform = 'scale(0.5)';
+      announce.style.transition = 'opacity 1s ease, transform 1s ease';
+      announce.style.transform = 'scale(0.3)';
       announce.offsetHeight;
       announce.style.opacity = '1';
       announce.style.transform = 'scale(1)';
       setTimeout(function() {
         announce.style.opacity = '0';
         announce.style.transform = 'scale(1.5)';
-        announce.style.transition = 'opacity .6s ease, transform .6s ease';
-      }, 1200);
+        announce.style.transition = 'opacity .8s ease, transform .8s ease';
+      }, 2000);
     }
 
     // Render heroes from the start response
@@ -551,9 +676,11 @@ function enterDungeon() {
       renderMonsters(data.monsters);
     }
 
-    // Play cutscene from roundStates
-    if (data.roundStates && data.roundStates.length > 0) {
-      playCombatCutscene(data.roundStates, function() {
+    // Wait for floor announcement animation (~1.8s) before starting cutscene
+    var cutsceneDelay = announce ? 2800 : 0;
+    setTimeout(function() {
+      if (data.roundStates && data.roundStates.length > 0) {
+        playCombatCutscene(data.roundStates, function() {
         document.getElementById('combat-arena').classList.remove('active');
         document.getElementById('start-btn').style.display = '';
         document.getElementById('stop-btn').style.display = 'none';
@@ -569,6 +696,10 @@ function enterDungeon() {
             monstersDefeated: data.monstersDefeated,
             totalMonsters: data.totalMonsters,
             shardsEarned: data.shardsEarned,
+            keyDropped: data.keyDropped,
+            keyBracketLevel: data.keyBracketLevel,
+            keyConsumed: data.keyConsumed,
+            isBracketBossFloor: data.isBracketBossFloor,
           },
         });
         // Refresh hero data so crafting tab has latest shards
@@ -589,11 +720,16 @@ function enterDungeon() {
           monstersDefeated: data.monstersDefeated,
           totalMonsters: data.totalMonsters,
           shardsEarned: data.shardsEarned,
+          keyDropped: data.keyDropped,
+          keyBracketLevel: data.keyBracketLevel,
+          keyConsumed: data.keyConsumed,
+          isBracketBossFloor: data.isBracketBossFloor,
         },
       });
       refreshHero();
       loadCrafting();
     }
+  }, cutsceneDelay);
   })
   .catch(function(err) {
     if (!isLooping) alert(err.message);
@@ -624,6 +760,10 @@ function showResult(state) {
 
   if (won) {
     var shardLines = '';
+    var keyLine = '';
+    if (r.keyDropped) {
+      keyLine = '<br />Key earned: <i data-lucide="key" style="width:14px;height:14px;display:inline-block;vertical-align:middle"></i> Lv.' + r.keyBracketLevel + ' boss key';
+    }
     if (r.shardsEarned) {
       var shardKeys = Object.keys(r.shardsEarned).filter(function(k) { return r.shardsEarned[k] > 0; }).sort();
       for (var si = 0; si < shardKeys.length; si++) {
@@ -636,7 +776,9 @@ function showResult(state) {
     details.innerHTML = 'Cleared in ' + (r.totalRounds || roundInfo.round || '?') + ' rounds!' +
       '<br />Monsters defeated: ' + (r.monstersDefeated || 0) + '/' + (r.totalMonsters || '?') +
       '<br />Gold earned: <strong style="color:#fbbf24">' + (r.goldEarned || 0) + '</strong>' +
+      keyLine +
       shardLines;
+    if (typeof lucide !== 'undefined') lucide.createIcons();
   } else {
     details.innerHTML = 'Your party was defeated.<br />';
     if (state.round && state.round.currentMonsterName) {
@@ -669,6 +811,18 @@ function showResult(state) {
   }
 
   if (isLooping && won) {
+    // Stop loop if bracket boss floor wasn't cleared with a key
+    var r = state.result || {};
+    if (r.isBracketBossFloor && !r.keyConsumed) {
+      isLooping = false;
+      loopCount = 0;
+      totalGoldEarned = 0;
+      updateLoopUI();
+      addLog('kill', '[LOOP] Stopped — no key for bracket boss floor');
+      retryBtn.style.display = 'inline-flex';
+      overlay.classList.add('show');
+      return;
+    }
     // Auto retry on victory only
     retryBtn.style.display = 'none';
     overlay.classList.add('show');
@@ -758,6 +912,10 @@ function loopRetry() {
             monstersDefeated: data.monstersDefeated,
             totalMonsters: data.totalMonsters,
             shardsEarned: data.shardsEarned,
+            keyDropped: data.keyDropped,
+            keyBracketLevel: data.keyBracketLevel,
+            keyConsumed: data.keyConsumed,
+            isBracketBossFloor: data.isBracketBossFloor,
           },
         });
         refreshHero();
@@ -776,6 +934,10 @@ function loopRetry() {
           monstersDefeated: data.monstersDefeated,
           totalMonsters: data.totalMonsters,
           shardsEarned: data.shardsEarned,
+          keyDropped: data.keyDropped,
+          keyBracketLevel: data.keyBracketLevel,
+          keyConsumed: data.keyConsumed,
+          isBracketBossFloor: data.isBracketBossFloor,
         },
       });
       refreshHero();
@@ -839,6 +1001,24 @@ function escHtml(s) {
   return d.innerHTML;
 }
 
+/** Build an img tag for a monster type, hiding on error if no asset exists. */
+function monsterImg(type, monsterName, extraStyle) {
+  if (!monsterName) return '';
+  var name = monsterName.trim().toLowerCase();
+  // Extract base monster name (handles "Boss Vicious Goblin" → "Goblin", "Brutal Skeleton" → "Skeleton")
+  var baseNames = ['goblin','skeleton','slime','bat','spider','wolf','zombie','ghost','orc','demon'];
+  var found = '';
+  for (var mi = 0; mi < baseNames.length; mi++) {
+    if (name.indexOf(baseNames[mi]) !== -1) { found = baseNames[mi]; break; }
+  }
+  if (!found) return '';
+  var ext = 'png';
+  var sty = extraStyle || 'max-width:100%;max-height:12vh;width:auto;height:auto;object-fit:contain;image-rendering:pixelated;display:block;margin:0 auto';
+  var folder = type === 'boss' ? 'Boss' : 'Trash-Mobs';
+  var displayName = found.charAt(0).toUpperCase() + found.slice(1);
+  return '<img src="/assets/' + folder + '/' + displayName + '/' + displayName + '.' + ext + '" style="' + sty + '" onerror="this.style.display=\'none\'" alt="' + displayName + '">';
+}
+
 // ─── Init ──────────────────────────────────────────────────
 var loopInfoEl = document.getElementById('loop-info');
 console.log('[Game] Loaded hero: ' + hero.name + ' (Lv.' + hero.level + ')');
@@ -878,7 +1058,7 @@ if (token) {
 setInterval(function() {
   var tab = document.querySelector('.tab-content.active');
   if (!tab) return;
-  if (tab.id === 'tab-equipment') loadEquipment();
+  if (tab.id === 'tab-equipment') { loadEquipment(); loadKeys(); }
   if (tab.id === 'tab-crafting') loadCrafting();
 }, 30000);
 
@@ -1100,6 +1280,62 @@ function unequipItem(slot) {
   .catch(function(err) { alert('Failed to unequip: ' + err.message); });
 }
 
+function loadKeys(floor) {
+  fetch('/api/heroes/' + hero.id + '/keys', {
+    headers: { 'Authorization': 'Bearer ' + token }
+  })
+  .then(function(res) { return res.json(); })
+  .then(function(data) {
+    // ── Top menu: show count for selected floor's bracket ──
+    var wrap = document.getElementById('hero-bar-keys-wrap');
+    var el = document.getElementById('hero-bar-keys');
+    if (!data.keys || data.keys.length === 0) {
+      if (wrap) wrap.style.display = 'none';
+    } else {
+      var bracketLevel = Math.ceil((floor || hero.currentFloor) / 10) * 10;
+      var matching = data.keys.filter(function(k) { return k.floorBracket === bracketLevel; });
+      if (matching.length === 0) {
+        if (wrap) wrap.style.display = 'none';
+      } else {
+        if (wrap) {
+          wrap.style.display = 'inline-flex';
+          wrap.title = 'Keys for Lv.' + bracketLevel + ' bracket';
+        }
+        if (el) el.textContent = matching.length;
+      }
+    }
+
+    // ── Equipment tab: show all keys grouped by bracket under stats ──
+    var keyList = document.getElementById('stats-key-list');
+    if (!keyList) return;
+    if (!data.keys || data.keys.length === 0) {
+      keyList.innerHTML = '';
+      return;
+    }
+    // Group by floorBracket
+    var groups = {};
+    for (var i = 0; i < data.keys.length; i++) {
+      var k = data.keys[i];
+      groups[k.floorBracket] = (groups[k.floorBracket] || 0) + 1;
+    }
+    var bracketNames = ['The Abandoned Mines', 'The Shadow Forest', 'The Crystal Caverns', 'The Molten Depths', 'The Sky Citadel'];
+    var sorted = Object.keys(groups).map(Number).sort(function(a, b) { return a - b; });
+    var html = '<div style="font-size:.7rem;font-weight:600;color:#4a454a;letter-spacing:1px;margin-bottom:4px"><i data-lucide="key" style="width:10px;height:10px;vertical-align:middle"></i> KEYS</div>';
+    for (var j = 0; j < sorted.length; j++) {
+      var b = sorted[j];
+      var bracketNum = b / 10;
+      var name = bracketNames[bracketNum - 1] || 'The Void - Level ' + bracketNum;
+      html += '<div style="display:flex;justify-content:space-between;align-items:center;font-size:.7rem;padding:1px 0">' +
+        '<span style="color:#5a555a">' + name + '</span>' +
+        '<span style="color:#fbbf24;font-weight:600"><i data-lucide="key" style="width:9px;height:9px;vertical-align:middle"></i> Lv.' + b + ' <strong style="color:#9a949a">\u00d7' + groups[b] + '</strong></span>' +
+        '</div>';
+    }
+    keyList.innerHTML = html;
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+  })
+  .catch(function() {});
+}
+
 function refreshHero() {
   return fetch('/api/heroes/' + hero.id, {
     headers: { 'Authorization': 'Bearer ' + token }
@@ -1109,6 +1345,7 @@ function refreshHero() {
     if (data.hero) {
       hero = data.hero;
       updateHeroBar(hero);
+      loadKeys(hero.currentFloor);
       loadEquipment();
     }
   })
@@ -1161,6 +1398,15 @@ function showPartyInParty(party) {
     var roleUpper = m.role.toUpperCase();
     var roleClass = 'role-' + m.role;
 
+    // Determine weapon type from equipped gear (DPS only)
+    var partyWType = 'melee';
+    if (m.equipped) {
+      var pw = m.equipped.rightHandWeapon || m.equipped.leftHand;
+      if (pw && pw.type) partyWType = pw.type;
+    }
+    var partyWIcons = { melee: 'sword', range: 'crosshair', mage: 'wand' };
+    var partyWIcon = m.role === 'dps' ? partyWIcons[partyWType] || 'sword' : '';
+
     // Photo or default icon
     var photoHtml = m.photoUrl
       ? '<img src="' + m.photoUrl + '" style="width:32px;height:32px;border-radius:50%;object-fit:cover;border:1px solid #2a2020;flex-shrink:0">'
@@ -1171,7 +1417,7 @@ function showPartyInParty(party) {
       '<div style="flex:1;min-width:0">' +
       '<div style="display:flex;justify-content:space-between;align-items:center">' +
       '<span style="font-weight:600;color:#e0e0e0">' + escHtml(m.username) + '</span>' +
-      '<span class="role-badge ' + roleClass + '">' + roleUpper + '</span>' +
+      '<span class="role-badge ' + roleClass + '">' + (m.role === 'dps' && partyWIcon ? '<i data-lucide="' + partyWIcon + '" style="width:12px;height:12px;vertical-align:middle"></i> ' : '') + roleUpper + '</span>' +
       '</div>' +
       '<div style="display:flex;gap:8px;font-size:.75rem;color:#5a555a;margin-top:2px">';
 
@@ -1179,7 +1425,11 @@ function showPartyInParty(party) {
     if (m.equipped) {
       var eq = m.equipped;
       var mainHand = eq.rightHandWeapon || eq.leftHand;
-      if (mainHand) html += '<span><i data-lucide="sword" style="width:10px;height:10px"></i> ' + (mainHand.name || (mainHand.rarity ? mainHand.rarity.charAt(0).toUpperCase() + mainHand.rarity.slice(1) : '') + ' Weapon') + '</span>';
+      if (mainHand) {
+        var hWType = mainHand.type || 'melee';
+        var hWIcon = partyWIcons[hWType] || 'sword';
+        html += '<span><i data-lucide="' + hWIcon + '" style="width:10px;height:10px"></i> ' + (mainHand.name || (mainHand.rarity ? mainHand.rarity.charAt(0).toUpperCase() + mainHand.rarity.slice(1) : '') + ' Weapon') + '</span>';
+      }
     }
 
     html += '</div>' +
@@ -1200,6 +1450,16 @@ function showPartyInParty(party) {
 
     if (m.playerId === hero.playerId) {
       html += '<button onclick="changeRole()" style="border:1px solid #7c3aed;border-radius:4px;padding:2px 8px;font-size:.75rem;background:transparent;color:#7c3aed;cursor:pointer;margin-left:auto">Change Role</button>';
+    }
+
+    if (currentParty && currentParty.leaderId === hero.playerId && m.playerId !== currentParty.leaderId && !m.isBot) {
+      html += '<button onclick="transferLeader(\'' + m.playerId + '\')" style="border:1px solid #fbbf24;border-radius:4px;padding:2px 8px;font-size:.75rem;background:transparent;color:#fbbf24;cursor:pointer;margin-left:4px">Make Leader</button>';
+    }
+
+    if (!m.isBot) {
+      var ksChecked = m.keyShareOptedIn ? 'checked' : '';
+      html += '<label style="margin-left:auto;display:flex;align-items:center;gap:4px;font-size:.72rem;color:#8888aa;cursor:pointer" title="Allow party to use your keys">' +
+        '<input type="checkbox" ' + ksChecked + ' onchange="toggleKeyShare()" style="accent-color:#fbbf24;cursor:pointer"> Keys</label>';
     }
 
     html += '</div>';
@@ -1376,6 +1636,39 @@ function leaveParty() {
   .catch(function(err) { alert(err.message); });
 }
 
+function toggleKeyShare() {
+  fetch('/api/party/key-share', {
+    method: 'POST',
+    headers: { 'Authorization': 'Bearer ' + token }
+  })
+  .then(function(res) { return res.json().then(function(d) { if (!res.ok) throw new Error(d.error || 'Failed'); return d; }); })
+  .then(function(data) {
+    if (data.party) {
+      currentParty = data.party;
+      showPartyInParty(data.party);
+    }
+  })
+  .catch(function(err) { alert(err.message); });
+}
+
+function transferLeader(targetPlayerId) {
+  if (!confirm('Make this player the party leader?')) return;
+
+  fetch('/api/party/transfer', {
+    method: 'POST',
+    headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ targetPlayerId: targetPlayerId })
+  })
+  .then(function(res) { return res.json().then(function(d) { if (!res.ok) throw new Error(d.error || 'Failed'); return d; }); })
+  .then(function(data) {
+    if (data.party) {
+      currentParty = data.party;
+      showPartyInParty(data.party);
+    }
+  })
+  .catch(function(err) { alert(err.message); });
+}
+
 function changeRole() {
   if (!currentParty) return;
 
@@ -1453,9 +1746,9 @@ var HEARTBEAT_INTERVAL = 30000;
 function startHeartbeat() {
   if (heartbeatTimer) return;
   // Send first heartbeat immediately
-  fetch('/api/guilds/heartbeat', { method: 'POST', headers: { 'Authorization': 'Bearer ' + token } }).catch(function() {});
+  fetch('/api/guilds/heartbeat', { method: 'POST', headers: { 'Authorization': 'Bearer ' + token } }).then(function(r) { r.text(); }).catch(function() {});
   heartbeatTimer = setInterval(function() {
-    fetch('/api/guilds/heartbeat', { method: 'POST', headers: { 'Authorization': 'Bearer ' + token } }).catch(function() {});
+    fetch('/api/guilds/heartbeat', { method: 'POST', headers: { 'Authorization': 'Bearer ' + token } }).then(function(r) { r.text(); }).catch(function() {});
   }, HEARTBEAT_INTERVAL);
 }
 
@@ -2184,6 +2477,15 @@ document.getElementById('log-toggle').addEventListener('click', function() {
   }
 });
 
+// ─── Test Boss Phase Button ─────────────────────────────────
+document.getElementById('test-boss-btn').addEventListener('click', function() {
+  // Remove all trash monster cards
+  var monsterRow = document.getElementById('monster-row');
+  if (monsterRow) monsterRow.innerHTML = '';
+  // Reveal mystery bosses
+  if (window.revealBoss) window.revealBoss();
+});
+
 // ─── Shake Toggle ───────────────────────────────────────────
 // Respect OS-level reduced motion preference
 if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
@@ -2230,6 +2532,7 @@ document.getElementById('hero-photo-input').addEventListener('change', function(
   window.changeRole = changeRole;
   window.acceptInvite = acceptInvite;
   window.updateMonsterBars = updateMonsterBars;
+  window.revealBoss = revealBoss;
   window.updateHeroBars = updateHeroBars;
   window.addLog = addLog;
   window.startHeartbeat = startHeartbeat;

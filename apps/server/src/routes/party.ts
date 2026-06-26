@@ -102,6 +102,38 @@ router.post("/leave", requireAuth, async (req, res) => {
   }
 });
 
+// POST /api/party/transfer — transfer leadership to another member
+const transferSchema = z.object({
+  targetPlayerId: z.string().min(1, "Target player ID is required"),
+});
+
+router.post("/transfer", requireAuth, async (req, res) => {
+  try {
+    const parsed = transferSchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: parsed.error.flatten().fieldErrors });
+      return;
+    }
+
+    partyService.transferLeader(req.player!.id, parsed.data.targetPlayerId);
+
+    const party = partyService.getPartyByPlayer(req.player!.id);
+    if (!party) {
+      res.status(400).json({ error: "Party not found" });
+      return;
+    }
+    const playerNames: Record<string, string> = {};
+    for (const mid of party.memberIds) {
+      const p = await playerStore.findById(mid);
+      if (p) playerNames[mid] = p.username;
+    }
+    playerNames[req.player!.id] = req.player!.username;
+    res.json({ party: await partyService.getPartyResponse(party, playerNames) });
+  } catch (err: any) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
 // GET /api/party — get current party info
 router.get("/", requireAuth, async (req, res) => {
   const party = partyService.getPartyByPlayer(req.player!.id);
@@ -192,6 +224,23 @@ router.put("/role", requireAuth, async (req, res) => {
     partyService.setMemberRole(party.id, req.player!.id, role as CombatRole);
     const playerNames: Record<string, string> = { [req.player!.id]: req.player!.username };
     res.json({ success: true, party: await partyService.getPartyResponse(party, playerNames) });
+  } catch (err: any) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// POST /api/party/key-share — toggle whether this player's keys can be used by the party
+router.post("/key-share", requireAuth, async (req, res) => {
+  try {
+    const optedIn = partyService.toggleKeyShare(req.player!.id);
+
+    const party = partyService.getPartyByPlayer(req.player!.id);
+    if (!party) {
+      res.json({ optedIn });
+      return;
+    }
+    const playerNames: Record<string, string> = { [req.player!.id]: req.player!.username };
+    res.json({ optedIn, party: await partyService.getPartyResponse(party, playerNames) });
   } catch (err: any) {
     res.status(400).json({ error: err.message });
   }

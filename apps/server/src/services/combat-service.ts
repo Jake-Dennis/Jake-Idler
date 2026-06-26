@@ -1,7 +1,9 @@
+import { v4 as uuidv4 } from "uuid";
 import BigNumber from "break_infinity.js";
 import { db } from "../db/connection.js";
-import { heroes } from "../db/schema/index.js";
-import { eq, sql } from "drizzle-orm";
+import { heroes, keys } from "../db/schema/index.js";
+import { eq, and, sql, inArray } from "drizzle-orm";
+import { partyService } from "./party-service.js";
 import {
   generateFloor,
   computeHeroStats,
@@ -11,6 +13,8 @@ import {
   processMonsterLoot,
   generateFloorLoot,
   shardKey,
+  rollKeyDrop,
+  GameConfig,
 } from "@jake-idler/game";
 import type { Equipment, Monster, CombatPosition, CombatRole } from "@jake-idler/game";
 import { combatSerializer } from "../game/serializers/combat-serializer.js";
@@ -33,6 +37,7 @@ export interface PartyHeroRoundData {
   damageTaken: number;
   monsterCrit: boolean;
   healingReceived: number;
+  weaponType?: string;
   photoUrl?: string | null;
 }
 
@@ -129,6 +134,9 @@ interface PartyFloorRunState {
   totalGoldRewarded: number;
   floorGoldValue: number;
   shardsEarned: Record<string, number>;
+  keyDropped: boolean;
+  keyBracketLevel: number;
+  keyConsumed: boolean;
   finishedAt: number | null;
   events: CombatEvent[];
   goldPenaltyApplied?: boolean;
@@ -172,6 +180,9 @@ class CombatService {
     monstersDefeated: number;
     totalMonsters: number;
     shardsEarned: Record<string, number>;
+    keyDropped: boolean;
+    keyBracketLevel: number;
+    keyConsumed: boolean;
     floorCompleted: boolean;
     floorFailed: boolean;
     monsters: Array<{ id: string; name: string; isBoss: boolean; hp: number; maxHp: number; atk: number; def: number }>;
@@ -181,8 +192,8 @@ class CombatService {
     const partySize = partyMembers.length;
     const monsters = this.generateMonsterQueue(floorNumber, partySize);
 
-    // Scale monster HP by party size (from GEAR-BALANCE.md)
-    const hpScale = 1 + (Math.sqrt(partySize) - 1) * 0.5;
+    // Scale monster HP by party size — each additional member adds meaningful difficulty
+    const hpScale = 1 + (partySize - 1) * 0.85;
     for (const m of monsters) {
       m.maxHp = Math.round(m.maxHp * hpScale);
       m.currentHp = Math.round(m.currentHp * hpScale);
@@ -208,6 +219,9 @@ class CombatService {
       totalGoldRewarded: 0,
       floorGoldValue,
       shardsEarned: {},
+      keyDropped: false,
+      keyBracketLevel: 0,
+      keyConsumed: false,
       finishedAt: null,
       events: [],
     };
@@ -274,18 +288,49 @@ class CombatService {
     }
 
     // Deferred DB writes — apply all accumulated rewards once
+    // Consume one key per party clear (bracket boss floors)
+    if (run.floorCompleted && run.floorNumber % 10 === 0) {
+      const initiatorRow = heroMap.get(run.initiatorHeroId);
+      if (initiatorRow) {
+        const bracketNumber = Math.ceil(run.floorNumber / 10);
+        // Try initiator's key first
+        let keyRows = await db.select().from(keys).where(and(eq(keys.playerId, initiatorRow.playerId), eq(keys.floorBracket, bracketNumber))).limit(1);
+        if (keyRows.length > 0) {
+          await db.delete(keys).where(eq(keys.id, keyRows[0].id));
+          run.keyConsumed = true;
+        } else {
+          // Initiator has no key — check opt-in party members' keys
+          const party = partyService.getPartyByPlayer(initiatorRow.playerId);
+          if (party) {
+            for (const optInId of party.keyShareOptIns) {
+              if (optInId === initiatorRow.playerId) continue; // already checked
+              keyRows = await db.select().from(keys).where(and(eq(keys.playerId, optInId), eq(keys.floorBracket, bracketNumber))).limit(1);
+              if (keyRows.length > 0) {
+                await db.delete(keys).where(eq(keys.id, keyRows[0].id));
+                run.keyConsumed = true;
+                break;
+              }
+            }
+          }
+        }
+      }
+    }
     for (const h of run.heroes) {
       const row = heroMap.get(h.heroId);
       if (!row) continue; // Skip bots
 
       if (run.floorCompleted && h.alive) {
+        const updates: Record<string, any> = {
+          currentFloor: sql`MAX(${heroes.currentFloor}, ${run.floorNumber})`,
+          lastActive: new Date().toISOString(),
+        };
+        // Only track highest solo floor as hero level
+        if (partySize === 1) {
+          updates.level = sql`MAX(${heroes.level}, ${run.floorNumber})`;
+        }
         await db
           .update(heroes)
-          .set({
-            level: run.floorNumber,
-            currentFloor: sql`MAX(${heroes.currentFloor}, ${run.floorNumber})`,
-            lastActive: new Date().toISOString(),
-          })
+          .set(updates)
           .where(eq(heroes.id, h.heroId));
       }
 
@@ -308,6 +353,9 @@ class CombatService {
       monstersDefeated: run.monstersDefeated,
       totalMonsters: run.totalMonsters,
       shardsEarned: run.shardsEarned,
+      keyDropped: run.keyDropped,
+      keyBracketLevel: run.keyBracketLevel,
+      keyConsumed: run.keyConsumed,
       floorCompleted: run.floorCompleted,
       floorFailed: run.floorFailed,
       monsters: monsters.map((m) => ({
@@ -321,6 +369,7 @@ class CombatService {
       })),
       heroes: heroes_.map((h) => ({
         heroId: h.heroId,
+        name: h.name,
         role: h.role,
         position: h.position,
         hp: h.hp,
@@ -328,6 +377,8 @@ class CombatService {
         atk: h.atk,
         def: h.def,
         healing: h.healing,
+        weaponType: h.weaponType,
+        photoUrl: h.photoUrl,
       })),
       isBracketBossFloor: floorNumber % 10 === 0,
     };
@@ -475,9 +526,9 @@ class CombatService {
       if (hero.role !== "dps") continue;
 
       const crit = calculateCrit();
-      const baseDmg = calculateDamage(hero.atk, currentMonster.data.stats.def.toNumber());
       const variance = 0.8 + Math.random() * 0.4; // ±20%
-      const dmg = Math.max(1, Math.round(baseDmg * variance * (crit ? CRIT_MULTIPLIER : 1.0)));
+      const rawDmg = hero.atk * variance - currentMonster.data.stats.def.toNumber();
+      const dmg = Math.max(1, Math.round(rawDmg * (crit ? CRIT_MULTIPLIER : 1.0)));
       currentMonster.currentHp = Math.max(0, currentMonster.currentHp - dmg);
       totalDpsDamage += dmg;
       if (dmg > 0) lastDpsCrit = crit;
@@ -629,6 +680,7 @@ class CombatService {
       damageTaken,
       monsterCrit,
       healingReceived,
+      weaponType: hero.weaponType,
       photoUrl: hero.photoUrl,
     };
   }
@@ -742,6 +794,25 @@ class CombatService {
       if (isBracketBoss) {
         const equipment = generateFloorLoot(run.floorNumber);
         heroEquipAccum[h.heroId].push(equipment);
+      }
+
+      // Key drop — chance scales with floor position within bracket (1-10), up to 25%
+      if (isBoss) {
+        const bracketKeyLevel = Math.ceil(run.floorNumber / 10) * 10;
+        const floorPos = run.floorNumber % 10 === 0 ? 10 : run.floorNumber % 10;
+        const dropKey = Math.random() < (floorPos / 10) * GameConfig.KEY_DROP_CHANCE_MAX;
+
+        if (dropKey) {
+          run.keyDropped = true;
+          run.keyBracketLevel = bracketKeyLevel;
+          const keyId = uuidv4();
+          db.insert(keys).values({
+            id: keyId,
+            playerId: row.playerId,
+            floorBracket: bracketKeyLevel,
+            createdAt: new Date().toISOString(),
+          }).run();
+        }
       }
 
       // Track initiator rewards for response

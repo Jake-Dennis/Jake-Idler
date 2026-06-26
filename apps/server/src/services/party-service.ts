@@ -20,6 +20,7 @@ interface Party {
   leaderId: string;
   memberIds: string[];
   memberRoles: Record<string, CombatRole>; // playerId → role
+  keyShareOptIns: Set<string>; // playerIds that allow their keys to be used
   invites: PartyInvite[];
   currentFloor: number;
   createdAt: string; // ISO timestamp string
@@ -124,6 +125,7 @@ class PartyService {
       leaderId: leaderPlayerId,
       memberIds: [leaderPlayerId],
       memberRoles: { [leaderPlayerId]: "dps" as CombatRole },
+      keyShareOptIns: new Set(),
       invites: [],
       currentFloor: 1,
       createdAt: new Date().toISOString(),
@@ -251,6 +253,24 @@ class PartyService {
   }
 
   /**
+   * Transfer party leadership to another member.
+   */
+  transferLeader(currentLeaderId: string, targetPlayerId: string): void {
+    const party = this.getPartyByLeader(currentLeaderId);
+    if (!party) throw new Error("You are not the party leader");
+
+    if (!party.memberIds.includes(targetPlayerId)) {
+      throw new Error("Target player is not in your party");
+    }
+
+    if (targetPlayerId === currentLeaderId) {
+      throw new Error("You are already the leader");
+    }
+
+    party.leaderId = targetPlayerId;
+  }
+
+  /**
    * Get serialisable party info for API responses.
    */
   async getPartyResponse(
@@ -277,6 +297,7 @@ class PartyService {
               hp: computed.hp.toNumber(),
             },
             isBot: true,
+            keyShareOptedIn: false,
             photoUrl: null,
             equipped: bot.equipped,
           };
@@ -315,6 +336,7 @@ class PartyService {
           position,
           stats,
           isBot: false,
+          keyShareOptedIn: party.keyShareOptIns.has(id),
           photoUrl,
           equipped: rowEquipped,
         };
@@ -397,6 +419,32 @@ class PartyService {
     if (!party) throw new Error("Party not found");
     if (!party.memberIds.includes(memberId)) throw new Error("Member not in party");
     party.memberRoles[memberId] = role;
+  }
+
+  /** Toggle whether a member allows their keys to be used by the party. Returns new state. */
+  toggleKeyShare(playerId: string): boolean {
+    const partyId = playerPartyMap.get(playerId);
+    if (!partyId) throw new Error("Not in a party");
+    const party = parties.get(partyId);
+    if (!party) throw new Error("Party not found");
+    if (!party.memberIds.includes(playerId)) throw new Error("Not in party");
+
+    if (party.keyShareOptIns.has(playerId)) {
+      party.keyShareOptIns.delete(playerId);
+      return false;
+    } else {
+      party.keyShareOptIns.add(playerId);
+      return true;
+    }
+  }
+
+  /** Check if a member has opted into key sharing. */
+  isKeyShareOptedIn(playerId: string): boolean {
+    const partyId = playerPartyMap.get(playerId);
+    if (!partyId) return false;
+    const party = parties.get(partyId);
+    if (!party) return false;
+    return party.keyShareOptIns.has(playerId);
   }
 
   /** Check if an ID is a bot. */

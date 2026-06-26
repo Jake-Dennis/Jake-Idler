@@ -28,5 +28,5 @@ export type { ShardDrop, DropRateEntry } from "./shards.js";
 export type { OnlineStatus, Party, PartyMember, Friend } from "./social.js";
 
 // ─── Config & Game State ──────────────────────────────────────
-export { GameConfig } from "./config.js";
+export { GameConfig, applyConfigOverrides } from "./config.js";
 export type { GameConfigKey, GameState } from "./config.js";

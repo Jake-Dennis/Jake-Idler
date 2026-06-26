@@ -2,6 +2,7 @@ import { Router } from "express";
 import { z } from "zod";
 import { requireAuth } from "../auth/middleware.js";
 import { balancingService } from "../services/balancing-service.js";
+import { applyConfigOverrides } from "@jake-idler/game";
 
 const router = Router();
 
@@ -37,6 +38,7 @@ router.put("/balancing", requireAuth, requireAdmin, (req, res) => {
     }
     const { key, value } = parsed.data;
     const config = balancingService.update({ [key]: value });
+    applyConfigOverrides(config);
     res.json({ success: true, config });
   } catch (err: any) {
     res.status(400).json({ error: err.message });
@@ -59,6 +61,7 @@ router.put("/balancing/nested", requireAuth, requireAdmin, (req, res) => {
     }
     const { key, subKey, value } = parsed.data;
     const config = balancingService.updateNested(key, subKey, value);
+    applyConfigOverrides(config);
     res.json({ success: true, config });
   } catch (err: any) {
     res.status(400).json({ error: err.message });
@@ -68,6 +71,7 @@ router.put("/balancing/nested", requireAuth, requireAdmin, (req, res) => {
 // POST /api/admin/balancing/reset — reset to defaults
 router.post("/balancing/reset", requireAuth, requireAdmin, (_req, res) => {
   const config = balancingService.reset();
+  applyConfigOverrides(config);
   res.json({ success: true, config });
 });
 
