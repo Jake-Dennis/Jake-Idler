@@ -64,13 +64,13 @@ svg[data-lucide]{display:inline;vertical-align:middle}
 .arena-heroes{grid-column:1;display:flex;flex-direction:row;gap:4px;align-items:center;padding:4px 8px 4px 4px;overflow-y:auto;justify-self:end}
 .arena-divider-v{grid-column:2;width:2px;align-self:stretch;background:linear-gradient(180deg,transparent,#3a353a,transparent);opacity:.5}
 .arena-enemies{grid-column:3;display:flex;flex-direction:row;gap:6px;align-items:center;padding:4px 4px 4px 8px;min-width:0;justify-self:start}
-.enemy-mobs{display:grid;grid-template-columns:repeat(auto-fill,minmax(80px,1fr));gap:4px;flex:1;align-items:center;justify-items:center}
+.enemy-mobs{display:grid;grid-template-columns:repeat(auto-fill,minmax(50px,1fr));gap:4px;flex:1;align-items:center;justify-items:center}
 .enemy-mobs:empty{display:none}
 .enemy-boss{flex:0 0 auto;align-self:center}
 .enemy-boss:empty{display:none}
-.hero-role-col{display:flex;flex-direction:column;gap:3px;max-width:80px}
+.hero-role-col{display:flex;flex-direction:column;gap:2px}
 .arena-row{display:flex;justify-content:center;gap:6px;flex-wrap:wrap;align-items:center;min-height:0}
-.monster-card,.hero-card{background:linear-gradient(180deg,#0c0a0c 0%,#080608 100%);border:1px solid #1a1518;border-radius:4px;padding:4px 6px;text-align:center;position:relative;transition:transform .2s,box-shadow .2s;box-shadow:0 2px 8px rgba(0,0,0,.4)}
+.monster-card,.hero-card{background:linear-gradient(180deg,#0c0a0c 0%,#080608 100%);border:1px solid #1a1518;border-radius:4px;padding:4px 6px;text-align:center;position:relative;transition:transform .2s,box-shadow .2s;box-shadow:0 2px 8px rgba(0,0,0,.4);overflow:hidden}
     .monster-card.boss{padding:8px 12px;border-color:#5a4a2a;border-width:2px;box-shadow:0 0 25px rgba(60,50,20,.15),inset 0 0 30px rgba(60,50,20,.05);animation:bossPulse 3s ease-in-out infinite}
     .monster-card.boss.mystery{border-color:#2a2020;border-style:dashed;box-shadow:none;animation:none;filter:blur(0)}
     .monster-card.boss.reveal{animation:bossReveal .6s ease-out}
@@ -87,11 +87,11 @@ svg[data-lucide]{display:inline;vertical-align:middle}
     .monster-card:hover{transform:translateY(-2px);box-shadow:0 6px 20px rgba(0,0,0,.5)}
 .monster-icon{font-size:1.2rem;margin-bottom:1px;filter:drop-shadow(0 2px 4px rgba(0,0,0,.5))}
 .monster-icon svg[data-lucide]{width:22px;height:22px}
-.monster-name,.hero-card-name{font-size:.65rem;font-weight:600;color:#9a949a;margin-bottom:1px;letter-spacing:.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.monster-hp,.hero-hp{font-size:.6rem;color:#5a555a;margin-top:1px}
+.monster-name,.hero-card-name{font-size:.65rem;font-weight:600;color:#9a949a;margin-bottom:1px;letter-spacing:.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%}
+.monster-hp,.hero-hp{font-size:.6rem;color:#5a555a;margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%}
 .monster-hp svg,.hero-hp svg{color:#6a623a;display:inline!important}
 .hero-role-icon{font-size:1rem;margin-bottom:1px}
-.hero-card-photo{width:22px;height:22px;object-fit:cover;display:block;margin:0 auto 2px;border:1px solid #2a2020;border-radius:3px}
+.hero-card-photo{width:20px;height:20px;object-fit:cover;display:block;margin:0 auto 2px;border:1px solid #2a2020;border-radius:3px}
 .hero-card{border:1px solid #181518;padding:4px 6px}
 .hero-card.role-tank{border-color:#5a553a}
 .hero-card.role-dps{border-color:#4a2020}
@@ -251,7 +251,7 @@ svg[data-lucide]{display:inline;vertical-align:middle}
   .arena-heroes{gap:3px;padding:2px 4px 2px 2px}
   .arena-enemies{gap:3px;padding:2px 2px 2px 4px}
   .arena-divider-v{margin:0}
-  .enemy-mobs{grid-template-columns:repeat(auto-fill,minmax(65px,1fr));gap:3px}
+  .enemy-mobs{grid-template-columns:repeat(auto-fill,minmax(45px,1fr));gap:3px}
 .hero-card{padding:3px 5px}
 .hero-card-photo{width:18px;height:18px}
   .hero-role-icon{font-size:.9rem}
@@ -282,7 +282,7 @@ svg[data-lucide]{display:inline;vertical-align:middle}
   .arena-heroes{gap:2px;padding:1px 2px 1px 1px}
   .arena-enemies{gap:2px;padding:1px 1px 1px 2px}
   .arena-divider-v{margin:0}
-  .enemy-mobs{grid-template-columns:repeat(auto-fill,minmax(55px,1fr));gap:2px}
+  .enemy-mobs{grid-template-columns:repeat(auto-fill,minmax(40px,1fr));gap:2px}
   .round-counter{font-size:.8rem;margin-bottom:4px}
   .btn{padding:4px 8px;font-size:.7rem}
   .btn-sm{padding:3px 6px;font-size:.65rem}
