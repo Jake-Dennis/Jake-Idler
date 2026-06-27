@@ -371,7 +371,12 @@ function renderMonsters(monsters) {
   var weaponIcons = { melee: 'sword', range: 'crosshair', mage: 'wand' };
   monsters.forEach(function(m, idx) {
     var card = document.createElement('div');
-    card.style.gridColumn = m.isBoss ? 2 : 2;
+    // Assign column: trash cycles cols 4→3→2→1, boss always col 4
+    if (m.isBoss) {
+      card.style.gridColumn = 4;
+    } else {
+      card.style.gridColumn = [4, 3, 2, 1][idx % 4];
+    }
     var mystery = m.isBoss && hasAliveTrash;
     card.className = 'monster-card' + (m.isBoss ? ' boss' : '') + (m.isCurrentFocus ? ' is-focus' : '') + (mystery ? ' mystery' : '');
     card.setAttribute('data-monster-name', m.name);
