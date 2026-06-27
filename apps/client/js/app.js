@@ -891,7 +891,7 @@ function loopRetry() {
   document.getElementById('combat-log').innerHTML = '';
   document.getElementById('boss-row').innerHTML = '';
   document.getElementById('monster-row').innerHTML = '';
-  document.getElementById('hero-row').innerHTML = '';
+  document.getElementById('arena-heroes').innerHTML = '';
 
   var floor = parseInt(document.getElementById('floor-select').value);
   fetch('/api/heroes/' + hero.id + '/combat/start', {
