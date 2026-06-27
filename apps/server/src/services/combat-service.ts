@@ -521,7 +521,8 @@ class CombatService {
       if (hd) hd.healingReceived = amount;
     }
 
-    // ─── 2. DPS attack current monster ─────────────────────────
+    // ─── 2. DPS attack current monster (prioritize trash, then boss) ────
+    // The monster index naturally progresses from trash → boss in order
     for (const hero of aliveHeroes) {
       if (hero.role !== "dps") continue;
 
@@ -542,15 +543,18 @@ class CombatService {
       }
     }
 
-    // ─── 3. ALL alive monsters attack simultaneously ────────────
+    // ─── 3. ALL alive monsters swarm the tank (aggro system) ───
     let totalMonsterDamage = 0;
     let anyMonsterCrit = false;
 
-    // Find target once (tank → dps → healer)
-    let target: PartyHeroRunState | null = null;
-    for (const pos of POSITION_TARGET_PRIORITY) {
-      const candidate = aliveHeroes.find((h) => h.position === pos && h.alive);
-      if (candidate) { target = candidate; break; }
+    // Tank holds aggro — all monsters attack the tank first
+    let target: PartyHeroRunState | null = aliveHeroes.find((h) => h.role === "tank" && h.alive) || null;
+    // If tank is dead, DPS group up with healer — monsters attack priority position
+    if (!target) {
+      for (const pos of POSITION_TARGET_PRIORITY) {
+        const candidate = aliveHeroes.find((h) => h.position === pos && h.alive);
+        if (candidate) { target = candidate; break; }
+      }
     }
     if (!target) target = aliveHeroes[0];
 
