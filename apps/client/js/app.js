@@ -482,7 +482,8 @@ function renderPartyHeroes(partyHeroes) {
 
     heroes.forEach(function(h) {
       var card = document.createElement('div');
-      card.className = 'hero-card role-' + role;
+      var role = h.role || 'dps';
+      card.className = 'monster-card role-' + role;
       card.id = 'hero-' + h.heroId;
       var pct = h.maxHp > 0 ? (h.hp / h.maxHp) * 100 : 0;
       var heroName = (h.heroId === hero.id) ? hero.name : (h.name || h.heroId.substring(0, 8));
@@ -493,15 +494,15 @@ function renderPartyHeroes(partyHeroes) {
       }
       var iconHtml;
       if (photoUrl) {
-        iconHtml = '<img class="hero-card-photo" src="' + photoUrl + '" alt="">';
+        iconHtml = '<img style="width:22px;height:22px;object-fit:cover;display:block;margin:0 auto 1px;border-radius:3px" src="' + photoUrl + '" alt="">';
       } else {
-        iconHtml = '<div class="hero-role-icon"><i data-lucide="' + iconName + '" style="width:22px;height:22px"></i></div>';
+        iconHtml = '<i data-lucide="' + iconName + '" style="width:22px;height:22px"></i>';
       }
-      card.innerHTML = iconHtml +
-        '<div class="hero-card-name">' + escHtml(heroName) + '</div>' +
+      card.innerHTML = '<div class="monster-icon">' + iconHtml + '</div>' +
+        '<div class="monster-name">' + escHtml(heroName) + '</div>' +
         '<div class="hp-bar-outer"><div class="hp-bar-inner ' + hpColorClass(h.hp, h.maxHp) + '" style="width:' + pct + '%"></div></div>' +
-        '<div class="hero-hp">' + Math.round(h.hp) + '/' + Math.round(h.maxHp) + '</div>';
-      var img = card.querySelector('.hero-card-photo');
+        '<div class="monster-hp">' + Math.round(h.hp) + '/' + Math.round(h.maxHp) + '</div>';
+      var img = card.querySelector('img');
       if (img) img.onerror = function() { this.style.display = 'none'; };
       roleCol.appendChild(card);
     });
@@ -536,7 +537,7 @@ function updateHeroBars(partyHeroes) {
       bar.style.width = pct + '%';
       bar.className = 'hp-bar-inner ' + hpColorClass(h.hp, h.maxHp);
     }
-    var hpText = el.querySelector('.hero-hp');
+    var hpText = el.querySelector('.monster-hp');
     if (hpText) hpText.textContent = Math.round(h.hp) + '/' + Math.round(h.maxHp);
 
     // Update hero bar (top menu) for player's hero
