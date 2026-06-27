@@ -371,11 +371,12 @@ function renderMonsters(monsters) {
   var weaponIcons = { melee: 'sword', range: 'crosshair', mage: 'wand' };
   monsters.forEach(function(m, idx) {
     var card = document.createElement('div');
-    // Assign column: enemies mirrored - front line next to divider, back on far right
+    // Assign column: enemies mirrored on right side, front line next to divider
+    card.style.gridRow = 1;
     if (m.isBoss) {
-      card.style.gridColumn = 6; // enemy front line (tank slot), next to divider
+      card.style.gridColumn = 6; // front line, next to divider
     } else {
-      card.style.gridColumn = [6, 7, 8, 9][idx % 4]; // 6=tank, 7=melee, 8=range, 9=healer
+      card.style.gridColumn = [6, 7, 8, 9][idx % 4]; // cycle front→back
     }
     var mystery = m.isBoss && hasAliveTrash;
     card.className = 'monster-card' + (m.isBoss ? ' boss' : '') + (m.isCurrentFocus ? ' is-focus' : '') + (mystery ? ' mystery' : '');
@@ -488,6 +489,7 @@ function renderPartyHeroes(partyHeroes) {
     var card = document.createElement('div');
     card.className = 'monster-card role-' + (h.role || 'dps');
     card.id = 'hero-' + h.heroId;
+    card.style.gridRow = 1;
     card.style.gridColumn = roleCol;
     var pct = h.maxHp > 0 ? (h.hp / h.maxHp) * 100 : 0;
     var heroName = (h.heroId === hero.id) ? hero.name : (h.name || h.heroId.substring(0, 8));
