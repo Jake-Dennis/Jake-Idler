@@ -374,8 +374,8 @@ function renderMonsters(monsters) {
     var mystery = m.isBoss && hasAliveTrash;
     card.className = 'monster-card' + (m.isBoss ? ' boss' : '') + (m.isCurrentFocus ? ' is-focus' : '') + (mystery ? ' mystery' : '') + ' monster-enter';
     card.style.animationDelay = (idx * 0.12) + 's';
-    // March position: full HP = far right (60px), low HP = closer to hero (0px)
-    var marchPx = m.maxHp > 0 ? Math.round((m.hp / m.maxHp) * 60) : 60;
+    // March position: full HP = far right (150px), low HP = closer to hero (0px)
+    var marchPx = m.maxHp > 0 ? Math.round((m.hp / m.maxHp) * 150) : 150;
     card.style.transform = 'translateX(' + marchPx + 'px)';
     card.setAttribute('data-monster-name', m.name);
     card.id = 'monster-' + m.id;
@@ -529,7 +529,7 @@ function updateMonsterBars(monsters) {
       bar.className = 'hp-bar-inner ' + hpColorClass(m.hp, m.maxHp);
     }
     // March monsters toward hero line as HP drops
-    var marchPx = m.maxHp > 0 ? Math.round((m.hp / m.maxHp) * 60) : 60;
+    var marchPx = m.maxHp > 0 ? Math.round((m.hp / m.maxHp) * 150) : 150;
     el.style.transform = 'translateX(' + marchPx + 'px)';
   });
 }
