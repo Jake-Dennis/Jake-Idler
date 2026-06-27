@@ -501,7 +501,7 @@ function renderPartyHeroes(partyHeroes) {
       card.innerHTML = '<div class="monster-icon">' + iconHtml + '</div>' +
         '<div class="monster-name">' + escHtml(heroName) + '</div>' +
         '<div class="hp-bar-outer"><div class="hp-bar-inner ' + hpColorClass(h.hp, h.maxHp) + '" style="width:' + pct + '%"></div></div>' +
-        '<div class="monster-hp">' + Math.round(h.hp) + '/' + Math.round(h.maxHp) + '</div>';
+        '<div class="monster-hp"><i data-lucide="' + iconName + '" style="width:12px;height:12px;margin-right:4px;vertical-align:middle"></i>' + Math.round(h.hp) + '/' + Math.round(h.maxHp) + '</div>';
       var img = card.querySelector('img');
       if (img) img.onerror = function() { this.style.display = 'none'; };
       roleCol.appendChild(card);
