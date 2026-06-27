@@ -64,7 +64,7 @@ svg[data-lucide]{display:inline;vertical-align:middle}
 .floor-announce{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;z-index:9999;pointer-events:none;opacity:0;font-size:2rem;font-weight:800;color:#6a623a;letter-spacing:4px;text-shadow:0 0 40px rgba(106,98,58,.3);white-space:nowrap;overflow:visible;text-align:center;padding:0 20px}
 .arena-heroes{display:flex;flex-direction:row;gap:6px;align-items:center;padding:4px;flex:1;min-width:0}
 .arena-enemies{display:flex;flex-direction:row;gap:6px;align-items:center;padding:4px;min-width:0;flex:1}
-.enemy-mobs{display:flex;flex-direction:row;gap:4px;flex-wrap:wrap;flex:1;align-items:center;justify-content:center}
+.enemy-mobs{display:flex;flex-direction:column;gap:4px;flex:1;align-items:center}
 .enemy-mobs:empty{display:none}
 .enemy-boss{flex:0 0 auto;align-self:center}
 .enemy-boss:empty{display:none}
