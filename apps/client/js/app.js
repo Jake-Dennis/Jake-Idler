@@ -618,10 +618,6 @@ async function playCombatCutscene(roundStates, onComplete) {
 
     if (prevState) {
       await window.handleCombatEvents(rs.events, rs.monsters, rs.partyHeroes, rs.round);
-      // Count kills from monster_death events
-      if (rs.events) {
-        rs.events.forEach(function(ev) { if (ev.type === 'monster_death') kills++; });
-      }
     } else {
       // First round — just render monsters and heroes, no animation
       if (rs.monsters) renderMonsters(rs.monsters);
