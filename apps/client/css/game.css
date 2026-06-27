@@ -93,9 +93,9 @@ svg[data-lucide]{display:inline;vertical-align:middle}
 .hero-role-icon{font-size:1.2rem;margin-bottom:1px}
 .hero-card-photo{width:22px;height:22px;object-fit:cover;display:block;margin:0 auto 1px;border:1px solid #2a2020;border-radius:3px}
 .hero-card{border:1px solid #181518;padding:4px 6px}
-.hero-card.role-tank{border-color:#5a553a}
-.hero-card.role-dps{border-color:#4a2020}
-.hero-card.role-healer{border-color:#2a3a2a}
+.monster-card.role-tank{border-color:#5a553a}
+.monster-card.role-dps{border-color:#4a2020}
+.monster-card.role-healer{border-color:#2a3a2a}
 
 /* ── Combat Log ── */
 
