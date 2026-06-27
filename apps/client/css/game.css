@@ -90,9 +90,9 @@ svg[data-lucide]{display:inline;vertical-align:middle}
 .monster-name,.hero-card-name{font-size:.65rem;font-weight:600;color:#9a949a;margin-bottom:1px;letter-spacing:.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%}
 .monster-hp,.hero-hp{font-size:.6rem;color:#5a555a;margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%}
 .monster-hp svg,.hero-hp svg{color:#6a623a;display:inline!important}
-.hero-role-icon{font-size:1rem;margin-bottom:1px}
-.hero-card-photo{width:22px;height:22px;object-fit:cover;display:block;margin:0 auto 2px;border:1px solid #2a2020;border-radius:3px}
-.hero-card{border:1px solid #181518;padding:3px 6px}
+.hero-role-icon{font-size:1.2rem;margin-bottom:1px}
+.hero-card-photo{width:22px;height:22px;object-fit:cover;display:block;margin:0 auto 1px;border:1px solid #2a2020;border-radius:3px}
+.hero-card{border:1px solid #181518;padding:4px 6px}
 .hero-card.role-tank{border-color:#5a553a}
 .hero-card.role-dps{border-color:#4a2020}
 .hero-card.role-healer{border-color:#2a3a2a}
@@ -252,9 +252,9 @@ svg[data-lucide]{display:inline;vertical-align:middle}
   .arena-enemies{gap:3px;padding:2px 2px 2px 4px}
   .arena-divider-v{margin:0}
   .enemy-mobs{grid-template-columns:repeat(auto-fill,minmax(45px,1fr));gap:3px}
-.hero-card{padding:3px 5px}
+.hero-card{padding:4px 6px}
 .hero-card-photo{width:18px;height:18px}
-  .hero-role-icon{font-size:.9rem}
+.hero-role-icon{font-size:1.1rem}
   .round-counter{font-size:1rem}
   .combat-log{height:60px;font-size:.72rem;padding:6px}
   .dungeon-setup{padding:12px}
