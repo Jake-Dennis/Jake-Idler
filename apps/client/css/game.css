@@ -61,9 +61,9 @@ svg[data-lucide]{display:inline;vertical-align:middle}
 .arena{display:grid;grid-template-columns:1fr auto 1fr;gap:0;padding:4px 0;background:radial-gradient(ellipse at 50% 30%,#0c0a0c 0%,#050305 100%);border-top:1px solid #1a1518;border-bottom:1px solid #1a1518;flex:1;min-height:0;width:100%;position:relative;box-shadow:inset 0 0 60px rgba(0,0,0,.6),0 0 30px rgba(20,15,20,.3);overflow:hidden}
 .arena::before{content:'';position:absolute;inset:0;border-radius:6px;background:radial-gradient(ellipse at 50% 0%,rgba(40,30,20,.06),transparent 60%);pointer-events:none;z-index:0}
 .arena>*{position:relative;z-index:1}
-.arena-heroes{grid-column:1;display:flex;flex-direction:row;gap:4px;align-items:center;justify-content:center;padding:4px;overflow-y:auto}
-.arena-divider-v{grid-column:2;width:2px;align-self:stretch;background:linear-gradient(180deg,transparent,#3a353a,transparent);margin:8px 0;opacity:.5}
-.arena-enemies{grid-column:3;display:flex;flex-direction:row;gap:6px;align-items:center;justify-content:center;padding:4px;min-width:0}
+.arena-heroes{grid-column:1;display:flex;flex-direction:row;gap:4px;align-items:center;padding:4px 8px 4px 4px;overflow-y:auto;justify-self:end}
+.arena-divider-v{grid-column:2;width:2px;align-self:stretch;background:linear-gradient(180deg,transparent,#3a353a,transparent);opacity:.5}
+.arena-enemies{grid-column:3;display:flex;flex-direction:row;gap:6px;align-items:center;padding:4px 4px 4px 8px;min-width:0;justify-self:start}
 .enemy-mobs{display:grid;grid-template-columns:repeat(auto-fill,minmax(80px,1fr));gap:4px;flex:1;align-items:center;justify-items:center}
 .enemy-mobs:empty{display:none}
 .enemy-boss{flex:0 0 auto;align-self:center}
@@ -216,8 +216,8 @@ svg[data-lucide]{display:inline;vertical-align:middle}
 @media(min-width:1400px){
   .tab-content{max-width:100%;padding:24px}
   .arena{padding:8px 0}
-  .arena-heroes{gap:6px}
-  .arena-enemies{gap:6px}
+  .arena-heroes{gap:6px;padding:6px 12px 6px 6px}
+  .arena-enemies{gap:6px;padding:6px 6px 6px 12px}
   .enemy-mobs{gap:6px}
   .monster-card{padding:6px 10px}
   .monster-card.boss{padding:12px 16px}
@@ -248,9 +248,9 @@ svg[data-lucide]{display:inline;vertical-align:middle}
   .monster-name,.hero-card-name{font-size:.6rem}
   .monster-hp,.hero-hp{font-size:.55rem}
   .arena{padding:2px 0}
-  .arena-heroes{gap:3px;padding:2px}
-  .arena-enemies{gap:3px;padding:2px}
-  .arena-divider-v{margin:4px 0}
+  .arena-heroes{gap:3px;padding:2px 4px 2px 2px}
+  .arena-enemies{gap:3px;padding:2px 2px 2px 4px}
+  .arena-divider-v{margin:0}
   .enemy-mobs{grid-template-columns:repeat(auto-fill,minmax(65px,1fr));gap:3px}
   .hero-card{padding:2px 4px}
   .hero-card-photo{width:18px;height:18px}
@@ -279,9 +279,9 @@ svg[data-lucide]{display:inline;vertical-align:middle}
   .hero-card{padding:2px 3px}
   .hero-card-photo{width:16px;height:16px}
   .arena{padding:2px 0}
-  .arena-heroes{gap:2px;padding:1px}
-  .arena-enemies{gap:2px;padding:1px}
-  .arena-divider-v{margin:2px 0}
+  .arena-heroes{gap:2px;padding:1px 2px 1px 1px}
+  .arena-enemies{gap:2px;padding:1px 1px 1px 2px}
+  .arena-divider-v{margin:0}
   .enemy-mobs{grid-template-columns:repeat(auto-fill,minmax(55px,1fr));gap:2px}
   .round-counter{font-size:.8rem;margin-bottom:4px}
   .btn{padding:4px 8px;font-size:.7rem}
