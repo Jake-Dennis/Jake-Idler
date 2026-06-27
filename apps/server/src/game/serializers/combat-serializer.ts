@@ -90,6 +90,7 @@ interface PartyFloorRunState {
     role?: string;
     healAmount?: number;
     monsterName?: string;
+    wave?: number;
   }>;
   goldPenaltyApplied?: boolean;
 }
@@ -106,6 +107,7 @@ export interface CombatEventView {
   role?: string;
   healAmount?: number;
   monsterName?: string;
+  wave?: number;
 }
 
 export interface CombatRoundView {

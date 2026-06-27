@@ -571,18 +571,58 @@ async function playCombatCutscene(roundStates, onComplete) {
   var bossAnnounced = false;
   for (var i = 0; i < roundStates.length; i++) {
     var rs = roundStates[i];
-    // Detect boss phase: boss is focused AND no monster_died event in current round
-    // (so it's the round AFTER the death round, not the death round itself)
+    var isWaveStart = rs.events && rs.events.some(function(e) { return e.type === 'wave_start'; });
+    var waveEvt = isWaveStart && rs.events.find(function(e) { return e.type === 'wave_start'; });
+
+    // Wave start announcement
+    if (isWaveStart && waveEvt) {
+      var wNum = waveEvt.wave;
+      var announce = document.getElementById('floor-announce');
+      if (announce) {
+        var waveLabel = wNum < 3 ? 'WAVE ' + (wNum + 1) : 'BOSS PHASE';
+        var isBossWave = wNum >= 3;
+        var waveColor = isBossWave ? '#ef4444' : '#fbbf24';
+        var bossHtml = '';
+        if (isBossWave && rs.monsters) {
+          var bossMon = rs.monsters.find(function(m) { return m.isBoss; });
+          if (bossMon) bossHtml = monsterImg('boss', bossMon.name);
+        }
+        announce.innerHTML = '<div style="display:flex;flex-direction:column;align-items:center;gap:6px">' +
+          bossHtml +
+          '<span style="font-size:2rem;font-weight:900;color:' + waveColor + ';text-shadow:0 0 20px rgba(239,68,68,.3);letter-spacing:4px">' + waveLabel + '</span>' +
+          '</div>';
+        announce.style.opacity = '0';
+        announce.style.transition = 'none';
+        announce.style.transform = 'scale(0.2)';
+        announce.offsetHeight;
+        announce.style.transition = 'opacity .8s ease, transform .8s ease';
+        announce.style.opacity = '1';
+        announce.style.transform = 'scale(1)';
+        await new Promise(function(r) { setTimeout(r, 1500); });
+        announce.style.opacity = '0';
+        announce.style.transition = 'opacity .4s ease';
+        await new Promise(function(r) { setTimeout(r, 400); });
+        announce.innerHTML = '';
+      }
+
+      // Skip regular event handling for wave start rounds
+      if (rs.monsters) renderMonsters(rs.monsters);
+      if (rs.partyHeroes) renderPartyHeroes(rs.partyHeroes);
+      prevState = rs;
+      document.getElementById('round-counter').textContent = 'Wave ' + (wNum + 1);
+      continue;
+    }
+
+    // Detect boss phase (non-wave-start rounds where boss is the focus)
     var bossNow = rs.monsters && rs.monsters.some(function(m) { return m.isBoss && m.isCurrentFocus; });
     var deathThisRound = rs.events && rs.events.some(function(e) { return e.type === 'monster_death'; });
     var isBossPhase = bossNow && !deathThisRound;
 
-    // Boss phase announcement — show once when transitioning
+    // Legacy boss announcement (for wave-less fallback)
     if (isBossPhase && !bossAnnounced) {
       bossAnnounced = true;
       var bossAnnounce = document.getElementById('floor-announce');
       if (bossAnnounce) {
-        // Check if the boss has an asset image
         var bossMon = rs.monsters && rs.monsters.find(function(m) { return m.isBoss; });
         var bossImgHtml = bossMon ? monsterImg('boss', bossMon.name) : '';
         bossAnnounce.innerHTML =
