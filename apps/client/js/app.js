@@ -489,10 +489,10 @@ function renderPartyHeroes(partyHeroes) {
     var card = document.createElement('div');
     card.className = 'monster-card role-' + (h.role || 'dps');
     card.id = 'hero-' + h.heroId;
-    // Heroes: Healer=col1, DPS=col2, Tank=col3 (center, next to divider)
+    // Heroes: default to center (col 3), role-based for larger parties
     if (h.role === 'healer') card.style.gridColumn = 1;
     else if (h.role === 'dps' && (h.weaponType === 'range' || h.weaponType === 'mage')) card.style.gridColumn = 2;
-    else card.style.gridColumn = 3; // tank or melee DPS (center, next to divider)
+    else card.style.gridColumn = 3; // tank, melee dps, or no role → center
     var pct = h.maxHp > 0 ? (h.hp / h.maxHp) * 100 : 0;
     var heroName = (h.heroId === hero.id) ? hero.name : (h.name || h.heroId.substring(0, 8));
     var photoUrl = (h.heroId === hero.id) ? hero.photoUrl : (h.photoUrl || null);
