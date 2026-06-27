@@ -481,7 +481,8 @@ function renderPartyHeroes(partyHeroes) {
   partyHeroes.forEach(function(h) {
     // Figure out which column this hero belongs in
     var roleCol;
-    if (h.role === 'healer') roleCol = 1;
+    if (!h.role || h.role === '') roleCol = 4; // no role → front line (col 4, next to divider)
+    else if (h.role === 'healer') roleCol = 1;
     else if (h.role === 'tank') roleCol = 4;
     else if (h.role === 'dps' && (h.weaponType === 'range' || h.weaponType === 'mage')) roleCol = 2;
     else roleCol = 3; // melee dps
