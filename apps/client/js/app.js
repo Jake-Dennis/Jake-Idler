@@ -608,7 +608,6 @@ async function playCombatCutscene(roundStates, onComplete) {
 
       // Skip regular event handling for wave start rounds
       if (rs.monsters) renderMonsters(rs.monsters);
-      if (rs.partyHeroes) renderPartyHeroes(rs.partyHeroes);
       prevState = rs;
       document.getElementById('round-counter').textContent = 'Wave ' + (wNum + 1);
       continue;
