@@ -470,15 +470,27 @@ function renderPartyHeroes(partyHeroes) {
   col.innerHTML = '';
   var weaponIcons = { melee: 'sword', range: 'crosshair', mage: 'wand' };
   var icons = { tank: 'shield', dps: 'sword', healer: 'heart' };
-  var roleOrder = ['healer', 'dps', 'tank'];
-  var roleLabels = { tank: 'TANK', dps: 'DPS', healer: 'HEAL' };
+  // Placement order from left (back) to right (front, near enemies)
+  var columns = [
+    { key: 'healer', label: 'HEAL' },
+    { key: 'ranged', label: 'RANGE' },
+    { key: 'melee', label: 'MELEE' },
+    { key: 'tank', label: 'TANK' },
+  ];
 
-  roleOrder.forEach(function(role) {
-    var heroes = partyHeroes.filter(function(h) { return h.role === role; });
+  columns.forEach(function(colDef) {
+    var heroes;
+    if (colDef.key === 'ranged') {
+      heroes = partyHeroes.filter(function(h) { return h.role === 'dps' && (h.weaponType === 'range' || h.weaponType === 'mage'); });
+    } else if (colDef.key === 'melee') {
+      heroes = partyHeroes.filter(function(h) { return h.role === 'dps' && (!h.weaponType || h.weaponType === 'melee'); });
+    } else {
+      heroes = partyHeroes.filter(function(h) { return h.role === colDef.key; });
+    }
     if (heroes.length === 0) return;
 
     var roleCol = document.createElement('div');
-    roleCol.className = 'hero-role-col role-' + role;
+    roleCol.className = 'hero-role-col role-' + colDef.key;
 
     heroes.forEach(function(h) {
       var card = document.createElement('div');
