@@ -194,11 +194,12 @@ class CombatService {
     const partySize = partyMembers.length;
     const monsters = this.generateMonsterQueue(floorNumber, partySize);
 
-    // Scale monster HP by party size — each additional member adds meaningful difficulty
+    // Scale monster HP by party size — wave trash is fast, boss is the fight
     const hpScale = 1.3 + (partySize - 1) * 0.29;
     for (const m of monsters) {
-      m.maxHp = Math.round(m.maxHp * hpScale);
-      m.currentHp = Math.round(m.currentHp * hpScale);
+      const waveMul = m.data.isBoss ? 1.0 : 0.25;
+      m.maxHp = Math.round(m.maxHp * hpScale * waveMul);
+      m.currentHp = Math.round(m.currentHp * hpScale * waveMul);
     }
 
     const heroes_ = this.initHeroes(partyMembers);
@@ -756,8 +757,8 @@ class CombatService {
 
     // Only bracket boss floors use the direct bracket boss (floor 10, 20, etc.)
     if (floor.isBracketBoss && floor.bracketBoss) {
-      // 3 waves of trash, then bracket boss
-      const perWave = Math.max(2, partySize);
+      // 3 fast waves of trash, then bracket boss
+      const perWave = Math.max(3, partySize + 2);
       let trashCount = 0;
       const pool = floor.monsters;
       for (let w = 0; w < 3; w++) {
@@ -769,8 +770,8 @@ class CombatService {
       }
       monsters.push(toFloorMonster(floor.bracketBoss, 3));
     } else {
-      // Normal floor: 3 waves of trash, then floor boss
-      const perWave = Math.max(2, partySize);
+      // Normal floor: 3 fast waves of trash, then floor boss
+      const perWave = Math.max(3, partySize + 2);
       let trashCount = 0;
       const pool = floor.monsters;
       for (let w = 0; w < 3; w++) {
