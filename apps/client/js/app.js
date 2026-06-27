@@ -495,7 +495,7 @@ function renderPartyHeroes(partyHeroes) {
       if (photoUrl) {
         iconHtml = '<img class="hero-card-photo" src="' + photoUrl + '" alt="">';
       } else {
-        iconHtml = '<div class="hero-role-icon"><i data-lucide="' + iconName + '" style="width:14px;height:14px"></i></div>';
+        iconHtml = '<div class="hero-role-icon"><i data-lucide="' + iconName + '" style="width:22px;height:22px"></i></div>';
       }
       card.innerHTML = iconHtml +
         '<div class="hero-card-name">' + escHtml(heroName) + '</div>' +
