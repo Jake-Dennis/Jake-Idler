@@ -571,6 +571,7 @@ async function playCombatCutscene(roundStates, onComplete) {
   }
   var prevState = null;
   var bossAnnounced = false;
+  var kills = 0;
   for (var i = 0; i < roundStates.length; i++) {
     var rs = roundStates[i];
     var isWaveStart = rs.events && rs.events.some(function(e) { return e.type === 'wave_start'; });
@@ -610,7 +611,7 @@ async function playCombatCutscene(roundStates, onComplete) {
       // Skip regular event handling for wave start rounds
       if (rs.monsters) renderMonsters(rs.monsters);
       prevState = rs;
-      document.getElementById('round-counter').textContent = 'Wave ' + (wNum + 1);
+      document.getElementById('round-counter').textContent = 'Wave ' + (wNum + 1) + ' — ' + rs.monsters.length + ' enemies';
       continue;
     }
 
@@ -648,6 +649,10 @@ async function playCombatCutscene(roundStates, onComplete) {
 
     if (prevState) {
       await window.handleCombatEvents(rs.events, rs.monsters, rs.partyHeroes, rs.round);
+      // Count kills from monster_death events
+      if (rs.events) {
+        rs.events.forEach(function(ev) { if (ev.type === 'monster_death') kills++; });
+      }
     } else {
       // First round — just render monsters and heroes, no animation
       if (rs.monsters) renderMonsters(rs.monsters);
@@ -655,7 +660,8 @@ async function playCombatCutscene(roundStates, onComplete) {
     }
     await new Promise(function(r) { setTimeout(r, 200); });
     prevState = rs;
-    document.getElementById('round-counter').textContent = 'Round ' + rs.round;
+    var aliveHere = rs.monsters ? rs.monsters.filter(function(m) { return m.hp > 0; }).length : 0;
+    document.getElementById('round-counter').textContent = 'Round ' + rs.round + ' — ' + kills + ' slain, ' + aliveHere + ' remain';
   }
   onComplete();
 }

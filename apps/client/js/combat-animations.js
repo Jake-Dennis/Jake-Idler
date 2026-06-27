@@ -207,6 +207,10 @@ function playMonsterHit(e) {
 
     if (atkType === 2 && heroEl) {
       // Mage-style: magic projectile from monster to hero
+      // Monster lunges forward, then fires
+      monEl.classList.add('monster-lunge');
+      await sleep(100);
+      monEl.classList.remove('monster-lunge');
       var colors = ['#ff4444', '#44ff44', '#ff44ff', '#ffff44'];
       var color = colors[nameHash % colors.length];
       createProjectile(monEl, heroEl, color, false);
@@ -217,6 +221,9 @@ function playMonsterHit(e) {
       heroEl.classList.remove('animate-flash-red');
     } else if (atkType === 1 && heroEl) {
       // Range-style: volley of arrows from monster to hero
+      monEl.classList.add('monster-lunge');
+      await sleep(100);
+      monEl.classList.remove('monster-lunge');
       var hr2 = heroEl.getBoundingClientRect();
       var volleyCount = 3;
       for (var vi = 0; vi < volleyCount; vi++) {
@@ -249,8 +256,11 @@ function playMonsterHit(e) {
           setTimeout(function(el) { if (el) el.remove(); }, 400, slash);
         }
       }
+      monEl.classList.add('monster-lunge');
+      await sleep(150);
+      monEl.classList.remove('monster-lunge');
       monEl.classList.add('animate-flash-red', 'animate-shake');
-      await animSleep('animate-flash-red');
+      await animSleep('animate-shake');
       monEl.classList.remove('animate-flash-red', 'animate-shake');
     }
 
