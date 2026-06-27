@@ -117,13 +117,16 @@ function playHeroAttack(e) {
     var wType = e.weaponType || 'melee';
 
     if ((wType === 'mage' || wType === 'range') && monEl) {
+      el.classList.add('hero-attack-lunge');
       if (wType === 'mage') {
         var colors = { fire: '#ff8800', ice: '#4488ff', arcane: '#aa44ff' };
         var mageColors = ['#ff8800', '#4488ff', '#aa44ff'];
         var color = mageColors[Math.floor(Math.random() * mageColors.length)];
         createProjectile(el, monEl, color, false);
-        await sleep(380);
+        await sleep(150);
+        el.classList.remove('hero-attack-lunge');
         createExplosion(monEl, color);
+        if (monEl) { monEl.classList.add('monster-hit-react'); setTimeout(function() { if (monEl) monEl.classList.remove('monster-hit-react'); }, 300); }
         var mr = monEl.getBoundingClientRect();
         floatText(mr.left + mr.width/2 - 20, mr.top + mr.height/2 - 10, e.damage, 'damage');
       } else {
@@ -145,6 +148,7 @@ function playHeroAttack(e) {
           }, delay, vi);
         }
         await sleep(volleyCount * 120 + 500);
+        el.classList.remove('hero-attack-lunge');
       }
       if (e.crit) {
         var arena = document.querySelector('.arena');
@@ -154,6 +158,7 @@ function playHeroAttack(e) {
       // Melee — slash mark on the monster
       var animClass = (e.role === 'tank') ? 'animate-shield' : 'animate-slash';
       el.classList.add(animClass);
+      el.classList.add('hero-attack-lunge');
       if (monEl && e.role !== 'tank') {
         var mr = monEl.getBoundingClientRect();
         monEl.style.position = 'relative';
@@ -167,21 +172,21 @@ function playHeroAttack(e) {
           monEl.appendChild(slash);
         }
         emitParticles('hit', mr.left + mr.width/2, mr.top + mr.height/2, 8);
-        monEl.classList.add('animate-flash-white');
+        monEl.classList.add('animate-flash-white', 'monster-hit-react');
         // Show damage number on monster
         floatText(mr.left + mr.width/2 - 20, mr.top + mr.height/2 - 10, e.damage, 'damage');
         monEl.style.animationPlayState = 'paused';
         await sleep(120);
         monEl.style.animationPlayState = '';
         await sleep(getAnimDuration(animClass) - 120);
-        monEl.classList.remove('animate-flash-white');
+        monEl.classList.remove('animate-flash-white', 'monster-hit-react');
         // Remove slash marks
         var marks = monEl.querySelectorAll('.slash-mark');
         for (var si = 0; si < marks.length; si++) marks[si].remove();
       } else {
         await sleep(getAnimDuration(animClass) + 50);
       }
-      el.classList.remove(animClass);
+      el.classList.remove(animClass, 'hero-attack-lunge');
       if (e.crit) {
         var arena = document.querySelector('.arena');
         if (arena) { arena.classList.add('animate-shake-screen'); setTimeout(function() { arena.classList.remove('animate-shake-screen'); }, 500); }
