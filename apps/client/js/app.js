@@ -371,12 +371,12 @@ function renderMonsters(monsters) {
   var weaponIcons = { melee: 'sword', range: 'crosshair', mage: 'wand' };
   monsters.forEach(function(m, idx) {
     var card = document.createElement('div');
-    // Assign column: enemies mirrored on right side, front line next to divider
+    // Assign column: trash first (front line), boss last (back line)
     card.style.gridRow = 1;
     if (m.isBoss) {
-      card.style.gridColumn = 6; // front line, next to divider
+      card.style.gridColumn = 9; // boss at the end (back line)
     } else {
-      card.style.gridColumn = [6, 7, 8, 9][idx % 4]; // cycle front→back
+      card.style.gridColumn = [6, 7, 8][idx % 3] || 6; // trash cycles front→back
     }
     var mystery = m.isBoss && hasAliveTrash;
     card.className = 'monster-card' + (m.isBoss ? ' boss' : '') + (m.isCurrentFocus ? ' is-focus' : '') + (mystery ? ' mystery' : '');
