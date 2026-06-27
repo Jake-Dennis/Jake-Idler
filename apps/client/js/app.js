@@ -371,11 +371,11 @@ function renderMonsters(monsters) {
   var weaponIcons = { melee: 'sword', range: 'crosshair', mage: 'wand' };
   monsters.forEach(function(m, idx) {
     var card = document.createElement('div');
-    // Assign column: trash cycles cols 4→3→2→1, boss always col 4
+    // Assign column: enemies mirrored - front line next to divider, back on far right
     if (m.isBoss) {
-      card.style.gridColumn = 4;
+      card.style.gridColumn = 6; // enemy front line (tank slot), next to divider
     } else {
-      card.style.gridColumn = [4, 3, 2, 1][idx % 4];
+      card.style.gridColumn = [6, 7, 8, 9][idx % 4]; // 6=tank, 7=melee, 8=range, 9=healer
     }
     var mystery = m.isBoss && hasAliveTrash;
     card.className = 'monster-card' + (m.isBoss ? ' boss' : '') + (m.isCurrentFocus ? ' is-focus' : '') + (mystery ? ' mystery' : '');

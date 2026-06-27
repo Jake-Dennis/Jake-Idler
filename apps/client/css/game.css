@@ -58,7 +58,7 @@ svg[data-lucide]{display:inline;vertical-align:middle}
 #combat-arena{display:none;padding:0;width:100%}
 #combat-arena.active{display:flex;flex-direction:column;flex:1;min-height:0;width:100%}
 .round-counter{text-align:center;font-size:1.2rem;font-weight:700;margin-bottom:6px;color:#6a623a;letter-spacing:3px;text-shadow:0 0 20px rgba(60,55,30,.3)}
-.arena{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;padding:0;background:#1a1518;border-top:1px solid #1a1518;border-bottom:1px solid #1a1518;flex:1;min-height:0;width:100%;position:relative;box-shadow:inset 0 0 60px rgba(0,0,0,.6),0 0 30px rgba(20,15,20,.3);overflow:hidden}
+.arena{display:grid;grid-template-columns:repeat(4,1fr) 1px repeat(4,1fr);gap:1px;padding:0;background:#1a1518;border-top:1px solid #1a1518;border-bottom:1px solid #1a1518;flex:1;min-height:0;width:100%;position:relative;box-shadow:inset 0 0 60px rgba(0,0,0,.6),0 0 30px rgba(20,15,20,.3);overflow:hidden}
 .arena::before{content:'';position:absolute;inset:0;border-radius:6px;background:radial-gradient(ellipse at 50% 0%,rgba(40,30,20,.06),transparent 60%);pointer-events:none;z-index:0}
 .vignette-flash{position:absolute;inset:0;pointer-events:none;z-index:10;border-radius:6px;opacity:0;transition:opacity .6s ease}
 .floor-announce{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;z-index:9999;pointer-events:none;opacity:0;font-size:2rem;font-weight:800;color:#6a623a;letter-spacing:4px;text-shadow:0 0 40px rgba(106,98,58,.3);white-space:nowrap;overflow:visible;text-align:center;padding:0 20px}
