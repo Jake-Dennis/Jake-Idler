@@ -70,7 +70,7 @@ svg[data-lucide]{display:inline;vertical-align:middle}
 .enemy-boss:empty{display:none}
 .hero-role-col{display:flex;flex-direction:column;gap:2px;flex:1}
 .arena-row{display:flex;justify-content:center;gap:6px;flex-wrap:wrap;align-items:center;min-height:0}
-.monster-card,.hero-card{background:linear-gradient(180deg,#0c0a0c 0%,#080608 100%);border:1px solid #1a1518;border-radius:4px;padding:4px 6px;text-align:center;position:relative;transition:transform .6s ease,box-shadow .2s;box-shadow:0 2px 8px rgba(0,0,0,.4);overflow:hidden}
+.monster-card,.hero-card{background:linear-gradient(180deg,#0c0a0c 0%,#080608 100%);border:1px solid #1a1518;border-radius:4px;padding:4px 6px;text-align:center;position:relative;transition:transform .2s,box-shadow .2s;box-shadow:0 2px 8px rgba(0,0,0,.4);overflow:hidden}
     .monster-card.boss{padding:8px 12px;border-color:#5a4a2a;border-width:2px;box-shadow:0 0 25px rgba(60,50,20,.15),inset 0 0 30px rgba(60,50,20,.05);animation:bossPulse 3s ease-in-out infinite}
     .monster-card.boss.mystery{border-color:#2a2020;border-style:dashed;box-shadow:none;animation:none;filter:blur(0)}
     .monster-card.boss.reveal{animation:bossReveal .6s ease-out}
