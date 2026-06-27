@@ -290,13 +290,15 @@ class CombatService {
       }
       const events = combatSerializer.buildEvents(run.lastRound, weaponTypes);
 
-      const monstersSnapshot: MonsterView[] = run.monsters.map((m) => ({
+      const monstersSnapshot: MonsterView[] = run.monsters
+        .filter(m => m.wave === run.currentWave)
+        .map((m) => ({
         id: m.data.id,
         name: m.data.name,
         isBoss: m.data.isBoss,
         hp: m.currentHp,
         maxHp: m.maxHp,
-        isCurrentFocus: m.wave === run.currentWave && m.currentHp > 0 && m === currentMonster,
+        isCurrentFocus: m.currentHp > 0 && m === currentMonster,
       }));
 
       roundStates.push({
@@ -394,7 +396,7 @@ class CombatService {
       keyConsumed: run.keyConsumed,
       floorCompleted: run.floorCompleted,
       floorFailed: run.floorFailed,
-      monsters: monsters.map((m) => ({
+      monsters: monsters.filter(m => m.wave === 0).map((m) => ({
         id: m.data.id,
         name: m.data.name,
         isBoss: m.data.isBoss,
