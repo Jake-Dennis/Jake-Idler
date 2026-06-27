@@ -459,9 +459,9 @@ class CombatService {
         atk = rawAtk;
       }
 
-      // Solo heroes get passive self-heal so they can survive a full floor with recommended gear
+      // Solo heroes get passive self-heal so they can survive longer fights
       if (partySize === 1 && pm.role !== "healer") {
-        healing = rawAtk * 0.055;
+        healing = rawAtk * 0.12;
       }
 
       const weaponType =
@@ -757,7 +757,7 @@ class CombatService {
     // Only bracket boss floors use the direct bracket boss (floor 10, 20, etc.)
     if (floor.isBracketBoss && floor.bracketBoss) {
       // 3 waves of trash, then bracket boss
-      const perWave = Math.max(1, partySize);
+      const perWave = Math.max(2, partySize);
       let trashCount = 0;
       const pool = floor.monsters;
       for (let w = 0; w < 3; w++) {
@@ -770,7 +770,7 @@ class CombatService {
       monsters.push(toFloorMonster(floor.bracketBoss, 3));
     } else {
       // Normal floor: 3 waves of trash, then floor boss
-      const perWave = Math.max(1, partySize);
+      const perWave = Math.max(2, partySize);
       let trashCount = 0;
       const pool = floor.monsters;
       for (let w = 0; w < 3; w++) {
