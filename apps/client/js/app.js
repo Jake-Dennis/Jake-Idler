@@ -371,12 +371,11 @@ function renderMonsters(monsters) {
   var weaponIcons = { melee: 'sword', range: 'crosshair', mage: 'wand' };
   monsters.forEach(function(m, idx) {
     var card = document.createElement('div');
-    // Enemies in row 2: trash fills cols 1-3 horizontally, boss in col 4
-    card.style.gridRow = 2;
+    // Enemies: Tank=col4 (center, next to divider), DPS=col5, Healer=col6 (edge)
     if (m.isBoss) {
-      card.style.gridColumn = 4; // boss at end
+      card.style.gridColumn = 4; // boss at center
     } else {
-      card.style.gridColumn = (idx % 3) + 1; // trash cycles cols 1-3
+      card.style.gridColumn = [4, 5, 6][idx % 3] || 4; // cycle center→edge
     }
     var mystery = m.isBoss && hasAliveTrash;
     card.className = 'monster-card' + (m.isBoss ? ' boss' : '') + (m.isCurrentFocus ? ' is-focus' : '') + (mystery ? ' mystery' : '');
@@ -490,12 +489,10 @@ function renderPartyHeroes(partyHeroes) {
     var card = document.createElement('div');
     card.className = 'monster-card role-' + (h.role || 'dps');
     card.id = 'hero-' + h.heroId;
-    // Heroes go in row 1, auto-flow into 4 columns by role
-    card.style.gridRow = 1;
+    // Heroes: Healer=col1, DPS=col2, Tank=col3 (center, next to divider)
     if (h.role === 'healer') card.style.gridColumn = 1;
-    else if (h.role === 'tank' || !h.role || h.role === '') card.style.gridColumn = 4;
     else if (h.role === 'dps' && (h.weaponType === 'range' || h.weaponType === 'mage')) card.style.gridColumn = 2;
-    else card.style.gridColumn = 3;
+    else card.style.gridColumn = 3; // tank or melee DPS (center, next to divider)
     var pct = h.maxHp > 0 ? (h.hp / h.maxHp) * 100 : 0;
     var heroName = (h.heroId === hero.id) ? hero.name : (h.name || h.heroId.substring(0, 8));
     var photoUrl = (h.heroId === hero.id) ? hero.photoUrl : (h.photoUrl || null);
