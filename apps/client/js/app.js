@@ -371,6 +371,7 @@ function renderMonsters(monsters) {
   var weaponIcons = { melee: 'sword', range: 'crosshair', mage: 'wand' };
   monsters.forEach(function(m, idx) {
     var card = document.createElement('div');
+    card.style.gridColumn = m.isBoss ? 2 : 2;
     var mystery = m.isBoss && hasAliveTrash;
     card.className = 'monster-card' + (m.isBoss ? ' boss' : '') + (m.isCurrentFocus ? ' is-focus' : '') + (mystery ? ' mystery' : '');
     card.setAttribute('data-monster-name', m.name);
@@ -470,55 +471,37 @@ function renderPartyHeroes(partyHeroes) {
   col.innerHTML = '';
   var weaponIcons = { melee: 'sword', range: 'crosshair', mage: 'wand' };
   var icons = { tank: 'shield', dps: 'sword', healer: 'heart' };
-  // Placement order from left (back) to right (front, near enemies)
-  var columns = [
-    { key: 'healer', label: 'HEAL' },
-    { key: 'ranged', label: 'RANGE' },
-    { key: 'melee', label: 'MELEE' },
-    { key: 'tank', label: 'TANK' },
-  ];
 
-  columns.forEach(function(colDef) {
-    var heroes;
-    if (colDef.key === 'ranged') {
-      heroes = partyHeroes.filter(function(h) { return h.role === 'dps' && (h.weaponType === 'range' || h.weaponType === 'mage'); });
-    } else if (colDef.key === 'melee') {
-      heroes = partyHeroes.filter(function(h) { return h.role === 'dps' && (!h.weaponType || h.weaponType === 'melee'); });
+  partyHeroes.forEach(function(h) {
+    // Figure out which column this hero belongs in
+    var roleCol;
+    if (h.role === 'healer') roleCol = 1;
+    else if (h.role === 'tank') roleCol = 4;
+    else if (h.role === 'dps' && (h.weaponType === 'range' || h.weaponType === 'mage')) roleCol = 2;
+    else roleCol = 3; // melee dps
+
+    var card = document.createElement('div');
+    card.className = 'monster-card role-' + (h.role || 'dps');
+    card.id = 'hero-' + h.heroId;
+    card.style.gridColumn = roleCol;
+    var pct = h.maxHp > 0 ? (h.hp / h.maxHp) * 100 : 0;
+    var heroName = (h.heroId === hero.id) ? hero.name : (h.name || h.heroId.substring(0, 8));
+    var photoUrl = (h.heroId === hero.id) ? hero.photoUrl : (h.photoUrl || null);
+    var iconName = icons[h.role] || 'sword';
+    if (h.role === 'dps' && h.weaponType) iconName = weaponIcons[h.weaponType] || 'sword';
+    var iconHtml;
+    if (photoUrl) {
+      iconHtml = '<img style="width:60px;height:60px;object-fit:contain;display:block;margin:0 auto 2px;border-radius:4px" src="' + photoUrl + '" alt="">';
     } else {
-      heroes = partyHeroes.filter(function(h) { return h.role === colDef.key; });
+      iconHtml = '<i data-lucide="' + iconName + '" style="width:60px;height:60px"></i>';
     }
-    if (heroes.length === 0) return;
-
-    var roleCol = document.createElement('div');
-    roleCol.className = 'hero-role-col role-' + colDef.key;
-
-    heroes.forEach(function(h) {
-      var card = document.createElement('div');
-      var role = h.role || 'dps';
-      card.className = 'monster-card role-' + role;
-      card.id = 'hero-' + h.heroId;
-      var pct = h.maxHp > 0 ? (h.hp / h.maxHp) * 100 : 0;
-      var heroName = (h.heroId === hero.id) ? hero.name : (h.name || h.heroId.substring(0, 8));
-      var photoUrl = (h.heroId === hero.id) ? hero.photoUrl : (h.photoUrl || null);
-      var iconName = icons[role] || 'sword';
-      if (role === 'dps' && h.weaponType) {
-        iconName = weaponIcons[h.weaponType] || 'sword';
-      }
-      var iconHtml;
-      if (photoUrl) {
-        iconHtml = '<img style="width:60px;height:60px;object-fit:contain;display:block;margin:0 auto 2px;border-radius:4px" src="' + photoUrl + '" alt="">';
-      } else {
-        iconHtml = '<i data-lucide="' + iconName + '" style="width:60px;height:60px"></i>';
-      }
-      card.innerHTML = '<div class="monster-icon">' + iconHtml + '</div>' +
-        '<div class="monster-name">' + escHtml(heroName) + '</div>' +
-        '<div class="hp-bar-outer"><div class="hp-bar-inner ' + hpColorClass(h.hp, h.maxHp) + '" style="width:' + pct + '%"></div></div>' +
-        '<div class="monster-hp"><i data-lucide="' + iconName + '" style="width:12px;height:12px;margin-right:4px;vertical-align:middle"></i>' + Math.round(h.hp) + '/' + Math.round(h.maxHp) + '</div>';
-      var img = card.querySelector('img');
-      if (img) img.onerror = function() { this.style.display = 'none'; };
-      roleCol.appendChild(card);
-    });
-    col.appendChild(roleCol);
+    card.innerHTML = '<div class="monster-icon">' + iconHtml + '</div>' +
+      '<div class="monster-name">' + escHtml(heroName) + '</div>' +
+      '<div class="hp-bar-outer"><div class="hp-bar-inner ' + hpColorClass(h.hp, h.maxHp) + '" style="width:' + pct + '%"></div></div>' +
+      '<div class="monster-hp"><i data-lucide="' + iconName + '" style="width:12px;height:12px;margin-right:4px;vertical-align:middle"></i>' + Math.round(h.hp) + '/' + Math.round(h.maxHp) + '</div>';
+    var img = card.querySelector('img');
+    if (img) img.onerror = function() { this.style.display = 'none'; };
+    col.appendChild(card);
   });
   if (typeof lucide !== 'undefined') lucide.createIcons();
 }
