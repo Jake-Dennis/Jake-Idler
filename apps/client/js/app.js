@@ -369,10 +369,11 @@ function renderMonsters(monsters) {
   var hasAliveTrash = monsters.some(function(m) { return !m.isBoss && m.hp > 0; });
 
   var weaponIcons = { melee: 'sword', range: 'crosshair', mage: 'wand' };
-  monsters.forEach(function(m) {
+  monsters.forEach(function(m, idx) {
     var card = document.createElement('div');
     var mystery = m.isBoss && hasAliveTrash;
-    card.className = 'monster-card' + (m.isBoss ? ' boss' : '') + (m.isCurrentFocus ? ' is-focus' : '') + (mystery ? ' mystery' : '');
+    card.className = 'monster-card' + (m.isBoss ? ' boss' : '') + (m.isCurrentFocus ? ' is-focus' : '') + (mystery ? ' mystery' : '') + ' monster-enter';
+    card.style.animationDelay = (idx * 0.12) + 's';
     card.setAttribute('data-monster-name', m.name);
     card.id = 'monster-' + m.id;
     var pct = m.maxHp > 0 ? (m.hp / m.maxHp) * 100 : 0;
@@ -599,10 +600,10 @@ async function playCombatCutscene(roundStates, onComplete) {
         announce.style.transition = 'opacity .8s ease, transform .8s ease';
         announce.style.opacity = '1';
         announce.style.transform = 'scale(1)';
-        await new Promise(function(r) { setTimeout(r, 1500); });
+        await new Promise(function(r) { setTimeout(r, 800); });
         announce.style.opacity = '0';
-        announce.style.transition = 'opacity .4s ease';
-        await new Promise(function(r) { setTimeout(r, 400); });
+        announce.style.transition = 'opacity .3s ease';
+        await new Promise(function(r) { setTimeout(r, 200); });
         announce.innerHTML = '';
       }
 
