@@ -97,7 +97,6 @@ interface FloorMonster {
   xpReward: number;
   goldReward: number;
   lootProcessed: boolean;
-  wave: number;  // 0, 1, 2 = trash waves, 3 = boss wave
 }
 
 interface PartyHeroRunState {
@@ -125,7 +124,6 @@ interface PartyFloorRunState {
   heroes: PartyHeroRunState[];
   monsters: FloorMonster[];
   currentMonsterIndex: number;
-  currentWave: number;  // 0, 1, 2 = trash, 3 = boss
   totalMonsters: number;
   monstersDefeated: number;
   floorCompleted: boolean;
@@ -194,12 +192,11 @@ class CombatService {
     const partySize = partyMembers.length;
     const monsters = this.generateMonsterQueue(floorNumber, partySize);
 
-    // Scale monster HP by party size — wave trash is fast, boss is the fight
+    // Scale monster HP by party size — each additional member adds meaningful difficulty
     const hpScale = 1.3 + (partySize - 1) * 0.29;
     for (const m of monsters) {
-      const waveMul = m.data.isBoss ? 1.0 : 0.25;
-      m.maxHp = Math.round(m.maxHp * hpScale * waveMul);
-      m.currentHp = Math.round(m.currentHp * hpScale * waveMul);
+      m.maxHp = Math.round(m.maxHp * hpScale);
+      m.currentHp = Math.round(m.currentHp * hpScale);
     }
 
     const heroes_ = this.initHeroes(partyMembers);
@@ -212,7 +209,6 @@ class CombatService {
       heroes: heroes_,
       monsters,
       currentMonsterIndex: 0,
-      currentWave: 0,
       totalMonsters: monsters.length,
       monstersDefeated: 0,
       floorCompleted: false,
@@ -249,40 +245,7 @@ class CombatService {
     const roundStates: CombatStateLog[] = [];
 
     while (!run.floorCompleted && !run.floorFailed) {
-      // Check if current wave is fully cleared
-      const aliveInWave = run.monsters.filter(m => m.wave === run.currentWave && m.currentHp > 0);
-      if (aliveInWave.length === 0) {
-        // Advance to next wave
-        run.currentWave++;
-        if (run.currentWave > 3) {
-          run.floorCompleted = true;
-          break;
-        }
-        // Push wave_start event as a standalone round state
-        const waveEvent: CombatEventView = { type: "wave_start", wave: run.currentWave };
-        const waveSnapshot: MonsterView[] = run.monsters
-          .filter(m => m.wave === run.currentWave)
-          .map((m) => ({
-            id: m.data.id,
-            name: m.data.name,
-            isBoss: m.data.isBoss,
-            hp: m.currentHp,
-            maxHp: m.maxHp,
-            isCurrentFocus: true,
-          }));
-        roundStates.push({
-          round: run.roundIndex + 1,
-          events: [waveEvent],
-          monsters: waveSnapshot,
-          partyHeroes: run.lastRound?.partyHeroes ?? [],
-        });
-        continue;
-      }
-
-      // Find first alive monster in current wave as focus target
-      const currentMonster = aliveInWave[0];
-      run.currentMonsterIndex = run.monsters.indexOf(currentMonster);
-
+      const currentMonsterBefore = run.monsters[run.currentMonsterIndex];
       const { monsterDied } = await this.processRound(partyId, run);
 
       const weaponTypes: Record<string, string> = {};
@@ -291,15 +254,13 @@ class CombatService {
       }
       const events = combatSerializer.buildEvents(run.lastRound, weaponTypes);
 
-      const monstersSnapshot: MonsterView[] = run.monsters
-        .filter(m => m.wave === run.currentWave)
-        .map((m) => ({
+      const monstersSnapshot: MonsterView[] = run.monsters.map((m) => ({
         id: m.data.id,
         name: m.data.name,
         isBoss: m.data.isBoss,
         hp: m.currentHp,
         maxHp: m.maxHp,
-        isCurrentFocus: m.currentHp > 0 && m === currentMonster,
+        isCurrentFocus: m === run.monsters[run.currentMonsterIndex],
       }));
 
       roundStates.push({
@@ -309,10 +270,10 @@ class CombatService {
         partyHeroes: run.lastRound!.partyHeroes,
       });
 
-      if (monsterDied && currentMonster && run.heroes.some((h) => h.alive)) {
+      if (monsterDied && currentMonsterBefore && run.heroes.some((h) => h.alive)) {
         this.accumulateKillRewards(
           run,
-          currentMonster,
+          currentMonsterBefore,
           heroMap,
           heroGoldAccum,
           heroShardAccum,
@@ -397,7 +358,7 @@ class CombatService {
       keyConsumed: run.keyConsumed,
       floorCompleted: run.floorCompleted,
       floorFailed: run.floorFailed,
-      monsters: monsters.filter(m => m.wave === 0).map((m) => ({
+      monsters: monsters.map((m) => ({
         id: m.data.id,
         name: m.data.name,
         isBoss: m.data.isBoss,
@@ -594,24 +555,11 @@ class CombatService {
     if (!target) target = aliveHeroes[0];
 
     if (target) {
-      // All alive monsters in current wave attack simultaneously
-      const aliveMonsters = run.monsters.filter(m => m.wave === run.currentWave && m.currentHp > 0);
-      const isBossFight = aliveMonsters.some(m => m.data.isBoss);
+      // Each monster deals 1-10 damage using ATK/(ATK+DEF) ratio
       const monsterList: Array<{ atk: number }> = [];
-
-      if (isBossFight) {
-        // Boss hits each party member once
-        const boss = aliveMonsters.find(m => m.data.isBoss);
-        if (boss) {
-          for (let i = 0; i < run.heroes.length; i++) {
-            monsterList.push({ atk: boss.data.stats.atk.toNumber() });
-          }
-        }
-      } else {
-        // Each alive trash monster attacks once
-        for (const m of aliveMonsters) {
-          monsterList.push({ atk: m.data.stats.atk.toNumber() });
-        }
+      for (let i = run.currentMonsterIndex; i < run.monsters.length; i++) {
+        const m = run.monsters[i];
+        if (m.currentHp > 0) monsterList.push({ atk: m.data.stats.atk.toNumber() });
       }
 
       for (const m of monsterList) {
@@ -645,18 +593,31 @@ class CombatService {
     // ─── 6. Monster died handling ────────────────────────────
     if (monsterDied && aliveHeroes.length > 0) {
       run.monstersDefeated++;
-      // Find next alive monster in current wave for focus
-      const aliveInWave = run.monsters.filter(m => m.wave === run.currentWave && m.currentHp > 0);
-      const nextMonster = aliveInWave.length > 0 ? aliveInWave[0] : null;
-      if (run.lastRound) {
-        run.lastRound = {
-          ...run.lastRound,
-          monsterHp: nextMonster?.currentHp ?? 0,
-          monsterMaxHp: nextMonster?.maxHp ?? 0,
-          monsterJustKilled: true,
-          finished: nextMonster === null && run.currentWave >= 3,
-          heroWon: nextMonster === null && run.currentWave >= 3,
-        };
+      const nextIndex = run.currentMonsterIndex + 1;
+      if (nextIndex < run.monsters.length) {
+        run.currentMonsterIndex = nextIndex;
+        const nextMonster = run.monsters[nextIndex];
+        if (run.lastRound) {
+          run.lastRound = {
+            ...run.lastRound,
+            monsterHp: nextMonster.currentHp,
+            monsterMaxHp: nextMonster.maxHp,
+            monsterJustKilled: true,
+            finished: false,
+            heroWon: false,
+          };
+        }
+      } else {
+        run.floorCompleted = true;
+        run.finishedAt = Date.now();
+        if (run.lastRound) {
+          run.lastRound = {
+            ...run.lastRound,
+            floorCompleted: true,
+            finished: true,
+            heroWon: true,
+          };
+        }
       }
     }
 
@@ -745,43 +706,28 @@ class CombatService {
   private generateMonsterQueue(floorNumber: number, partySize: number = 1): FloorMonster[] {
     const floor = generateFloor(floorNumber);
     const monsters: FloorMonster[] = [];
-    const toFloorMonster = (m: import("@jake-idler/game").Monster, wave: number): FloorMonster => ({
+    const toFloorMonster = (m: import("@jake-idler/game").Monster): FloorMonster => ({
       data: m,
       maxHp: m.stats.hp.toNumber(),
       currentHp: m.stats.hp.toNumber(),
       xpReward: m.xpReward.toNumber(),
       goldReward: m.goldReward.toNumber(),
       lootProcessed: false,
-      wave,
     });
 
-    // Only bracket boss floors use the direct bracket boss (floor 10, 20, etc.)
     if (floor.isBracketBoss && floor.bracketBoss) {
-      // 3 fast waves of trash, then bracket boss
-      const perWave = Math.max(3, partySize + 2);
-      let trashCount = 0;
-      const pool = floor.monsters;
-      for (let w = 0; w < 3; w++) {
-        for (let i = 0; i < perWave; i++) {
-          const src = pool[trashCount % pool.length];
-          monsters.push(toFloorMonster(src, w));
-          trashCount++;
-        }
-      }
-      monsters.push(toFloorMonster(floor.bracketBoss, 3));
+      monsters.push(toFloorMonster(floor.bracketBoss));
     } else {
-      // Normal floor: 3 fast waves of trash, then floor boss
-      const perWave = Math.max(3, partySize + 2);
-      let trashCount = 0;
-      const pool = floor.monsters;
-      for (let w = 0; w < 3; w++) {
-        for (let i = 0; i < perWave; i++) {
-          const src = pool[trashCount % pool.length];
-          monsters.push(toFloorMonster(src, w));
-          trashCount++;
-        }
+      // Trash count scales with party size
+      let trashCount = 1 + (floorNumber % 2);
+      if (partySize >= 2) trashCount = 2 + (floorNumber % 2);
+      if (partySize >= 3) trashCount = 3 + (floorNumber % 2);
+      if (partySize >= 4) trashCount = 3 + (floorNumber % 3);
+
+      for (let i = 0; i < trashCount && i < floor.monsters.length; i++) {
+        monsters.push(toFloorMonster(floor.monsters[i]));
       }
-      monsters.push(toFloorMonster(floor.floorBoss, 3));
+      monsters.push(toFloorMonster(floor.floorBoss));
     }
 
     return monsters;
