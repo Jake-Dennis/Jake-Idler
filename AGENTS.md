@@ -1,7 +1,7 @@
 # Jake-Idler — Project Knowledge Base
 
-**Generated:** 2026-06-26
-**Commit:** f8b7615
+**Generated:** 2026-06-27
+**Commit:** ff406c1
 **Branch:** main
 
 ## OVERVIEW
@@ -15,8 +15,8 @@ Incremental/idle web game (TypeScript, Express, Drizzle/SQLite). Monorepo with T
 ├── apps/server/          # Express :3000 — routes, services, auth, DB, config
 │   └── src/
 │       ├── index.ts          # Entry point (Express boot, route wiring, DB init, presence sweeper)
-│       ├── routes/           # 13 REST routers → /api/{auth,heroes,combat,guilds,chat,admin,…}
-│       ├── services/         # 11 singletons — combat, hero, party, loot, guild, chat, presence, …
+│       ├── routes/           # 14 REST routers → /api/{auth,heroes,combat,guilds,chat,admin,…}
+│       ├── services/         # 12 singletons — combat, hero, party, loot, guild, chat, presence, …
 │       ├── auth/             # JWT (7-day), bcrypt, middleware (requireAuth)
 │       ├── db/               # Drizzle ORM + better-sqlite3, schema (includes guilds, chat_messages)
 │       ├── game/             # Combat serializers, socket validators, __tests__
@@ -78,9 +78,10 @@ Incremental/idle web game (TypeScript, Express, Drizzle/SQLite). Monorepo with T
 - **Dead infrastructure** — `CombatRole`/`CombatPosition` enums (all heroes are DPS/Middle), `spd` field on equipment.
 - **Mutation of DB rows** — `toResponse()` mutates Drizzle row object instead of copying.
 - **No Node engine pin** — `packageManager` set, but no `engines` block or `.nvmrc`.
-- **Doc drift** — AGENTS.md and ARCHITECTURE.md reference old tick-scheduler, Socket.IO, 10 routes, 7 services (current: 13 routes, 11 services, no tick loop).
+- **Doc drift** — ARCHITECTURE.md references old tick-scheduler and Socket.IO; check source for actual current state.
 - **Live SQLite DB tracked in git** — `apps/server/data/jake_idler.db` not in `.gitignore`.
 - **Vitest version mismatch** — server `^2.1.0`, game `^4.1.9`.
+- **Client JS in one file** — `app.js` is ~106KB; no bundler, no modules.
 
 ## COMMANDS
 
