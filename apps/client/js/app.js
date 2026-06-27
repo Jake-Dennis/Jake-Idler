@@ -494,9 +494,9 @@ function renderPartyHeroes(partyHeroes) {
       }
       var iconHtml;
       if (photoUrl) {
-        iconHtml = '<img style="width:22px;height:22px;object-fit:cover;display:block;margin:0 auto 1px;border-radius:3px" src="' + photoUrl + '" alt="">';
+        iconHtml = '<img style="width:60px;height:60px;object-fit:contain;display:block;margin:0 auto 2px;border-radius:4px" src="' + photoUrl + '" alt="">';
       } else {
-        iconHtml = '<i data-lucide="' + iconName + '" style="width:22px;height:22px"></i>';
+        iconHtml = '<i data-lucide="' + iconName + '" style="width:60px;height:60px"></i>';
       }
       card.innerHTML = '<div class="monster-icon">' + iconHtml + '</div>' +
         '<div class="monster-name">' + escHtml(heroName) + '</div>' +
