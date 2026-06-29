@@ -323,6 +323,7 @@ document.querySelectorAll('.tab').forEach(function(tab) {
     if (this.dataset.tab === 'friends') loadFriends();
     if (this.dataset.tab === 'chat') loadChat();
     if (this.dataset.tab === 'guild') loadGuild();
+    if (this.dataset.tab === 'admin') window.loadAdminConfig();
   });
 });
 
@@ -967,6 +968,8 @@ document.getElementById('stop-btn').addEventListener('click', function() {
   // Only stops auto-looping; does NOT skip the current cutscene
   if (isLooping) toggleLoop();
 });
+document.getElementById('admin-save-btn').addEventListener('click', window.saveAdminConfig);
+document.getElementById('admin-reset-btn').addEventListener('click', window.resetAdminConfig);
 
 function loopRetry() {
   loopRetryCount++;
@@ -2671,6 +2674,138 @@ document.getElementById('hero-photo-input').addEventListener('change', function(
   window.startWhisper = startWhisper;
   window.cancelWhisper = cancelWhisper;
   window.startWhisperFromFriend = startWhisperFromFriend;
+  window.loadAdminConfig = loadAdminConfig;
+  window.saveAdminConfig = saveAdminConfig;
+  window.resetAdminConfig = resetAdminConfig;
   })();
+}
+
+function loadAdminConfig() {
+  var container = document.getElementById('admin-config');
+  if (!container) return;
+  container.innerHTML = '<p style="color:#3a373a">Loading config...</p>';
+  var tok = window.__INITIAL_TOKEN__ || localStorage.getItem('token') || '';
+  fetch('/api/admin/balancing', {
+    headers: { 'Authorization': 'Bearer ' + tok }
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(config) {
+    ADMIN_CONFIG_CACHE = config;
+    renderAdminConfig(config);
+  })
+  .catch(function(err) { container.innerHTML = '<p style="color:#ef4444">Failed to load: ' + err.message + '</p>'; });
+}
+
+function renderAdminConfig(config) {
+  var container = document.getElementById('admin-config');
+  if (!container) return;
+  var html = '';
+  var keys = Object.keys(config).sort();
+  for (var ki = 0; ki < keys.length; ki++) {
+    var key = keys[ki];
+    var val = config[key];
+    if (val && typeof val === 'object' && !Array.isArray(val)) {
+      var subKeys = Object.keys(val).sort();
+      html += '<div style="margin-bottom:16px;border:1px solid #1a1518;border-radius:4px;padding:12px;background:#080608">';
+      html += '<h3 style="font-size:1rem;font-weight:700;color:#6a623a;margin-bottom:8px;letter-spacing:1px">' + key + '</h3>';
+      html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">';
+      for (var si = 0; si < subKeys.length; si++) {
+        var sk = subKeys[si];
+        var sv = val[sk];
+        var step = (typeof sv === 'number' && sv < 1) ? 'step="0.01"' : '';
+        var min = (typeof sv === 'number' && sv >= 0 && sv <= 1) ? 'min="0" max="1"' : '';
+        html += '<div style="display:flex;flex-direction:column;gap:2px">';
+        html += '<label style="font-size:.75rem;color:#5a555a;font-weight:600">' + sk + '</label>';
+        html += '<input type="number" id="admin-' + key + '-' + sk + '" value="' + sv + '" ' + step + ' ' + min + ' style="padding:4px 8px;background:#0a080a;border:1px solid #2a2020;border-radius:4px;color:#9a949a;font-size:.85rem;outline:none">';
+        html += '</div>';
+      }
+      html += '</div></div>';
+    } else {
+      var step = (typeof val === 'number' && val < 1) ? 'step="0.01"' : (typeof val === 'number' ? 'step="1"' : '');
+      var min = (typeof val === 'number' && val >= 0 && val <= 1) ? 'min="0" max="1"' : '';
+      html += '<div style="margin-bottom:8px;display:flex;align-items:center;gap:12px">';
+      html += '<label style="min-width:180px;font-size:.85rem;color:#9a949a;font-weight:600">' + key + '</label>';
+      html += '<input type="number" id="admin-' + key + '" value="' + val + '" ' + step + ' ' + min + ' style="flex:1;padding:4px 8px;background:#0a080a;border:1px solid #2a2020;border-radius:4px;color:#9a949a;font-size:.85rem;outline:none">';
+      html += '</div>';
+    }
+  }
+  container.innerHTML = html;
+}
+
+function saveAdminConfig() {
+  if (!ADMIN_CONFIG_CACHE) return;
+  var status = document.getElementById('admin-status');
+  if (status) status.textContent = 'Saving...';
+  var promises = [];
+  var tok = window.__INITIAL_TOKEN__ || localStorage.getItem('token') || '';
+  var keys = Object.keys(ADMIN_CONFIG_CACHE).sort();
+  for (var ki = 0; ki < keys.length; ki++) {
+    var key = keys[ki];
+    var oldVal = ADMIN_CONFIG_CACHE[key];
+    if (oldVal && typeof oldVal === 'object' && !Array.isArray(oldVal)) {
+      var subKeys = Object.keys(oldVal).sort();
+      for (var si = 0; si < subKeys.length; si++) {
+        var sk = subKeys[si];
+        var el = document.getElementById('admin-' + key + '-' + sk);
+        if (!el) continue;
+        var newVal = parseFloat(el.value);
+        if (isNaN(newVal)) continue;
+        if (newVal !== oldVal[sk]) {
+          promises.push(
+            fetch('/api/admin/balancing/nested', {
+              method: 'PUT',
+              headers: { 'Authorization': 'Bearer ' + tok, 'Content-Type': 'application/json' },
+              body: JSON.stringify({ key: key, subKey: sk, value: newVal })
+            }).then(function(r) { return r.json(); })
+          );
+        }
+      }
+    } else {
+      var el = document.getElementById('admin-' + key);
+      if (!el) continue;
+      var newVal = parseFloat(el.value);
+      if (isNaN(newVal)) continue;
+      if (newVal !== oldVal) {
+        promises.push(
+          fetch('/api/admin/balancing', {
+            method: 'PUT',
+            headers: { 'Authorization': 'Bearer ' + tok, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ key: key, value: newVal })
+          }).then(function(r) { return r.json(); })
+        );
+      }
+    }
+  }
+  if (promises.length === 0) {
+    if (status) status.textContent = 'No changes';
+    return;
+  }
+  Promise.all(promises)
+    .then(function() {
+      if (status) { status.textContent = 'Saved ' + promises.length + ' change(s)'; status.style.color = '#4ade80'; }
+      loadAdminConfig();
+    })
+    .catch(function(err) {
+      if (status) { status.textContent = 'Failed: ' + err.message; status.style.color = '#ef4444'; }
+    });
+}
+
+function resetAdminConfig() {
+  if (!confirm('Reset all values to defaults?')) return;
+  var status = document.getElementById('admin-status');
+  if (status) status.textContent = 'Resetting...';
+  var tok = window.__INITIAL_TOKEN__ || localStorage.getItem('token') || '';
+  fetch('/api/admin/balancing/reset', {
+    method: 'POST',
+    headers: { 'Authorization': 'Bearer ' + tok }
+  })
+  .then(function(r) { return r.json(); })
+  .then(function() {
+    if (status) { status.textContent = 'Reset complete'; status.style.color = '#4ade80'; }
+    loadAdminConfig();
+  })
+  .catch(function(err) {
+    if (status) { status.textContent = 'Failed: ' + err.message; status.style.color = '#ef4444'; }
+  });
 }
 })();
