@@ -37,7 +37,7 @@ svg[data-lucide]{display:inline;vertical-align:middle}
 .tab:hover{color:#9a949a;background:rgba(30,20,20,.15)}
 .tab.active{color:#6a623a;border-bottom-color:#6a623a}
 .tab-content{display:none;padding:20px;max-width:100%;width:100%}
-.tab-content.active{display:flex;flex-direction:column;flex:1;overflow-y:auto;animation:tabFadeIn .2s ease-out}
+.tab-content.active{display:flex;flex-direction:column;flex:1;overflow-y:auto;align-items:center;animation:tabFadeIn .2s ease-out}
 @keyframes tabFadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
 #tab-dungeon{padding:20px 0;width:100%}
 .tab-content::-webkit-scrollbar{width:6px}
@@ -201,7 +201,7 @@ svg[data-lucide]{display:inline;vertical-align:middle}
 .role-tank{color:#5a553a;border:0}
 .role-dps{color:#4a2020;border:0}
 .role-healer{color:#2a3a2a;border:0}
-.party-section{margin-bottom:16px}
+.party-section{margin-bottom:16px;width:100%}
 .party-section h2{font-size:1.15rem;font-weight:700;margin-bottom:8px;color:#9a949a}
 .party-section h3{font-size:.95rem;font-weight:600;margin-bottom:6px;color:#5a555a}
 .party-input{width:auto;padding:8px 12px;background:#060406;border:1px solid #181518;border-radius:6px;color:#9a949a;font-size:.85rem;outline:none;margin-right:6px}
@@ -291,7 +291,7 @@ svg[data-lucide]{display:inline;vertical-align:middle}
 }
 
 /* ── Equipment ── */
-.equip-character{display:flex;gap:14px;margin:10px 0;align-items:flex-start}
+.equip-character{display:flex;gap:14px;margin:10px 0;align-items:flex-start;width:100%}
 .equip-stats-panel{background:#080608;border:1px solid #1a1518;border-radius:6px;padding:16px;min-width:130px;flex-shrink:0}
 .equip-inventory-panel{flex:1;min-width:200px;display:flex;flex-direction:column}
 .equip-stats-panel .stat-row{display:flex;justify-content:space-between;padding:4px 0;font-size:.82rem;border-bottom:1px solid #121012;color:#5a555a}
@@ -332,7 +332,7 @@ svg[data-lucide]{display:inline;vertical-align:middle}
 .inv-count{font-size:.78rem;color:#5a555a;font-weight:400}
 
 /* ── Friends ── */
-.friends-section{margin-bottom:12px}
+.friends-section{margin-bottom:12px;width:100%}
 .friends-section h2{font-size:1.15rem;font-weight:700;margin-bottom:8px;color:#9a949a}
 .friends-input{width:auto;padding:8px 12px;background:#060406;border:1px solid #181518;border-radius:6px;color:#9a949a;font-size:.85rem;outline:none;margin-right:6px}
 .friends-input:focus{border-color:#4a2020}
@@ -352,7 +352,7 @@ svg[data-lucide]{display:inline;vertical-align:middle}
 .chat-input:focus{border-color:#4a2020}
 
 /* ── Guild ── */
-.guild-section{margin-bottom:16px}
+.guild-section{margin-bottom:16px;width:100%}
 .guild-section h2{font-size:1.15rem;font-weight:700;margin-bottom:8px;color:#9a949a}
 .guild-input{width:auto;padding:8px 12px;background:#060406;border:1px solid #181518;border-radius:6px;color:#9a949a;font-size:.85rem;outline:none;margin-right:6px;display:block}
 .guild-input:focus{border-color:#4a2020}
@@ -373,7 +373,7 @@ svg[data-lucide]{display:inline;vertical-align:middle}
 .party-friend-row:hover{border-color:#2a2020}
 
 /* ── Crafting ── */
-.craft-layout{display:flex;gap:16px;align-items:flex-start}
+.craft-layout{display:flex;gap:16px;align-items:flex-start;width:100%}
 .craft-panel{flex:1;min-width:0}
 .craft-section-title{font-size:.9rem;font-weight:700;color:#9a949a;margin-bottom:8px}
 .craft-form{background:#080608;border:1px solid #1a1518;border-radius:6px;padding:14px}
