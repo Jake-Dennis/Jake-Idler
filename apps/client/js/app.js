@@ -619,6 +619,27 @@ function updateHeroBars(partyHeroes) {
   });
 }
 
+// ─── Fit Arena Content ─────────────────────────────────────
+// Scales the arena down if there are too many cards to fit,
+// preventing overflow clipping when parties are large.
+function fitArena() {
+  var arena = document.querySelector('.arena');
+  if (!arena) return;
+  requestAnimationFrame(function() {
+    var contentW = arena.scrollWidth;
+    var viewW = arena.clientWidth;
+    if (contentW > viewW) {
+      var s = viewW / contentW;
+      arena.style.transformOrigin = 'center center';
+      arena.style.transform = 'scale(' + s + ')';
+      arena.style.height = (arena.scrollHeight * s) + 'px';
+    } else {
+      arena.style.transform = '';
+      arena.style.height = '';
+    }
+  });
+}
+
 
 
 // ─── Combat animations loaded from external file ──────────────
@@ -676,6 +697,7 @@ async function playCombatCutscene(roundStates, onComplete) {
       // First round — just render monsters and heroes, no animation
       if (rs.monsters) renderMonsters(rs.monsters);
       if (rs.partyHeroes) renderPartyHeroes(rs.partyHeroes);
+      fitArena();
     }
     await new Promise(function(r) { setTimeout(r, ANIMATION_CONFIG.roundGapMs); });
     prevState = rs;
@@ -742,6 +764,8 @@ function enterDungeon() {
     if (data.monsters && data.monsters.length > 0) {
       renderMonsters(data.monsters);
     }
+
+    fitArena();
 
     // Wait for floor announcement animation before starting cutscene
     var cutsceneDelay = announce ? ANIMATION_CONFIG.floorAnnounceTotalMs : 0;
@@ -980,6 +1004,7 @@ function loopRetry() {
     if (data.monsters && data.monsters.length > 0) {
       renderMonsters(data.monsters);
     }
+    fitArena();
 
     if (data.roundStates && data.roundStates.length > 0) {
       playCombatCutscene(data.roundStates, function() {
