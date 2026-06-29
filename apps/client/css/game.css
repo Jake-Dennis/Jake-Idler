@@ -1,6 +1,6 @@
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 html,body{height:100vh;overflow:hidden}
-body{font-family:'Cinzel',system-ui,sans-serif;background:#030203;color:#b0a8b0;display:flex;flex-direction:column}
+body{font-family:'Cinzel',system-ui,sans-serif;background:#030203;color:#b0a8b0;display:flex;flex-direction:column;width:100%}
 svg[data-lucide]{display:inline;vertical-align:middle}
 .btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:10px 20px;border:none;border-radius:4px;font-size:0.9rem;font-weight:600;cursor:pointer;transition:all .2s;text-decoration:none;text-transform:uppercase;letter-spacing:.5px}
 .btn:active{transform:scale(.97)}
@@ -26,7 +26,7 @@ svg[data-lucide]{display:inline;vertical-align:middle}
 .hero-avatar-overlay{position:absolute;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;font-size:.9rem;opacity:0;transition:opacity .2s}
 .hero-avatar:hover .hero-avatar-overlay{opacity:1}
 .hp-bar-outer{width:100%;height:4px;background:#0a080a;border-radius:2px;overflow:hidden;display:block;vertical-align:middle}
-.hp-bar-inner{height:100%;border-radius:2px;display:block}
+.hp-bar-inner{height:100%;border-radius:2px;display:block;transition:width .3s ease}
 .hp-green{background:#3a4a2a}
 .hp-yellow{background:#4a4a2a}
 .hp-red{background:#4a1a1a}
@@ -37,7 +37,8 @@ svg[data-lucide]{display:inline;vertical-align:middle}
 .tab:hover{color:#9a949a;background:rgba(30,20,20,.15)}
 .tab.active{color:#6a623a;border-bottom-color:#6a623a}
 .tab-content{display:none;padding:20px;max-width:100%;width:100%}
-.tab-content.active{display:flex;flex-direction:column;flex:1;overflow-y:auto}
+.tab-content.active{display:flex;flex-direction:column;flex:1;overflow-y:auto;animation:tabFadeIn .2s ease-out}
+@keyframes tabFadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
 #tab-dungeon{padding:20px 0;width:100%}
 .tab-content::-webkit-scrollbar{width:6px}
 .tab-content::-webkit-scrollbar-track{background:transparent}
@@ -57,55 +58,43 @@ svg[data-lucide]{display:inline;vertical-align:middle}
 /* ── Combat Arena ── */
 #combat-arena{display:none;padding:0;width:100%}
 #combat-arena.active{display:flex;flex-direction:column;flex:1;min-height:0;width:100%}
-.round-counter{text-align:center;font-size:1.2rem;font-weight:700;margin-bottom:6px;color:#6a623a;letter-spacing:3px;text-shadow:0 0 20px rgba(60,55,30,.3)}
-.arena{display:flex;flex-direction:row;gap:0;padding:4px 0;background:#1a1518;border-top:1px solid #1a1518;border-bottom:1px solid #1a1518;flex:1;min-height:0;width:100%;position:relative;box-shadow:inset 0 0 60px rgba(0,0,0,.6),0 0 30px rgba(20,15,20,.3);overflow:hidden}
+.round-counter{text-align:center;font-size:1.2rem;font-weight:700;margin-bottom:6px;color:#6a623a;letter-spacing:3px;text-shadow:-1px -1px 0 #000,1px -1px 0 #000,-1px 1px 0 #000,1px 1px 0 #000,0 0 20px rgba(60,55,30,.3)}
+.arena{display:flex;flex-direction:row;gap:0;padding:0;background:#1a1518 url(/assets/Arena/Background/arena2.png) center/cover no-repeat;border-top:1px solid #1a1518;border-bottom:1px solid #1a1518;flex:1;min-height:0;width:100%;position:relative;box-shadow:inset 0 0 60px rgba(0,0,0,.6),0 0 30px rgba(20,15,20,.3);overflow:hidden;justify-content:center;align-items:center}
 .arena::before{content:'';position:absolute;inset:0;border-radius:6px;background:radial-gradient(ellipse at 50% 0%,rgba(40,30,20,.06),transparent 60%);pointer-events:none;z-index:0}
 .vignette-flash{position:absolute;inset:0;pointer-events:none;z-index:10;border-radius:6px;opacity:0;transition:opacity .6s ease}
-.floor-announce{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;z-index:9999;pointer-events:none;opacity:0;font-size:2rem;font-weight:800;color:#6a623a;letter-spacing:4px;text-shadow:0 0 40px rgba(106,98,58,.3);white-space:nowrap;overflow:visible;text-align:center;padding:0 20px}
+.floor-announce{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;z-index:9999;pointer-events:none;opacity:0;font-size:2rem;font-weight:800;color:#6a623a;letter-spacing:4px;text-shadow:-1px -1px 0 #000,1px -1px 0 #000,-1px 1px 0 #000,1px 1px 0 #000,0 0 40px rgba(106,98,58,.3);white-space:nowrap;overflow:visible;text-align:center;padding:0 20px}
 .arena-divider{width:1px;background:#3a353a;flex-shrink:0}
-.arena-heroes{display:flex;flex-direction:column;gap:2px;padding:4px;flex:0 0 auto;align-items:center;justify-content:center;min-width:80px}
-.arena-enemies{display:flex;flex-direction:row;gap:4px;padding:4px;flex:1;min-width:0;align-items:center;justify-content:flex-start}
-.enemy-mobs{display:flex;flex-direction:row;gap:4px}
-.enemy-mobs:empty{display:none}
-.enemy-boss{flex:0 0 auto}
-.enemy-boss:empty{display:none}
-.arena::before{content:'';position:absolute;inset:0;border-radius:6px;background:radial-gradient(ellipse at 50% 0%,rgba(40,30,20,.06),transparent 60%);pointer-events:none;z-index:0}
-.vignette-flash{position:absolute;inset:0;pointer-events:none;z-index:10;border-radius:6px;opacity:0;transition:opacity .6s ease}
-.floor-announce{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;z-index:9999;pointer-events:none;opacity:0;font-size:2rem;font-weight:800;color:#6a623a;letter-spacing:4px;text-shadow:0 0 40px rgba(106,98,58,.3);white-space:nowrap;overflow:visible;text-align:center;padding:0 20px}
-.arena-heroes{display:contents}
+.arena-heroes{display:flex;flex-direction:row;gap:12px;align-items:center;justify-content:center}
 .arena-enemies{display:contents}
-.enemy-mobs{display:contents}
+.enemy-mobs{display:flex;flex-direction:column;gap:0;justify-content:center;align-items:center}
 .enemy-mobs:empty{display:none}
 .enemy-boss{display:contents}
 .enemy-boss:empty{display:none}
 .hero-role-col{display:contents}
 .arena-row{display:flex;justify-content:center;gap:6px;flex-wrap:wrap;align-items:center;min-height:0}
-.monster-card,.hero-card{background:linear-gradient(180deg,#0c0a0c 0%,#080608 100%);border:1px solid #1a1518;border-radius:4px;padding:4px 6px;text-align:center;position:relative;transition:transform .2s,box-shadow .2s;box-shadow:0 2px 8px rgba(0,0,0,.4);overflow:hidden}
-    .monster-card.boss{padding:8px 12px;border-color:#5a4a2a;border-width:2px;box-shadow:0 0 25px rgba(60,50,20,.15),inset 0 0 30px rgba(60,50,20,.05);animation:bossPulse 3s ease-in-out infinite}
-    .monster-card.boss.mystery{border-color:#2a2020;border-style:dashed;box-shadow:none;animation:none;filter:blur(0)}
-    .monster-card.boss.reveal{animation:bossReveal .6s ease-out}
-    @keyframes bossReveal{0%{border-color:#2a2020;border-style:dashed;transform:scale(.9);filter:brightness(.3)}50%{border-color:#5a4a2a;border-style:solid;transform:scale(1.05)}100%{border-color:#5a4a2a;border-style:solid;transform:scale(1);filter:brightness(1)}}
-.monster-card.boss .monster-icon svg[data-lucide]{width:36px;height:36px;stroke:#9a8a5a}
-    .monster-card.boss .monster-icon img{width:50px;height:50px;object-fit:contain;display:block;margin:0 auto;border-radius:4px}
-    /* Boss card */
-    .monster-card.boss{max-height:25vh;padding:8px 12px}
-    .monster-card.boss .monster-icon{width:100%}
-    .monster-card.boss .monster-icon img{max-width:100%;max-height:12vh;width:auto;height:auto;object-fit:contain;display:block;margin:0 auto}
-    /* Monster row hidden when empty (boss phase) */
-    .arena:has(#monster-row:empty) #monster-row{display:none}
-    .monster-card.is-focus{border-color:#5a3535;box-shadow:0 0 20px rgba(60,30,30,.3),inset 0 0 15px rgba(60,30,30,.05);animation:focusPulse 1.5s ease-in-out infinite}
-    .monster-card:hover{transform:translateY(-2px);box-shadow:0 6px 20px rgba(0,0,0,.5)}
-.monster-icon{font-size:1.2rem;margin-bottom:1px;filter:drop-shadow(0 2px 4px rgba(0,0,0,.5))}
-.monster-icon svg[data-lucide]{width:22px;height:22px}
-.monster-name,.hero-card-name{font-size:.65rem;font-weight:600;color:#9a949a;margin-bottom:1px;letter-spacing:.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%}
-.monster-hp,.hero-hp{font-size:.6rem;color:#5a555a;margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%}
-.monster-hp svg,.hero-hp svg{color:#6a623a;display:inline!important}
-.hero-role-icon{font-size:1.2rem;margin-bottom:1px}
-.hero-card-photo{width:22px;height:22px;object-fit:cover;display:block;margin:0 auto 1px;border:1px solid #2a2020;border-radius:3px}
-.hero-card{border:1px solid #181518;padding:4px 6px}
-.monster-card.role-tank{border-color:#5a553a}
-.monster-card.role-dps{border-color:#4a2020}
-.monster-card.role-healer{border-color:#2a3a2a}
+.monster-card,.hero-card{background:transparent;border:0;border-radius:6px;padding:0;text-align:center;position:relative;transition:transform .2s,box-shadow .2s;box-shadow:none;overflow:hidden;min-width:90px}
+.monster-card.boss{padding:0;border:0;box-shadow:none;animation:bossPulse 3s ease-in-out infinite}
+.monster-card.boss.mystery{border:0;box-shadow:none;animation:none;filter:blur(0)}
+.monster-card.boss.reveal{animation:bossReveal .6s ease-out}
+@keyframes bossReveal{0%{transform:scale(.5);opacity:.3}60%{transform:scale(1.1);opacity:1}100%{transform:scale(1);opacity:1}}
+
+.monster-card.boss .monster-icon svg[data-lucide]{width:160px;height:160px;stroke:#9a8a5a}
+.monster-card.boss .monster-icon img{width:160px;height:160px;object-fit:contain;display:block;margin:0 auto;border-radius:4px}
+.monster-card.is-target{border:0;box-shadow:none}
+.monster-card.is-attacker{border:0}
+.monster-card.is-focus{border:0;box-shadow:none;animation:focusPulse 1.5s ease-in-out infinite}
+@keyframes focusPulse{0%,100%{border-color:#5a3535}50%{border-color:#a52a2a}}
+.monster-card:hover{transform:translateY(-2px);box-shadow:none}
+.monster-icon{font-size:2.4rem;margin:0;filter:drop-shadow(0 2px 4px rgba(0,0,0,.5));background:transparent;border:0;padding:0;line-height:0;display:block}
+.monster-icon svg[data-lucide]{width:96px;height:96px;background:transparent;border:0}
+.monster-name,.hero-card-name{font-size:.85rem;font-weight:600;color:#9a949a;margin-bottom:2px;letter-spacing:.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%;text-shadow:-1px -1px 0 #000,1px -1px 0 #000,-1px 1px 0 #000,1px 1px 0 #000}
+.hero-card-photo{width:96px;height:96px;object-fit:contain;display:block;margin:0 auto 2px;border:0;border-radius:3px;background:transparent}
+.hero-card{border:0;padding:10px 14px}
+.card-stats{background:rgba(8,6,8,.7);border:1px solid #1a1518;border-radius:4px;padding:6px 8px;margin:0;display:flex;flex-direction:column;gap:2px;align-items:stretch}
+.monster-hp,.hero-hp{font-size:.8rem;color:#9a949a;margin-top:0;text-shadow:-1px -1px 0 #000,1px -1px 0 #000,-1px 1px 0 #000,1px 1px 0 #000}
+.monster-card.role-tank{}
+.monster-card.role-dps{}
+.monster-card.role-healer{}
 
 /* ── Combat Log ── */
 
@@ -125,15 +114,12 @@ svg[data-lucide]{display:inline;vertical-align:middle}
 .log-entry.block{color:#3a2a5a}
 
 /* ── Particle / Floating Text ── */
-.float-text{position:fixed;pointer-events:none;z-index:600;font-weight:800;font-size:1.8rem;animation:floatUp .8s ease-out forwards;text-shadow:0 0 8px rgba(0,0,0,.8);font-family:'Cinzel',system-ui,sans-serif}
-.float-text.heal{color:#3a4a2a}
-.float-text.crit{color:#6a623a}
-.float-text.block{color:#3a2a5a}
+.float-text{position:fixed;pointer-events:none;z-index:600;font-weight:800;font-size:1.8rem;animation:floatUp .8s ease-out forwards;text-shadow:-1px -1px 0 #000,1px -1px 0 #000,-1px 1px 0 #000,1px 1px 0 #000,0 0 8px rgba(0,0,0,.8);font-family:'Cinzel',system-ui,sans-serif}
 @keyframes floatUp{0%{opacity:1;transform:translateY(0) scale(1)}100%{opacity:0;transform:translateY(-60px) scale(.8)}}
-.float-text.crit{font-size:2.2rem;color:#fbbf24;text-shadow:0 0 12px rgba(251,191,36,.6)}
-.float-text.heal{font-size:1.5rem;color:#4ade80;text-shadow:0 0 8px rgba(74,222,128,.4)}
-.float-text.damage{font-size:1.8rem;color:#ef4444;text-shadow:0 0 8px rgba(239,68,68,.4)}
-.float-text.block{font-size:1.1rem;color:#8b5cf6;text-shadow:0 0 8px rgba(139,92,246,.4)}
+.float-text.crit{font-size:2.2rem;color:#fbbf24;text-shadow:-1px -1px 0 #000,1px -1px 0 #000,-1px 1px 0 #000,1px 1px 0 #000,0 0 12px rgba(251,191,36,.6)}
+.float-text.heal{font-size:1.5rem;color:#4ade80;text-shadow:-1px -1px 0 #000,1px -1px 0 #000,-1px 1px 0 #000,1px 1px 0 #000,0 0 8px rgba(74,222,128,.4)}
+.float-text.damage{font-size:1.8rem;color:#ef4444;text-shadow:-1px -1px 0 #000,1px -1px 0 #000,-1px 1px 0 #000,1px 1px 0 #000,0 0 8px rgba(239,68,68,.4)}
+.float-text.block{font-size:1.1rem;color:#8b5cf6;text-shadow:-1px -1px 0 #000,1px -1px 0 #000,-1px 1px 0 #000,1px 1px 0 #000,0 0 8px rgba(139,92,246,.4)}
 
 .projectile{position:fixed;pointer-events:none;z-index:500;border-radius:50%;width:12px;height:12px}
 .projectile-trail{position:fixed;pointer-events:none;z-index:499;border-radius:50%}
@@ -141,6 +127,7 @@ svg[data-lucide]{display:inline;vertical-align:middle}
 /* ── Overlay ── */
 .overlay{position:fixed;inset:0;background:rgba(3,2,3,.92);display:none;align-items:center;justify-content:center;z-index:1000;animation:fadeIn .3s ease}
 .overlay.show{display:flex}
+.overlay.hiding{animation:fadeIn .3s ease reverse forwards;pointer-events:none}
 .overlay-card{background:linear-gradient(180deg,#0c0a0c 0%,#080608 100%);border:1px solid #1a1518;border-radius:6px;padding:32px;text-align:center;max-width:380px;width:90%;box-shadow:0 0 40px rgba(0,0,0,.5)}
 .overlay-card h2{font-size:1.6rem;margin-bottom:8px;letter-spacing:2px}
 .overlay-card .victory{color:#6a623a;text-shadow:0 0 30px rgba(60,55,30,.3)}
@@ -156,27 +143,27 @@ svg[data-lucide]{display:inline;vertical-align:middle}
 .animate-lunge{animation:lunge .75s ease-in-out;animation-duration:.75s;z-index:50}
 @keyframes lunge{0%{transform:translate(0,0)}25%{transform:translate(40px,-32px)}45%{transform:translate(65px,0)}55%{transform:translate(65px,0)}80%{transform:translate(20px,-15px)}100%{transform:translate(0,0)}}
 .animate-flash-white{animation:flashWhite .35s ease;animation-duration:.35s}
-@keyframes flashWhite{0%,100%{box-shadow:0 0 0 transparent}50%{box-shadow:0 0 20px rgba(90,80,40,.5),0 0 40px rgba(90,80,40,.2)}}
+@keyframes flashWhite{0%,100%{filter:drop-shadow(0 0 0 transparent)}50%{filter:drop-shadow(0 0 12px rgba(255,255,255,.9)) drop-shadow(0 0 25px rgba(255,200,160,.6))}}
 .animate-flash-red{animation:flashRed .4s ease;animation-duration:.4s}
-@keyframes flashRed{0%,100%{background-color:transparent}25%{background-color:rgba(60,20,20,.2)}}
+@keyframes flashRed{0%,100%{filter:drop-shadow(0 0 0 transparent)}25%{filter:drop-shadow(0 0 15px rgba(255,40,40,.9))}}
 .animate-pulse-green{animation:pulseGreen .5s ease;animation-duration:.5s}
-@keyframes pulseGreen{0%,100%{box-shadow:0 0 0 transparent}50%{box-shadow:0 0 15px rgba(40,60,30,.5)}}
-.animate-shake{animation:shake .3s ease;animation-duration:.3s}
-@keyframes shake{0%,100%{transform:translateX(0)}20%{transform:translateX(-4px)}40%{transform:translateX(4px)}60%{transform:translateX(-2px)}80%{transform:translateX(2px)}}
+@keyframes pulseGreen{0%,100%{filter:drop-shadow(0 0 0 transparent)}50%{filter:drop-shadow(0 0 12px rgba(40,255,40,.7))}}
 .animate-fade-out{animation:fadeOut .6s ease forwards;animation-duration:.6s}
 @keyframes fadeOut{0%{opacity:1;transform:scale(1)}100%{opacity:0;transform:scale(.4)}}
 .animate-shield{animation:shieldGlow .5s ease;animation-duration:.5s}
-@keyframes shieldGlow{0%,100%{box-shadow:0 0 0 transparent}50%{box-shadow:0 0 20px rgba(50,40,80,.5),inset 0 0 10px rgba(50,40,80,.1)}}
+@keyframes shieldGlow{0%,100%{filter:drop-shadow(0 0 0 transparent)}50%{filter:drop-shadow(0 0 15px rgba(80,130,255,.7))}}
 .animate-explode{animation:explode .4s ease forwards;animation-duration:.4s}
 @keyframes explode{0%{transform:translate(0,0) scale(1);opacity:1}100%{transform:translate(var(--tx,0),var(--ty,0)) scale(0.3);opacity:0}}
 .animate-windup{animation:windup .15s ease;animation-duration:.15s}
 @keyframes windup{0%{transform:scale(1)}50%{transform:scale(.85)}100%{transform:scale(1)}}
 .animate-fade-in{animation:fadeIn .4s ease;animation-duration:.4s}
 @keyframes fadeIn{0%{opacity:0;transform:translateY(12px)}100%{opacity:1;transform:translateY(0)}}
-@keyframes bossPulse{0%,100%{box-shadow:0 0 25px rgba(60,50,20,.15),inset 0 0 30px rgba(60,50,20,.05)}50%{box-shadow:0 0 40px rgba(60,50,20,.25),inset 0 0 50px rgba(60,50,20,.1)}}
+@keyframes bossPulse{0%,100%{filter:drop-shadow(0 0 12px rgba(60,50,20,.4))}50%{filter:drop-shadow(0 0 20px rgba(60,50,20,.7))}}
 .hero-attack-lunge{animation:heroLunge .3s ease-out}
 @keyframes heroLunge{0%{transform:translateX(0) scale(1)}35%{transform:translateX(40px) scale(1.1)}70%{transform:translateX(40px) scale(1.1)}100%{transform:translateX(0) scale(1)}}
 .monster-hit-react{animation:monsterHit .2s ease-out}
+.animate-hit-react-flash{animation:hitReactFlash .15s ease-out}
+@keyframes hitReactFlash{0%{transform:translateX(-3px)}50%{transform:translateX(3px)}100%{transform:translateX(0)}}
 @keyframes monsterHit{0%{transform:translateX(0)}30%{transform:translateX(15px)}60%{transform:translateX(-5px)}100%{transform:translateX(0)}}
 .monster-enter{animation:monsterMarch .5s ease-out forwards}
 @keyframes monsterMarch{0%{transform:translateX(200px) scale(.5);opacity:0}60%{transform:translateX(-10px) scale(1.05);opacity:1}100%{transform:translateX(0) scale(1);opacity:1}}
@@ -184,9 +171,6 @@ svg[data-lucide]{display:inline;vertical-align:middle}
 @keyframes monsterLunge{0%{transform:translateX(0)}40%{transform:translateX(-25px)}100%{transform:translateX(0)}}
 
 /* ── Screen Effects ── */
-.animate-shake-screen{animation:screenShake .3s ease;animation-duration:.3s}
-.animate-shake-screen.crit{animation-duration:.5s}
-@keyframes screenShake{0%{transform:translate3d(0,0,0)}10%{transform:translate3d(-4px,-2px,0)}20%{transform:translate3d(4px,2px,0)}30%{transform:translate3d(-3px,1px,0)}40%{transform:translate3d(3px,-1px,0)}50%{transform:translate3d(-2px,0,0)}60%{transform:translate3d(2px,0,0)}100%{transform:translate3d(0,0,0)}}
 .animate-hit-stop{animation:hitStop .08s ease;animation-duration:.08s}
 @keyframes hitStop{0%,100%{transform:scale(1)}50%{transform:scale(0.95)}}
 .vignette-flash.show{opacity:1}
@@ -194,7 +178,6 @@ svg[data-lucide]{display:inline;vertical-align:middle}
 .vignette-flash.round{background:radial-gradient(ellipse at center,transparent 50%,rgba(0,0,0,.6) 100%)}
 .vignette-flash.flash{animation:vignetteFlash .2s ease;animation-duration:.2s}
 @keyframes vignetteFlash{0%{opacity:0}50%{opacity:1}100%{opacity:0}}
-.float-text.crit{font-size:1.8rem;text-shadow:0 0 12px rgba(184,134,11,.6)}
 
 /* ── Hero Class Animations ── */
 .animate-slash{animation:slash .35s ease-out;animation-duration:.35s}
@@ -204,9 +187,9 @@ svg[data-lucide]{display:inline;vertical-align:middle}
 .animate-overhead{animation:overhead .4s ease-out;animation-duration:.4s}
 @keyframes overhead{0%{transform:translate(0,0) scale(1)}25%{transform:translate(20px,-20px) scale(.8)}50%{transform:translate(50px,0) scale(1.2)}100%{transform:translate(0,0) scale(1)}}
 .animate-heal-cast{animation:healCast .5s ease;animation-duration:.5s}
-@keyframes healCast{0%{box-shadow:0 0 0 transparent}50%{box-shadow:0 0 25px rgba(90,42,10,.5),inset 0 0 15px rgba(90,42,10,.15)}100%{box-shadow:0 0 0 transparent}}
+@keyframes healCast{0%{filter:drop-shadow(0 0 0 transparent)}50%{filter:drop-shadow(0 0 20px rgba(90,255,90,.7))}100%{filter:drop-shadow(0 0 0 transparent)}}
 .animate-heal-received{animation:healReceived .5s ease;animation-duration:.5s}
-@keyframes healReceived{0%{box-shadow:0 0 0 transparent}50%{box-shadow:0 0 20px rgba(90,42,10,.4)}100%{box-shadow:0 0 0 transparent}}
+@keyframes healReceived{0%{filter:drop-shadow(0 0 0 transparent)}50%{filter:drop-shadow(0 0 20px rgba(90,255,90,.6))}100%{filter:drop-shadow(0 0 0 transparent)}}
 .animate-boss-entrance{animation:bossEntrance .5s ease-out;animation-duration:.5s}
 @keyframes bossEntrance{0%{transform:scale(0);opacity:0}60%{transform:scale(1.1);opacity:1}100%{transform:scale(1);opacity:1}}
 #party-in{display:none}
@@ -215,9 +198,9 @@ svg[data-lucide]{display:inline;vertical-align:middle}
 #party-not-in.active{display:block}
 .member-card{background:#080608;border:1px solid #181518;border-radius:6px;padding:10px;margin:6px 0}
 .member-card .role-badge{padding:2px 8px;border-radius:4px;font-size:11px;font-weight:bold;display:inline-block}
-.role-tank{color:#5a553a;border:1px solid #5a553a}
-.role-dps{color:#4a2020;border:1px solid #4a2020}
-.role-healer{color:#2a3a2a;border:1px solid #2a3a2a}
+.role-tank{color:#5a553a;border:0}
+.role-dps{color:#4a2020;border:0}
+.role-healer{color:#2a3a2a;border:0}
 .party-section{margin-bottom:16px}
 .party-section h2{font-size:1.15rem;font-weight:700;margin-bottom:8px;color:#9a949a}
 .party-section h3{font-size:.95rem;font-weight:600;margin-bottom:6px;color:#5a555a}
@@ -233,9 +216,9 @@ svg[data-lucide]{display:inline;vertical-align:middle}
 @media(min-width:1400px){
   .tab-content{max-width:100%;padding:24px}
   .arena{padding:8px 0}
-  .arena-heroes{gap:6px;padding:6px}
-  .arena-enemies{gap:6px;padding:6px}
-  .enemy-mobs{gap:6px}
+  .arena-heroes{gap:0;padding:6px}
+  .arena-enemies{gap:0;padding:6px}
+  .enemy-mobs{gap:0}
   .monster-card{padding:6px 10px}
   .monster-card.boss{padding:12px 16px}
   .hero-card{padding:4px 8px}
@@ -263,11 +246,11 @@ svg[data-lucide]{display:inline;vertical-align:middle}
   .monster-icon{font-size:1.2rem}
 .monster-icon svg[data-lucide]{width:60px;height:60px}
   .monster-name,.hero-card-name{font-size:.6rem}
-  .monster-hp,.hero-hp{font-size:.55rem}
+  .monster-hp,.hero-hp{font-size:.8rem;color:#9a949a;background:rgba(8,6,8,.7);border:1px solid #1a1518;border-radius:4px;padding:2px 6px;display:inline-block;margin-top:2px}
   .arena{padding:2px 0}
-  .arena-heroes{gap:3px;padding:2px}
-  .arena-enemies{gap:3px;padding:2px}
-  .enemy-mobs{gap:3px}
+  .arena-heroes{gap:0;padding:2px}
+  .arena-enemies{gap:0;padding:2px}
+  .enemy-mobs{gap:0}
   .hero-card{padding:4px 6px}
 .hero-card-photo{width:18px;height:18px}
 .hero-role-icon{font-size:1.1rem}
@@ -295,9 +278,9 @@ svg[data-lucide]{display:inline;vertical-align:middle}
 .hero-card{padding:2px 4px}
 .hero-card-photo{width:14px;height:14px}
   .arena{padding:2px 0}
-  .arena-heroes{gap:2px;padding:1px}
-  .arena-enemies{gap:2px;padding:1px}
-  .enemy-mobs{gap:2px}
+  .arena-heroes{gap:0;padding:1px}
+  .arena-enemies{gap:0;padding:1px}
+  .enemy-mobs{gap:0}
   .round-counter{font-size:.8rem;margin-bottom:4px}
   .btn{padding:4px 8px;font-size:.7rem}
   .btn-sm{padding:3px 6px;font-size:.65rem}
@@ -433,17 +416,31 @@ svg[data-lucide]{display:inline;vertical-align:middle}
   .equip-slot{min-height:50px}
 }
 
+/* ── Toast Notifications ── */
+#toast-container{position:fixed;bottom:24px;right:24px;z-index:10000;display:flex;flex-direction:column;gap:8px;pointer-events:none}
+.toast{pointer-events:auto;background:#1a1a1a;color:#f3e9d2;padding:12px 18px;border-radius:4px;border:1px solid #2a2a2a;border-left:3px solid #5a555a;animation:toastIn .3s ease-out;box-shadow:0 4px 20px rgba(0,0,0,.5);min-width:200px;max-width:360px;font-size:.85rem;line-height:1.4;font-family:'Cinzel',system-ui,sans-serif}
+.toast-error{border-left-color:#c0392b;background:#1a0808}
+.toast-success{border-left-color:#27ae60;background:#080e08}
+.toast-exit{animation:toastOut .3s ease-in forwards}
+@keyframes toastIn{from{transform:translateX(120%);opacity:0}to{transform:translateX(0);opacity:1}}
+@keyframes toastOut{to{transform:translateX(120%);opacity:0}}
+
+/* ── Level Up ── */
+.animate-level-up{animation:levelUp .6s ease-out}
+@keyframes levelUp{0%{transform:scale(1);text-shadow:0 0 0 transparent}40%{transform:scale(1.3);text-shadow:0 0 20px rgba(251,191,36,.8),0 0 40px rgba(251,191,36,.4)}100%{transform:scale(1);text-shadow:0 0 10px rgba(251,191,36,.2)}}
+
 /* ── Gothic UI ── */
 .animate-torch-flicker{animation:torchFlicker 2s ease-in-out infinite}
 @keyframes torchFlicker{0%,100%{box-shadow:0 0 8px rgba(184,134,11,.15)}50%{box-shadow:0 0 15px rgba(184,134,11,.3)}}
 .animate-shadow-pool{animation:shadowPool .6s ease-out forwards}
 @keyframes shadowPool{0%{box-shadow:0 0 0 rgba(0,0,0,0)}100%{box-shadow:0 0 50px 30px rgba(0,0,0,.5)}}
 
-@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}.animate-shake-screen,.animate-shake-screen.crit{animation:none!important}.vignette-flash{display:none!important}}
-.no-shake .animate-shake-screen,.no-shake .vignette-flash{display:none!important}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}
+/* Runtime override for users who toggle reduced-motion mid-session. Mirrors the media query above so a live preference change is honored without reload. */
+body.reduced-motion *,body.reduced-motion *::before,body.reduced-motion *::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}
 
 .animate-hit-splat{animation:hitSplat .3s ease-out}
-@keyframes hitSplat{0%{transform:scale(1);box-shadow:0 0 0 rgba(255,180,80,0)}25%{transform:scale(1.1);box-shadow:0 0 30px rgba(255,180,80,.7),inset 0 0 20px rgba(255,180,80,.3)}100%{transform:scale(1);box-shadow:0 0 0 transparent,inset 0 0 0 transparent}}
+@keyframes hitSplat{0%{transform:scale(1);filter:drop-shadow(0 0 0 rgba(255,180,80,0))}25%{transform:scale(1.1);filter:drop-shadow(0 0 25px rgba(255,180,80,.8))}100%{transform:scale(1);filter:drop-shadow(0 0 0 transparent)}}
 @keyframes mageOrbPulse{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.3);opacity:.9}}
 @keyframes mageRingSpin{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}
 @keyframes mageOrbit1{0%,100%{transform:translate(0,-6px);opacity:1}50%{transform:translate(0,-14px);opacity:.4}}
@@ -453,7 +450,8 @@ svg[data-lucide]{display:inline;vertical-align:middle}
 @keyframes shieldBubble{0%{transform:scale(.3);opacity:0}30%{transform:scale(1.1);opacity:1}60%{transform:scale(1);opacity:1}100%{transform:scale(1.3);opacity:0}}
 @keyframes healSparkle{0%{transform:translateY(0) scale(1);opacity:1}50%{transform:translateY(-20px) scale(1.2);opacity:.8}100%{transform:translateY(-40px) scale(.5);opacity:0}}
 .animate-block-burst{animation:blockBurst .4s ease-out}
-@keyframes blockBurst{0%{box-shadow:0 0 0 rgba(80,130,255,0)}40%{box-shadow:0 0 25px rgba(80,130,255,.7),inset 0 0 15px rgba(80,130,255,.3)}100%{box-shadow:0 0 0 transparent,inset 0 0 0 transparent}}
-.slash-mark{position:absolute;pointer-events:none;z-index:50;width:120px;height:4px;background:linear-gradient(90deg,transparent,rgba(255,200,160,.9),rgba(255,255,255,.95),rgba(255,200,160,.9),transparent);border-radius:2px;transform:rotate(-35deg) scaleX(0);animation:slashCut .25s ease-out forwards;box-shadow:0 0 12px rgba(255,200,160,.6),0 0 25px rgba(255,200,160,.3)}
-.slash-mark:nth-child(2){width:90px;transform:rotate(25deg) scaleX(0);animation-delay:.05s;background:linear-gradient(90deg,transparent,rgba(255,200,160,.7),rgba(255,255,255,.85),rgba(255,200,160,.7),transparent)}
-@keyframes slashCut{0%{transform:rotate(-35deg) scaleX(0);opacity:1}40%{transform:rotate(-35deg) scaleX(1.2);opacity:1}60%{transform:rotate(-35deg) scaleX(1);opacity:1}100%{transform:rotate(-35deg) scaleX(.8);opacity:0}}
+@keyframes blockBurst{0%{filter:drop-shadow(0 0 0 rgba(80,130,255,0))}40%{filter:drop-shadow(0 0 20px rgba(80,130,255,.8))}100%{filter:drop-shadow(0 0 0 transparent)}}
+.slash-mark{position:absolute;pointer-events:none;z-index:50;width:80px;height:4px;background:linear-gradient(90deg,transparent,rgba(255,200,160,.9),rgba(255,255,255,.95),rgba(255,200,160,.9),transparent);border-radius:2px;left:50%;top:50%;transform:translate(-50%,-50%) rotate(-35deg) scaleX(0);animation:slashCut .25s ease-out forwards;box-shadow:0 0 12px rgba(255,200,160,.6),0 0 25px rgba(255,200,160,.3);max-width:90%}
+.slash-mark:nth-child(2){width:60px;left:50%;top:50%;transform:translate(-50%,-50%) rotate(25deg) scaleX(0);animation-delay:.05s;background:linear-gradient(90deg,transparent,rgba(255,200,160,.7),rgba(255,255,255,.85),rgba(255,200,160,.7),transparent);max-width:90%}
+@keyframes slashCut{0%{transform:translate(-50%,-50%) rotate(-35deg) scaleX(0);opacity:1}40%{transform:translate(-50%,-50%) rotate(-35deg) scaleX(1.2);opacity:1}60%{transform:translate(-50%,-50%) rotate(-35deg) scaleX(1);opacity:1}100%{transform:translate(-50%,-50%) rotate(-35deg) scaleX(.8);opacity:0}}
+

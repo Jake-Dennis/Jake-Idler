@@ -65,7 +65,7 @@ function floatText(x, y, text, cls) {
 // ─── Timing Helpers ───────────────────────────────────────────
 
 var DURATION_CACHE = {};
-var PHASE_GAP_MS = 200;
+var PHASE_GAP_MS = (typeof ANIMATION_CONFIG !== 'undefined') ? ANIMATION_CONFIG.phaseGapMs : 200;
 
 function sleep(ms) {
   return new Promise(function(r) { setTimeout(r, ms); });
@@ -117,18 +117,22 @@ function playHeroAttack(e) {
     var wType = e.weaponType || 'melee';
 
     if ((wType === 'mage' || wType === 'range') && monEl) {
-      el.classList.add('hero-attack-lunge');
       if (wType === 'mage') {
         var colors = { fire: '#ff8800', ice: '#4488ff', arcane: '#aa44ff' };
         var mageColors = ['#ff8800', '#4488ff', '#aa44ff'];
         var color = mageColors[Math.floor(Math.random() * mageColors.length)];
         createProjectile(el, monEl, color, false);
         await sleep(150);
-        el.classList.remove('hero-attack-lunge');
         createExplosion(monEl, color);
-        if (monEl) { monEl.classList.add('monster-hit-react'); setTimeout(function() { if (monEl) monEl.classList.remove('monster-hit-react'); }, 300); }
+        if (monEl) {
+          monEl.classList.add('monster-hit-react');
+          monEl.addEventListener('animationend', function handler() {
+            if (monEl) monEl.classList.remove('monster-hit-react');
+            monEl.removeEventListener('animationend', handler);
+          }, { once: true });
+        }
         var mr = monEl.getBoundingClientRect();
-        floatText(mr.left + mr.width/2 - 20, mr.top + mr.height/2 - 10, e.damage, 'damage');
+        floatText(mr.left + mr.width/2, mr.top + mr.height/2, e.damage, 'damage');
       } else {
         // Range volley — fire 3 arrows in quick succession
         var volleyCount = 3;
@@ -136,23 +140,26 @@ function playHeroAttack(e) {
           var delay = vi * 120;
           setTimeout(function(idx) {
             createProjectile(el, monEl, '#c8a060', true);
-            // Last arrow hits with flash
-            if (idx === volleyCount - 1) {
-              setTimeout(function() {
+            // Each arrow hits with a small flash
+            setTimeout(function() {
+              monEl.classList.add('monster-hit-react');
+              monEl.addEventListener('animationend', function handler() {
+                monEl.classList.remove('monster-hit-react');
+                monEl.removeEventListener('animationend', handler);
+              }, { once: true });
+              if (idx === volleyCount - 1) {
                 monEl.classList.add('animate-flash-white');
+                monEl.addEventListener('animationend', function handler2() {
+                  monEl.classList.remove('animate-flash-white');
+                  monEl.removeEventListener('animationend', handler2);
+                }, { once: true });
                 var hr = monEl.getBoundingClientRect();
-                floatText(hr.left + hr.width/2 - 20, hr.top + hr.height/2 - 10, e.damage, 'damage');
-                setTimeout(function() { monEl.classList.remove('animate-flash-white'); }, 400);
-              }, 450);
-            }
+                floatText(hr.left + hr.width/2, hr.top + hr.height/2, e.damage, 'damage');
+              }
+            }, 450);
           }, delay, vi);
         }
         await sleep(volleyCount * 120 + 500);
-        el.classList.remove('hero-attack-lunge');
-      }
-      if (e.crit) {
-        var arena = document.querySelector('.arena');
-        if (arena) { arena.classList.add('animate-shake-screen'); setTimeout(function() { arena.classList.remove('animate-shake-screen'); }, 500); }
       }
     } else {
       // Melee — slash mark on the monster
@@ -166,15 +173,15 @@ function playHeroAttack(e) {
         for (var si = 0; si < 2; si++) {
           var slash = document.createElement('div');
           slash.className = 'slash-mark';
-          slash.style.top = (20 + Math.random() * 30) + '%';
-          slash.style.left = (15 + Math.random() * 30) + '%';
-          if (si === 1) { slash.style.transform = 'rotate(25deg) scaleX(0)'; slash.style.animationDelay = '.05s'; }
+          slash.style.top = '50%';
+          slash.style.left = '50%';
+          if (si === 1) { slash.style.transform = 'translate(-50%,-50%) rotate(25deg) scaleX(0)'; slash.style.animationDelay = '.05s'; }
           monEl.appendChild(slash);
         }
         emitParticles('hit', mr.left + mr.width/2, mr.top + mr.height/2, 8);
         monEl.classList.add('animate-flash-white', 'monster-hit-react');
         // Show damage number on monster
-        floatText(mr.left + mr.width/2 - 20, mr.top + mr.height/2 - 10, e.damage, 'damage');
+        floatText(mr.left + mr.width/2, mr.top + mr.height/2, e.damage, 'damage');
         monEl.style.animationPlayState = 'paused';
         await sleep(120);
         monEl.style.animationPlayState = '';
@@ -187,10 +194,6 @@ function playHeroAttack(e) {
         await sleep(getAnimDuration(animClass) + 50);
       }
       el.classList.remove(animClass, 'hero-attack-lunge');
-      if (e.crit) {
-        var arena = document.querySelector('.arena');
-        if (arena) { arena.classList.add('animate-shake-screen'); setTimeout(function() { arena.classList.remove('animate-shake-screen'); }, 500); }
-      }
     }
   })();
 }
@@ -221,6 +224,8 @@ function playMonsterHit(e) {
       createProjectile(monEl, heroEl, color, false);
       await sleep(350);
       createExplosion(heroEl, color);
+      var hr2b = heroEl.getBoundingClientRect();
+      floatText(hr2b.left + hr2b.width/2, hr2b.top + hr2b.height/2 - 30, e.damage, 'damage');
       heroEl.classList.add('animate-flash-red');
       await sleep(200);
       heroEl.classList.remove('animate-flash-red');
@@ -235,13 +240,21 @@ function playMonsterHit(e) {
         (function(idx) {
           setTimeout(function() {
             createProjectile(monEl, heroEl, '#ff8844', true);
-            if (idx === volleyCount - 1) {
-              setTimeout(function() {
+            setTimeout(function() {
+              heroEl.classList.add('animate-hit-react-flash');
+              heroEl.addEventListener('animationend', function handler() {
+                heroEl.classList.remove('animate-hit-react-flash');
+                heroEl.removeEventListener('animationend', handler);
+              }, { once: true });
+              if (idx === volleyCount - 1) {
                 heroEl.classList.add('animate-flash-white');
-                floatText(hr2.left + hr2.width/2 - 20, hr2.top + hr2.height/2 - 10, e.damage, 'damage');
-                setTimeout(function() { heroEl.classList.remove('animate-flash-white'); }, 200);
-              }, 450);
-            }
+                heroEl.addEventListener('animationend', function handler2() {
+                  heroEl.classList.remove('animate-flash-white');
+                  heroEl.removeEventListener('animationend', handler2);
+                }, { once: true });
+                floatText(hr2.left + hr2.width/2, hr2.top + hr2.height/2, e.damage, 'damage');
+              }
+            }, 450);
           }, idx * 120);
         })(vi);
       }
@@ -254,9 +267,10 @@ function playMonsterHit(e) {
           slash.className = 'slash-mark';
           var hr = heroEl.getBoundingClientRect();
           slash.style.position = 'fixed';
-          slash.style.top = (hr.top + hr.height * (0.2 + Math.random() * 0.3)) + 'px';
-          slash.style.left = (hr.left + hr.width * (0.15 + Math.random() * 0.3)) + 'px';
-          if (si === 1) { slash.style.transform = 'rotate(25deg) scaleX(0)'; slash.style.animationDelay = '.05s'; }
+          slash.style.top = (hr.top + hr.height / 2) + 'px';
+          slash.style.left = (hr.left + hr.width / 2) + 'px';
+          slash.style.transform = (si === 0) ? 'translate(-50%,-50%) rotate(-35deg) scaleX(0)' : 'translate(-50%,-50%) rotate(25deg) scaleX(0)';
+          if (si === 1) { slash.style.animationDelay = '.05s'; }
           document.body.appendChild(slash);
           setTimeout(function(el) { if (el) el.remove(); }, 400, slash);
         }
@@ -264,15 +278,11 @@ function playMonsterHit(e) {
       monEl.classList.add('monster-lunge');
       await sleep(150);
       monEl.classList.remove('monster-lunge');
-      monEl.classList.add('animate-flash-red', 'animate-shake');
-      await animSleep('animate-shake');
-      monEl.classList.remove('animate-flash-red', 'animate-shake');
+      monEl.classList.add('animate-flash-red');
+      await sleep(200);
+      monEl.classList.remove('animate-flash-red');
     }
 
-    if (e.crit) {
-      var arena = document.querySelector('.arena');
-      if (arena) { arena.classList.add('animate-shake-screen'); setTimeout(function() { arena.classList.remove('animate-shake-screen'); }, getAnimDuration('animate-shake-screen') + 50); }
-    }
   })();
 }
 
@@ -355,7 +365,7 @@ function playHealed(e) {
     hel.classList.add('animate-heal-received');
     await animSleep('animate-heal-received');
     hel.classList.remove('animate-heal-received');
-    floatText(hr.left + hr.width/2 - 20, hr.top + hr.height/2 - 10, '+' + e.healAmount, 'heal');
+    floatText(hr.left + hr.width/2, hr.top + hr.height/2, '+' + e.healAmount, 'heal');
   })();
 }
 
@@ -378,8 +388,6 @@ function playMonsterDeath(e) {
     if (!target) return;
     var rect = target.getBoundingClientRect();
     emitParticles('death', rect.left + rect.width/2, rect.top + rect.height/2, 20);
-    var arena = document.querySelector('.arena');
-    if (arena) { arena.classList.add('animate-shake-screen'); setTimeout(function() { arena.classList.remove('animate-shake-screen'); }, getAnimDuration('animate-shake-screen') + 50); }
     target.classList.add('animate-flash-white');
     await animSleep('animate-flash-white');
     target.classList.remove('animate-flash-white');
@@ -394,7 +402,7 @@ function playMonsterDeath(e) {
 
 function createProjectile(fromEl, toEl, color, isArc) {
   var arena = document.querySelector('.arena');
-  if (!arena) return;
+  if (!arena || !fromEl || !toEl) return;
   var arenaRect = arena.getBoundingClientRect();
   var fromRect = fromEl.getBoundingClientRect();
   var toRect = toEl.getBoundingClientRect();
@@ -402,7 +410,7 @@ function createProjectile(fromEl, toEl, color, isArc) {
   var startX = fromRect.left + fromRect.width/2;
   var startY = fromRect.top + fromRect.height/2;
   var endX = toRect.left + toRect.width/2;
-  var endY = toRect.top + 10;
+  var endY = toRect.top + toRect.height/2;
 
   var isArrow = isArc; // arc projectiles use arrow shape
   var proj = document.createElement('div');
@@ -509,7 +517,7 @@ function createExplosion(el, color) {
   if (!el) return;
   var rect = el.getBoundingClientRect();
   var cx = rect.left + rect.width/2;
-  var cy = rect.top + 10;
+  var cy = rect.top + rect.height/2;
 
   // Expanding magic rings
   for (var ri = 0; ri < 3; ri++) {
@@ -563,7 +571,13 @@ window.handleCombatEvents = async function(events, monsters, partyHeroes, roundN
 
   // Vignette flash on round transition
   var vf = document.getElementById('vignette-flash');
-  if (vf) { vf.classList.add('flash'); setTimeout(function() { vf.classList.remove('flash'); }, 200); }
+  if (vf) {
+    vf.classList.add('flash');
+    vf.addEventListener('animationend', function handler() {
+      vf.classList.remove('flash');
+      vf.removeEventListener('animationend', handler);
+    }, { once: true });
+  }
 
   // Phase 1: Hero attacks (simultaneous)
   var attackEvts = [];
@@ -587,13 +601,6 @@ window.handleCombatEvents = async function(events, monsters, partyHeroes, roundN
     if (events[i].type === 'hero_hit' || events[i].type === 'block') { hasHit = true; break; }
   }
   if (hasHit) {
-    // Shake all monsters
-    var allMonsters = document.querySelectorAll('.monster-card');
-    for (var mi = 0; mi < allMonsters.length; mi++) {
-      if (allMonsters[mi].classList.contains('boss')) { allMonsters[mi].classList.add('animate-shake-screen'); } else { allMonsters[mi].classList.add('animate-shake'); }
-    }
-    await animSleep('animate-shake');
-    for (var mi2 = 0; mi2 < allMonsters.length; mi2++) { allMonsters[mi2].classList.remove('animate-shake-screen', 'animate-shake'); }
     // Block and hit effects
     for (var i = 0; i < events.length; i++) {
       if (events[i].type === 'hero_hit') {

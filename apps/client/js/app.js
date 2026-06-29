@@ -4,6 +4,11 @@
 var hero = window.__INITIAL_HERO__ || null;
 var token = window.__INITIAL_TOKEN__ || localStorage.getItem('token') || '';
 
+// Holds tab-scoped interval handles so they can be cleared on tab switch.
+// Prevents background pollers from running forever and from making
+// stale network requests after the user has navigated away.
+var appState = { intervals: {} };
+
 if (!hero || !hero.id) {
   (function() {
 'use strict';
@@ -292,6 +297,22 @@ function hpColorClass(hp, max) {
 // ─── Tab Switching ─────────────────────────────────────────
 document.querySelectorAll('.tab').forEach(function(tab) {
   tab.addEventListener('click', function() {
+    // Clear the previous tab's poll interval, if any
+    var prevActive = document.querySelector('.tab.active');
+    if (prevActive) {
+      var prevName = prevActive.dataset.tab;
+      if (prevName === 'equipment' && appState.intervals.equipment) {
+        clearInterval(appState.intervals.equipment);
+        appState.intervals.equipment = null;
+      } else if (prevName === 'party' && appState.intervals.party) {
+        clearInterval(appState.intervals.party);
+        appState.intervals.party = null;
+      } else if (prevName === 'chat' && appState.intervals.chat) {
+        clearInterval(appState.intervals.chat);
+        appState.intervals.chat = null;
+      }
+    }
+
     document.querySelectorAll('.tab').forEach(function(t) { t.classList.remove('active'); });
     document.querySelectorAll('.tab-content').forEach(function(t) { t.classList.remove('active'); });
     this.classList.add('active');
@@ -316,11 +337,33 @@ document.querySelectorAll('.tab').forEach(function(tab) {
   }
 })();
 
+// ─── Toast Notification ─────────────────────────────────────
+function toast(msg, type) {
+  type = type || 'info';
+  var container = document.getElementById('toast-container');
+  if (!container) return;
+  var el = document.createElement('div');
+  el.className = 'toast toast-' + type;
+  el.textContent = msg;
+  container.appendChild(el);
+  setTimeout(function() { el.classList.add('toast-exit'); }, 2700);
+  setTimeout(function() { if (el.parentNode) el.remove(); }, 3000);
+}
+
 // ─── Hero Bar ──────────────────────────────────────────────
 function updateHeroBar(h) {
   if (!h) return;
-  document.getElementById('hero-bar-name').textContent = h.name || hero.name;
-  document.getElementById('hero-bar-level').textContent = h.level || hero.level;
+  var nameEl = document.getElementById('hero-bar-name');
+  var levelEl = document.getElementById('hero-bar-level');
+  var newLevel = h.level || hero.level;
+  var oldLevel = parseInt(levelEl.textContent, 10);
+  nameEl.textContent = h.name || hero.name;
+  levelEl.textContent = newLevel;
+  // Detect level-up for animation
+  if (!isNaN(oldLevel) && newLevel > oldLevel) {
+    levelEl.classList.add('animate-level-up');
+    setTimeout(function() { levelEl.classList.remove('animate-level-up'); }, 800);
+  }
   document.getElementById('hero-bar-atk').textContent = h.stats ? h.stats.atk : hero.stats.atk;
   document.getElementById('hero-bar-def').textContent = h.stats ? h.stats.def : hero.stats.def;
   document.getElementById('hero-bar-gold').textContent = h.gold != null ? h.gold : hero.gold;
@@ -344,20 +387,6 @@ function addLog(type, msg) {
   log.scrollTop = log.scrollHeight;
 }
 
-// ─── Floating Text ─────────────────────────────────────────
-function floatText(x, y, text, cls) {
-  var el = document.createElement('div');
-  el.className = 'float-text ' + (cls || '');
-  el.textContent = (typeof text === 'number') ? Math.round(text) : text;
-  // Add random offset to prevent overlapping
-  var offsetX = (Math.random() - 0.5) * 40;
-  var offsetY = (Math.random() - 0.5) * 20;
-  el.style.left = (x + offsetX) + 'px';
-  el.style.top = (y + offsetY) + 'px';
-  document.body.appendChild(el);
-  setTimeout(function() { el.remove(); }, 800);
-}
-
 // ─── Render Monsters ───────────────────────────────────────
 function renderMonsters(monsters) {
   var bossRow = document.getElementById('boss-row');
@@ -377,7 +406,7 @@ function renderMonsters(monsters) {
     } else {
       card.style.gridColumn = '';
     }
-    var mystery = m.isBoss && hasAliveTrash;
+    var mystery = false;
     card.className = 'monster-card' + (m.isBoss ? ' boss' : '') + (m.isCurrentFocus ? ' is-focus' : '') + (mystery ? ' mystery' : '');
     card.setAttribute('data-monster-name', m.name);
     card.id = 'monster-' + m.id;
@@ -398,13 +427,15 @@ function renderMonsters(monsters) {
       card.dataset.realWIcon = wIcon;
       card.innerHTML =
         '<div class="monster-icon">' +
-          '<div style="width:60px;height:60px;border:2px dashed #3a373a;border-radius:8px;display:flex;align-items:center;justify-content:center;margin:0 auto;background:#080608">' +
+          '<div style="width:96px;height:96px;border:2px dashed #3a373a;border-radius:8px;display:flex;align-items:center;justify-content:center;margin:0 auto;background:#080608">' +
             '<span style="font-size:1.5rem;color:#3a373a;font-weight:700">?</span>' +
           '</div>' +
         '</div>' +
-        '<div class="monster-name" style="color:#3a373a">???</div>' +
-        '<div class="hp-bar-outer" style="width:100%"><div class="hp-bar-inner" style="width:0%;background:#1a1518"></div></div>' +
-        '<div class="monster-hp" style="color:#3a373a">???</div>';
+        '<div class="card-stats">' +
+          '<div class="monster-name" style="color:#3a373a">???</div>' +
+          '<div class="hp-bar-outer" style="width:100%"><div class="hp-bar-inner" style="width:0%;background:#1a1518"></div></div>' +
+          '<div class="monster-hp" style="color:#3a373a">???</div>' +
+        '</div>';
     } else {
       var icon;
       var imgTag;
@@ -412,13 +443,15 @@ function renderMonsters(monsters) {
         imgTag = monsterImg('boss', m.name);
         icon = imgTag || '<i data-lucide="skull" style="width:36px;height:36px"></i>';
       } else {
-        imgTag = monsterImg('trash', m.name, 'width:60px;height:60px;object-fit:contain;display:block;margin:0 auto;border-radius:4px');
+        imgTag = monsterImg('trash', m.name, 'width:96px;height:96px;object-fit:contain;display:block;margin:0 auto;border-radius:4px');
         icon = imgTag || '<i data-lucide="bug" style="width:22px;height:22px"></i>';
       }
       card.innerHTML = '<div class="monster-icon">' + icon + '</div>' +
-        '<div class="monster-name">' + escHtml(m.name) + '</div>' +
-        '<div class="hp-bar-outer" style="width:100%"><div class="hp-bar-inner ' + hpColorClass(m.hp, m.maxHp) + '" style="width:' + pct + '%"></div></div>' +
-        '<div class="monster-hp"><i data-lucide="' + wIcon + '" style="width:12px;height:12px;margin-right:4px;vertical-align:middle"></i><span class="monster-hp-text">' + Math.round(m.hp) + '/' + Math.round(m.maxHp) + '</span></div>';
+        '<div class="card-stats">' +
+          '<div class="monster-name">' + escHtml(m.name) + '</div>' +
+          '<div class="hp-bar-outer" style="width:100%"><div class="hp-bar-inner ' + hpColorClass(m.hp, m.maxHp) + '" style="width:' + pct + '%"></div></div>' +
+          '<div class="monster-hp"><i data-lucide="' + wIcon + '" style="width:12px;height:12px;margin-right:4px;vertical-align:middle"></i><span class="monster-hp-text">' + Math.round(m.hp) + '/' + Math.round(m.maxHp) + '</span></div>' +
+        '</div>';
     }
     if (m.isBoss) {
       bossRow.appendChild(card);
@@ -462,9 +495,11 @@ function revealBoss() {
     card.classList.add('reveal');
     card.innerHTML =
       '<div class="monster-icon">' + icon + '</div>' +
-      '<div class="monster-name">' + escHtml(realName) + '</div>' +
-      '<div class="hp-bar-outer" style="width:100%"><div class="hp-bar-inner ' + hpColorClass(realHp, realMaxHp) + '" style="width:' + pct + '%"></div></div>' +
-      '<div class="monster-hp"><i data-lucide="' + realWIcon + '" style="width:12px;height:12px;margin-right:4px;vertical-align:middle"></i><span class="monster-hp-text">' + Math.round(realHp) + '/' + Math.round(realMaxHp) + '</span></div>';
+      '<div class="card-stats">' +
+        '<div class="monster-name">' + escHtml(realName) + '</div>' +
+        '<div class="hp-bar-outer" style="width:100%"><div class="hp-bar-inner ' + hpColorClass(realHp, realMaxHp) + '" style="width:' + pct + '%"></div></div>' +
+        '<div class="monster-hp"><i data-lucide="' + realWIcon + '" style="width:12px;height:12px;margin-right:4px;vertical-align:middle"></i><span class="monster-hp-text">' + Math.round(realHp) + '/' + Math.round(realMaxHp) + '</span></div>' +
+      '</div>';
 
     if (typeof lucide !== 'undefined') lucide.createIcons();
   }
@@ -472,12 +507,41 @@ function revealBoss() {
 
 // ─── Render Party Heroes ───────────────────────────────────
 function renderPartyHeroes(partyHeroes) {
-  var col = document.getElementById('arena-heroes');
-  col.innerHTML = '';
+  var container = document.getElementById('arena-heroes');
+  container.innerHTML = '';
+
+  // Create role column wrappers so heroes stack vertically by role.
+  // Order: healer (left) → DPS → tank (right, next to divider).
+  var roles = [
+    { key: 'healer', label: 'Healer' },
+    { key: 'dps',    label: 'DPS' },
+    { key: 'tank',   label: 'Tank' },
+  ];
+  var columns = {};
+  roles.forEach(function(r) {
+    var d = document.createElement('div');
+    d.className = 'hero-role-col';
+    d.style.cssText = 'display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px';
+    container.appendChild(d);
+    columns[r.key] = d;
+  });
+
   var weaponIcons = { melee: 'sword', range: 'crosshair', mage: 'wand' };
   var icons = { tank: 'shield', dps: 'sword', healer: 'heart' };
 
-  partyHeroes.forEach(function(h) {
+  partyHeroes
+    .sort(function(a, b) {
+      var col = function(h) {
+        if (!h.role || h.role === '') return 3;
+        if (h.role === 'healer') return 1;
+        if (h.role === 'dps') return 2;
+        if (h.role === 'tank') return 3;
+        return 2;
+      };
+      return col(a) - col(b);
+    })
+    .forEach(function(h) {
+      var roleKey = (h.role === 'healer') ? 'healer' : (h.role === 'tank' ? 'tank' : 'dps');
     // Figure out which column this hero belongs in
     var roleCol;
     if (!h.role || h.role === '') roleCol = 4; // no role → front line (col 4, next to divider)
@@ -496,17 +560,19 @@ function renderPartyHeroes(partyHeroes) {
     if (h.role === 'dps' && h.weaponType) iconName = weaponIcons[h.weaponType] || 'sword';
     var iconHtml;
     if (photoUrl) {
-      iconHtml = '<img style="width:60px;height:60px;object-fit:contain;display:block;margin:0 auto 2px;border-radius:4px" src="' + photoUrl + '" alt="">';
+      iconHtml = '<img style="width:96px;height:96px;object-fit:contain;display:block;margin:0;border-radius:4px" src="' + photoUrl + '" alt="">';
     } else {
       iconHtml = '<i data-lucide="' + iconName + '" style="width:60px;height:60px"></i>';
     }
     card.innerHTML = '<div class="monster-icon">' + iconHtml + '</div>' +
-      '<div class="monster-name">' + escHtml(heroName) + '</div>' +
-      '<div class="hp-bar-outer"><div class="hp-bar-inner ' + hpColorClass(h.hp, h.maxHp) + '" style="width:' + pct + '%"></div></div>' +
-      '<div class="monster-hp"><i data-lucide="' + iconName + '" style="width:12px;height:12px;margin-right:4px;vertical-align:middle"></i>' + Math.round(h.hp) + '/' + Math.round(h.maxHp) + '</div>';
+      '<div class="card-stats">' +
+        '<div class="monster-name">' + escHtml(heroName) + '</div>' +
+        '<div class="hp-bar-outer"><div class="hp-bar-inner ' + hpColorClass(h.hp, h.maxHp) + '" style="width:' + pct + '%"></div></div>' +
+        '<div class="monster-hp"><i data-lucide="' + iconName + '" style="width:12px;height:12px;margin-right:4px;vertical-align:middle"></i>' + Math.round(h.hp) + '/' + Math.round(h.maxHp) + '</div>' +
+      '</div>';
     var img = card.querySelector('img');
     if (img) img.onerror = function() { this.style.display = 'none'; };
-    col.appendChild(card);
+    (columns[roleKey] || columns.dps).appendChild(card);
   });
   if (typeof lucide !== 'undefined') lucide.createIcons();
 }
@@ -596,22 +662,22 @@ async function playCombatCutscene(roundStates, onComplete) {
         bossAnnounce.style.transition = 'opacity .8s ease, transform .8s ease';
         bossAnnounce.style.opacity = '1';
         bossAnnounce.style.transform = 'scale(1)';
-        await new Promise(function(r) { setTimeout(r, 2500); });
+        await new Promise(function(r) { setTimeout(r, ANIMATION_CONFIG.bossAnnounceHoldMs); });
         bossAnnounce.style.opacity = '0';
         bossAnnounce.style.transition = 'opacity .6s ease';
-        await new Promise(function(r) { setTimeout(r, 800); });
+        await new Promise(function(r) { setTimeout(r, ANIMATION_CONFIG.vignetteDurationMs); });
         bossAnnounce.innerHTML = '';
       }
     }
 
-    if (prevState) {
+    if (prevState || true) {
       await window.handleCombatEvents(rs.events, rs.monsters, rs.partyHeroes, rs.round);
     } else {
       // First round — just render monsters and heroes, no animation
       if (rs.monsters) renderMonsters(rs.monsters);
       if (rs.partyHeroes) renderPartyHeroes(rs.partyHeroes);
     }
-    await new Promise(function(r) { setTimeout(r, 200); });
+    await new Promise(function(r) { setTimeout(r, ANIMATION_CONFIG.roundGapMs); });
     prevState = rs;
     document.getElementById('round-counter').textContent = 'Round ' + rs.round;
   }
@@ -677,8 +743,8 @@ function enterDungeon() {
       renderMonsters(data.monsters);
     }
 
-    // Wait for floor announcement animation (~1.8s) before starting cutscene
-    var cutsceneDelay = announce ? 2800 : 0;
+    // Wait for floor announcement animation before starting cutscene
+    var cutsceneDelay = announce ? ANIMATION_CONFIG.floorAnnounceTotalMs : 0;
     setTimeout(function() {
       if (data.roundStates && data.roundStates.length > 0) {
         playCombatCutscene(data.roundStates, function() {
@@ -733,7 +799,7 @@ function enterDungeon() {
   }, cutsceneDelay);
   })
   .catch(function(err) {
-    if (!isLooping) alert(err.message);
+    if (!isLooping) toast(err.message, 'error');
   });
 }
 
@@ -842,7 +908,8 @@ function showResult(state) {
     overlay.classList.add('show');
     setTimeout(function() {
       if (combatGen !== currentGen) return;
-      overlay.classList.remove('show');
+      overlay.classList.add('hiding');
+      setTimeout(function() { overlay.classList.remove('show', 'hiding'); }, 300);
       loopRetry();
     }, 1500);
   } else {
@@ -852,7 +919,9 @@ function showResult(state) {
 }
 
 document.getElementById('result-btn').addEventListener('click', function() {
-  document.getElementById('result-overlay').classList.remove('show');
+  var overlay = document.getElementById('result-overlay');
+  overlay.classList.add('hiding');
+  setTimeout(function() { overlay.classList.remove('show', 'hiding'); }, 300);
   if (isLooping) {
     toggleLoop();
   }
@@ -862,7 +931,9 @@ document.getElementById('result-btn').addEventListener('click', function() {
 });
 
 document.getElementById('result-retry-btn').addEventListener('click', function() {
-  document.getElementById('result-overlay').classList.remove('show');
+  var overlay = document.getElementById('result-overlay');
+  overlay.classList.add('hiding');
+  setTimeout(function() { overlay.classList.remove('show', 'hiding'); }, 300);
   loopRetry();
 });
 
@@ -963,7 +1034,7 @@ function loopRetry() {
     if (isLooping) {
       setTimeout(loopRetry, 2000);
     } else {
-      alert(err.message);
+      toast(err.message, 'error');
       isLooping = false;
       updateLoopUI();
     }
@@ -1028,7 +1099,8 @@ function monsterImg(type, monsterName, extraStyle) {
   }
   if (!found) return '';
   var ext = 'png';
-  var sty = extraStyle || 'max-width:100%;max-height:12vh;width:auto;height:auto;object-fit:contain;image-rendering:pixelated;display:block;margin:0 auto';
+  var defaultSize = type === 'boss' ? 160 : 96;
+  var sty = extraStyle || ('width:' + defaultSize + 'px;height:' + defaultSize + 'px;object-fit:contain;image-rendering:pixelated;display:block;margin:0 auto');
   var folder = type === 'boss' ? 'Boss' : 'Trash-Mobs';
   var displayName = found.charAt(0).toUpperCase() + found.slice(1);
   return '<img src="/assets/' + folder + '/' + displayName + '/' + displayName + '.' + ext + '" style="' + sty + '" onerror="this.style.display=\'none\'" alt="' + displayName + '">';
@@ -1070,7 +1142,10 @@ if (token) {
 }
 
 // ─── Periodic catch-up refresh ──
-setInterval(function() {
+// Handle is stored on appState.intervals so the tab-switch handler can
+// clear it when the user navigates away. Otherwise it runs for the
+// entire SPA lifetime and makes stale requests after the user leaves.
+appState.intervals.equipment = setInterval(function() {
   var tab = document.querySelector('.tab-content.active');
   if (!tab) return;
   if (tab.id === 'tab-equipment') { loadEquipment(); loadKeys(); }
@@ -1078,7 +1153,7 @@ setInterval(function() {
 }, 30000);
 
 // Faster poll for party tab — catches invites/joins from other players quickly
-setInterval(function() {
+appState.intervals.party = setInterval(function() {
   var partyTab = document.getElementById('tab-party');
   if (partyTab && partyTab.classList.contains('active')) {
     loadParty();
@@ -1281,7 +1356,7 @@ function equipItem(itemId, slot) {
   })
   .then(function(res) { return res.json().then(function(d) { if (!res.ok) throw new Error(d.error || 'Failed'); return d; }); })
   .then(function() { return refreshHero(); })
-  .catch(function(err) { alert('Failed to equip: ' + err.message); });
+  .catch(function(err) { toast('Failed to equip: ' + err.message, 'error'); });
 }
 
 function unequipItem(slot) {
@@ -1292,7 +1367,7 @@ function unequipItem(slot) {
   })
   .then(function(res) { return res.json().then(function(d) { if (!res.ok) throw new Error(d.error || 'Failed'); return d; }); })
   .then(function() { return refreshHero(); })
-  .catch(function(err) { alert('Failed to unequip: ' + err.message); });
+  .catch(function(err) { toast('Failed to unequip: ' + err.message, 'error'); });
 }
 
 function loadKeys(floor) {
@@ -1543,7 +1618,7 @@ function inviteFriendFromParty(username) {
   .then(function(data) {
     showPartyInParty(data.party);
   })
-  .catch(function(err) { alert(err.message); });
+  .catch(function(err) { toast(err.message, 'error'); });
 }
 
 function createParty() {
@@ -1561,7 +1636,7 @@ function createParty() {
     currentParty = data.party;
     showPartyInParty(data.party);
   })
-  .catch(function(err) { alert(err.message); });
+  .catch(function(err) { toast(err.message, 'error'); });
 }
 
 function joinParty() {
@@ -1579,7 +1654,7 @@ function joinParty() {
     currentParty = data.party;
     showPartyInParty(data.party);
   })
-  .catch(function(err) { alert(err.message); });
+  .catch(function(err) { toast(err.message, 'error'); });
 }
 
 function invitePlayer() {
@@ -1597,7 +1672,7 @@ function invitePlayer() {
     currentParty = data.party;
     showPartyInParty(data.party);
   })
-  .catch(function(err) { alert(err.message); });
+  .catch(function(err) { toast(err.message, 'error'); });
 }
 
 function addBot() {
@@ -1613,7 +1688,7 @@ function addBot() {
     currentParty = data.party;
     showPartyInParty(data.party);
   })
-  .catch(function(err) { alert(err.message); });
+  .catch(function(err) { toast(err.message, 'error'); });
 }
 
 function removeBot(botId) {
@@ -1633,7 +1708,7 @@ function removeBot(botId) {
       showPartyNotInParty();
     }
   })
-  .catch(function(err) { alert(err.message); });
+  .catch(function(err) { toast(err.message, 'error'); });
 }
 
 function leaveParty() {
@@ -1648,7 +1723,7 @@ function leaveParty() {
     currentParty = null;
     showPartyNotInParty();
   })
-  .catch(function(err) { alert(err.message); });
+  .catch(function(err) { toast(err.message, 'error'); });
 }
 
 function toggleKeyShare() {
@@ -1663,7 +1738,7 @@ function toggleKeyShare() {
       showPartyInParty(data.party);
     }
   })
-  .catch(function(err) { alert(err.message); });
+  .catch(function(err) { toast(err.message, 'error'); });
 }
 
 function transferLeader(targetPlayerId) {
@@ -1681,7 +1756,7 @@ function transferLeader(targetPlayerId) {
       showPartyInParty(data.party);
     }
   })
-  .catch(function(err) { alert(err.message); });
+  .catch(function(err) { toast(err.message, 'error'); });
 }
 
 function changeRole() {
@@ -1709,7 +1784,7 @@ function changeRole() {
     currentParty = data.party;
     showPartyInParty(data.party);
   })
-  .catch(function(err) { alert(err.message); });
+  .catch(function(err) { toast(err.message, 'error'); });
 }
 
 function loadInvites() {
@@ -1751,7 +1826,7 @@ function acceptInvite(partyId) {
     currentParty = data.party;
     showPartyInParty(data.party);
   })
-  .catch(function(err) { alert(err.message); });
+  .catch(function(err) { toast(err.message, 'error'); });
 }
 
 // ─── Heartbeat ─────────────────────────────────────────────
@@ -1859,7 +1934,7 @@ function loadFriendRequests() {
 
 function addFriend() {
   var username = document.getElementById('friend-add-input').value.trim();
-  if (!username) { document.getElementById('friend-add-result').textContent = 'Enter a username'; return; }
+  if (!username) { toast('Enter a username', 'error'); return; }
 
   fetch('/api/friends/add', {
     method: 'POST',
@@ -1869,13 +1944,11 @@ function addFriend() {
   .then(function(res) { return res.json().then(function(d) { if (!res.ok) throw new Error(d.error || 'Failed'); return d; }); })
   .then(function() {
     document.getElementById('friend-add-input').value = '';
-    document.getElementById('friend-add-result').textContent = 'Friend request sent!';
-    document.getElementById('friend-add-result').style.color = '#22c55e';
+    toast('Friend request sent!', 'success');
     loadFriends();
   })
   .catch(function(err) {
-    document.getElementById('friend-add-result').textContent = err.message;
-    document.getElementById('friend-add-result').style.color = '#ef4444';
+    toast(err.message, 'error');
   });
 }
 
@@ -1887,7 +1960,7 @@ function acceptFriend(playerId) {
   })
   .then(function(res) { return res.json().then(function(d) { if (!res.ok) throw new Error(d.error || 'Failed'); return d; }); })
   .then(function() { loadFriends(); })
-  .catch(function(err) { alert(err.message); });
+  .catch(function(err) { toast(err.message, 'error'); });
 }
 
 function removeFriend(friendId) {
@@ -1899,21 +1972,21 @@ function removeFriend(friendId) {
   })
   .then(function(res) { return res.json().then(function(d) { if (!res.ok) throw new Error(d.error || 'Failed'); return d; }); })
   .then(function() { loadFriends(); })
-  .catch(function(err) { alert(err.message); });
+  .catch(function(err) { toast(err.message, 'error'); });
 }
 
 // ─── Chat ───────────────────────────────────────────────────
 
 var currentChatChannel = 'global';
 var chatWhisperTarget = null;
-var chatTimer = null;
 var lastChatTs = null;
 
 function loadChat() {
+  // Always (re)start the poll when entering the chat tab. The handle
+  // is stored on appState so the tab-switch handler can clear it on leave.
+  if (appState.intervals.chat) clearInterval(appState.intervals.chat);
+  appState.intervals.chat = setInterval(renderChatMessages, 3000);
   renderChatMessages();
-  if (!chatTimer) {
-    chatTimer = setInterval(renderChatMessages, 3000);
-  }
 }
 
 function switchChatChannel(channel) {
@@ -2014,7 +2087,7 @@ function sendChat() {
     lastChatTs = null;
     renderChatMessages();
   })
-  .catch(function(err) { alert(err.message); });
+  .catch(function(err) { toast(err.message, 'error'); });
 }
 
 function startWhisper(playerId, username) {
@@ -2180,7 +2253,7 @@ function loadGuildDirectory() {
 
 function createGuild() {
   var name = document.getElementById('guild-name-input').value.trim();
-  if (!name) { alert('Enter a guild name'); return; }
+  if (!name) { toast('Enter a guild name', 'error'); return; }
 
   var description = document.getElementById('guild-desc-input').value.trim();
 
@@ -2195,7 +2268,7 @@ function createGuild() {
     document.getElementById('guild-desc-input').value = '';
     loadGuild();
   })
-  .catch(function(err) { alert(err.message); });
+  .catch(function(err) { toast(err.message, 'error'); });
 }
 
 function joinGuild(guildId) {
@@ -2205,7 +2278,7 @@ function joinGuild(guildId) {
   })
   .then(function(res) { return res.json().then(function(d) { if (!res.ok) throw new Error(d.error || 'Failed'); return d; }); })
   .then(function() { loadGuild(); })
-  .catch(function(err) { alert(err.message); });
+  .catch(function(err) { toast(err.message, 'error'); });
 }
 
 function leaveGuild() {
@@ -2220,7 +2293,7 @@ function leaveGuild() {
     });
   })
   .then(function() { loadGuild(); })
-  .catch(function(err) { alert(err.message); });
+  .catch(function(err) { toast(err.message, 'error'); });
 }
 
 function disbandGuild() {
@@ -2236,7 +2309,7 @@ function disbandGuild() {
     });
   })
   .then(function() { loadGuild(); })
-  .catch(function(err) { alert(err.message); });
+  .catch(function(err) { toast(err.message, 'error'); });
 }
 
 function kickMember(targetPlayerId) {
@@ -2255,7 +2328,7 @@ function kickMember(targetPlayerId) {
     if (res.status !== 204) return res.json().then(function(d) { throw new Error(d.error || 'Failed'); });
     loadGuild();
   })
-  .catch(function(err) { alert(err.message); });
+  .catch(function(err) { toast(err.message, 'error'); });
 }
 
 // ─── Guild Party ──────────────────────────────────────────
@@ -2267,7 +2340,7 @@ function joinGuildParty() {
   })
   .then(function(res) { return res.json().then(function(d) { if (!res.ok) throw new Error(d.error || 'Failed'); return d; }); })
   .then(function() { loadGuild(); })
-  .catch(function(err) { alert(err.message); });
+  .catch(function(err) { toast(err.message, 'error'); });
 }
 
 function leaveGuildParty() {
@@ -2279,7 +2352,7 @@ function leaveGuildParty() {
     if (res.status !== 204) return res.json().then(function(d) { throw new Error(d.error || 'Failed'); });
     loadGuild();
   })
-  .catch(function(err) { alert(err.message); });
+  .catch(function(err) { toast(err.message, 'error'); });
 }
 
 // ─── Crafting ───────────────────────────────────────────────
@@ -2395,7 +2468,7 @@ function convertShard(key, rarity, bracket) {
   })
   .then(function(res) { return res.json().then(function(d) { if (!res.ok) throw new Error(d.error || 'Failed'); return d; }); })
   .then(function() { loadCrafting(); refreshHero(); })
-  .catch(function(err) { alert(err.message); });
+  .catch(function(err) { toast(err.message, 'error'); });
 }
 
 function salvageItemCraft(itemId) {
@@ -2406,7 +2479,7 @@ function salvageItemCraft(itemId) {
   })
   .then(function(res) { return res.json().then(function(d) { if (!res.ok) throw new Error(d.error || 'Failed'); return d; }); })
   .then(function() { loadCrafting(); refreshHero(); })
-  .catch(function(err) { alert(err.message); });
+  .catch(function(err) { toast(err.message, 'error'); });
 }
 
 function populateCraftSlots() {
@@ -2501,15 +2574,17 @@ document.getElementById('test-boss-btn').addEventListener('click', function() {
   if (window.revealBoss) window.revealBoss();
 });
 
-// ─── Shake Toggle ───────────────────────────────────────────
-// Respect OS-level reduced motion preference
-if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-  document.body.classList.add('no-shake');
-}
-document.getElementById('shake-toggle').addEventListener('click', function() {
-  document.body.classList.toggle('no-shake');
-  this.textContent = document.body.classList.contains('no-shake') ? 'Shake:OFF' : 'Shake:ON';
-});
+// ─── Reduced Motion Preference ──────────────────────────────
+// Listen for OS-level changes to the reduced-motion setting so the page
+// reacts without needing a reload. The .reduced-motion class is consumed
+// by the matching CSS rule in game.css.
+(function initReducedMotion() {
+  var mql = window.matchMedia('(prefers-reduced-motion: reduce)');
+  var apply = function() { document.body.classList.toggle('reduced-motion', mql.matches); };
+  if (mql.addEventListener) mql.addEventListener('change', apply);
+  else mql.addListener(apply); // Safari < 14 fallback
+  apply();
+})();
 
 // ─── Photo Upload ──────────────────────────────────────────
 document.getElementById('hero-avatar-wrap').addEventListener('click', function() {
@@ -2528,7 +2603,7 @@ document.getElementById('hero-photo-input').addEventListener('change', function(
   })
   .then(function(res) { return res.json(); })
   .then(function(data) {
-    if (data.error) { alert(data.error); return; }
+    if (data.error) { toast(data.error, 'error'); return; }
     var img = document.getElementById('hero-avatar-img');
     img.src = data.photoUrl;
     img.style.display = '';

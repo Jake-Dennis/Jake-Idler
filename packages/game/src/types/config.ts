@@ -18,9 +18,6 @@ const BASE_CONFIG = {
   /** Maximum number of heroes in a single party. */
   PARTY_MAX_SIZE: 999,
 
-  /** Interval in milliseconds between server-side game ticks. */
-  TICK_INTERVAL_MS: 1_000,
-
   /** Number of floors in each bracket before a bracket boss encounter. */
   FLOORS_PER_BRACKET: 10,
 

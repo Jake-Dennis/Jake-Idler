@@ -71,7 +71,7 @@
   </div>
 
   <!-- ═══════════ GAME CONTAINER ═══════════ -->
-  <div id="game-container" style="display:none;flex-direction:column;height:100vh;overflow:visible;">
+  <div id="game-container" style="display:none;flex-direction:column;height:100vh;width:100%;overflow:visible;">
 
     <!-- ═══════════ HERO BAR ═══════════ -->
     <div class="hero-bar animate-torch-flicker" id="hero-bar">
@@ -98,7 +98,6 @@
       <button id="start-btn" class="btn btn-primary btn-sm" title="Start dungeon run"><i data-lucide="sword" style="width:14px;height:14px"></i> Start</button>
       <button id="stop-btn" style="display:none;background:transparent;border:1px solid #4a2020;border-radius:4px;color:#6a2525;font-size:.7rem;cursor:pointer;padding:4px 8px" title="Stop dungeon run"><i data-lucide="square" style="width:14px;height:14px"></i> Stop</button>
       <button id="loop-btn" class="btn btn-loop btn-sm" title="Toggle dungeon loop"><i data-lucide="refresh-cw" style="width:14px;height:14px"></i> LOOP</button>
-      <button id="shake-toggle" style="background:transparent;border:1px solid #2a2020;border-radius:4px;color:#5a555a;font-size:.7rem;cursor:pointer;padding:2px 6px" title="Toggle screen shake">Shake</button>
     </div>
 
     <!-- ═══════════ TABS ═══════════ -->
@@ -389,6 +388,32 @@
 
   </div><!-- /game-container -->
 
+  <div id="toast-container"></div>
+  <script>
+    // Animation timing config — single source of truth for combat pacing.
+    // Mirrors the ANIMATION block in apps/server/config/balancing.json.
+    // TODO: fetch from /api/config/animation once that endpoint exists.
+    var ANIMATION_CONFIG = {
+      phaseGapMs: 200,
+      heroLungeMs: 300,
+      monsterLungeMs: 250,
+      hitReactMs: 200,
+      hitStopMs: 80,
+      deathFadeMs: 600,
+      floatTextMs: 800,
+      projectileMs: 350,
+      projectileArcMs: 400,
+      trailIntervalMs: 30,
+      magicTrailIntervalMs: 50,
+      particleFadeMs: 600,
+      screenShakeMs: 500,
+      vignetteFlashMs: 200,
+      floorAnnounceTotalMs: 2800,
+      bossAnnounceHoldMs: 2500,
+      roundGapMs: 200,
+      vignetteDurationMs: 600
+    };
+  </script>
   <script src="/client/js/combat-animations.js"></script>
   <script src="/client/js/app.js"></script>
 

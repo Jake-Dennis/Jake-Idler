@@ -152,22 +152,6 @@ export const guildMembers = sqliteTable(
 );
 
 // ---------------------------------------------------------------------------
-// combat_events (append-only round event log for crash recovery)
-// ---------------------------------------------------------------------------
-export const combatEvents = sqliteTable(
-  "combat_events",
-  {
-    id: integer("id").primaryKey({ autoIncrement: true }),
-    runId: text("run_id").notNull(),
-    eventId: integer("event_id").notNull(),
-    type: text("type").notNull(),
-    payload: text("payload", { mode: "json" }).$type<unknown>().notNull(),
-    createdAt: text("created_at").notNull(),
-  },
-  (t) => [uniqueIndex("uq_combat_events_run_event").on(t.runId, t.eventId)],
-);
-
-// ---------------------------------------------------------------------------
 // party_state (latest snapshot per combat run for crash recovery)
 // ---------------------------------------------------------------------------
 export const partyState = sqliteTable("party_state", {

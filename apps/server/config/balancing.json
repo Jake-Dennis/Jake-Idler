@@ -38,5 +38,25 @@
   "KEY_DROP_CHANCE_MAX": 0.25,
   "COMBAT_COOLDOWN_MS": 5000,
   "STALE_TIMEOUT_MS": 75000,
-  "GUILD_MAX_MEMBERS": 50
+  "GUILD_MAX_MEMBERS": 50,
+  "ANIMATION": {
+    "phaseGapMs": 200,
+    "heroLungeMs": 300,
+    "monsterLungeMs": 250,
+    "hitReactMs": 200,
+    "hitStopMs": 80,
+    "deathFadeMs": 600,
+    "floatTextMs": 800,
+    "projectileMs": 350,
+    "projectileArcMs": 400,
+    "trailIntervalMs": 30,
+    "magicTrailIntervalMs": 50,
+    "particleFadeMs": 600,
+    "screenShakeMs": 500,
+    "vignetteFlashMs": 200,
+    "floorAnnounceTotalMs": 2800,
+    "bossAnnounceHoldMs": 2500,
+    "roundGapMs": 200,
+    "vignetteDurationMs": 600
+  }
 }

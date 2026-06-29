@@ -152,7 +152,7 @@ export function generateMonster(floor: number, isBoss: boolean = false): Monster
   const baseHp = BASE_MONSTER_STATS.hp.toNumber() * scale * bossHpMul;
   const baseSpd = BASE_MONSTER_STATS.spd.toNumber() * scale;
 
-  const bossLabel = isBoss ? "Boss " : "";
+  const bossLabel = "";
   const names = [
     "Goblin", "Skeleton", "Slime", "Bat", "Spider",
     "Wolf", "Zombie", "Ghost", "Orc", "Demon",
