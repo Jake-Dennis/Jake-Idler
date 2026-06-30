@@ -2792,6 +2792,9 @@ function renderAdminConfig(config) {
   var monDef = monBaseDef * Math.pow(refFloor, fse);
   var effDmg = Math.max(1, heroAtk - monDef);
   var currentHits = Math.ceil(monBaseHp * Math.pow(refFloor, fse) / effDmg);
+  // Read animation timing for round estimate
+  var animCfg = config.ANIMATION || {};
+  var msPerHit = (animCfg.projectileMs || 350) + (animCfg.phaseGapMs || 200) * 2 + (animCfg.roundGapMs || 200) + 200;
 
   html += '<div style="margin-bottom:16px;border:1px solid #1a1518;border-radius:4px;padding:12px;background:#080608">';
   html += '<h3 style="font-size:1rem;font-weight:700;color:#6a623a;margin-bottom:8px;letter-spacing:1px">⚖ Auto-Balance Monsters to Heroes</h3>';
@@ -2816,7 +2819,7 @@ function renderAdminConfig(config) {
   html += '</select></div>';
   html += '<div><button id="ab-btn" class="btn btn-primary btn-sm" style="padding:6px 16px;font-size:.8rem" onclick="autoBalanceMonsters()">Auto-Balance</button></div>';
   html += '</div>';
-  html += '<div id="ab-estimate" style="margin-top:8px;font-size:.75rem;color:#5a555a">~' + Math.max(3, currentHits) + 's per trash mob · ~' + Math.round(Math.max(3, currentHits) * 5 * 1.5) + 's per full floor (5 trash + boss)</div></div>';
+  html += '<div id="ab-estimate" style="margin-top:8px;font-size:.75rem;color:#5a555a">~' + Math.round(Math.max(3, currentHits) * msPerHit / 1000) + 's per trash mob · ~' + Math.round(Math.max(3, currentHits) * 5 * 1.5 * msPerHit / 1000) + 's per full floor (5 trash + boss)</div></div>';
 
   // ── Other config keys (exclude gear keys already rendered) ──
   var gearKeys = ['WEAPON_BASE_ATK','WEAPON_ATK_PER_BRACKET','ARMOR_BASE_DEF','ARMOR_DEF_PER_BRACKET','ACC_BASE_HP','ACC_HP_PER_BRACKET','RARITY_BONUS'];
@@ -2837,7 +2840,7 @@ function renderAdminConfig(config) {
         var min = (typeof sv === 'number' && sv >= 0 && sv <= 1) ? 'min="0" max="1"' : '';
         html += '<div style="display:flex;flex-direction:column;gap:2px">';
         html += '<label style="font-size:.75rem;color:#5a555a;font-weight:600">' + sk + '</label>';
-        html += '<input type="number" id="admin-' + key + '-' + sk + '" value="' + sv + '" ' + step + ' ' + min + ' style="padding:4px 8px;background:#0a080a;border:1px solid #2a2020;border-radius:4px;color:#9a949a;font-size:.85rem;outline:none">';
+        html += '<input type="number" id="admin-' + key + '-' + sk + '" value="' + sv + '" ' + step + ' ' + min + ' oninput="updateAbEstimate()" style="padding:4px 8px;background:#0a080a;border:1px solid #2a2020;border-radius:4px;color:#9a949a;font-size:.85rem;outline:none">';
         html += '</div>';
       }
       html += '</div></div>';
@@ -2846,7 +2849,7 @@ function renderAdminConfig(config) {
       var min = (typeof val === 'number' && val >= 0 && val <= 1) ? 'min="0" max="1"' : '';
       html += '<div style="margin-bottom:8px;display:flex;align-items:center;gap:12px">';
       html += '<label style="min-width:180px;font-size:.85rem;color:#9a949a;font-weight:600">' + key + '</label>';
-      html += '<input type="number" id="admin-' + key + '" value="' + val + '" ' + step + ' ' + min + ' style="flex:1;padding:4px 8px;background:#0a080a;border:1px solid #2a2020;border-radius:4px;color:#9a949a;font-size:.85rem;outline:none">';
+      html += '<input type="number" id="admin-' + key + '" value="' + val + '" ' + step + ' ' + min + ' oninput="updateAbEstimate()" style="flex:1;padding:4px 8px;background:#0a080a;border:1px solid #2a2020;border-radius:4px;color:#9a949a;font-size:.85rem;outline:none">';
       html += '</div>';
     }
   }
@@ -2913,8 +2916,10 @@ function saveAdminConfig() {
 
 function updateAbEstimate() {
   var hits = parseFloat(document.getElementById('ab-target-hits').value) || 6;
+  var anim = (ADMIN_CONFIG_CACHE && ADMIN_CONFIG_CACHE.ANIMATION) || {};
+  var ms = (anim.projectileMs || 350) + (anim.phaseGapMs || 200) * 2 + (anim.roundGapMs || 200) + 200;
   var el = document.getElementById('ab-estimate');
-  if (el) el.textContent = '~' + hits + 's per trash mob · ~' + Math.round(hits * 5 * 1.5) + 's per full floor (5 trash + boss)';
+  if (el) el.textContent = '~' + Math.round(hits * ms / 1000) + 's per trash mob · ~' + Math.round(hits * 5 * 1.5 * ms / 1000) + 's per full floor (5 trash + boss)';
 }
 
 function refreshGearPreview() {
