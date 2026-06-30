@@ -60,24 +60,26 @@ export function computeEquipmentStats(
   rarity: Rarity,
 ): StatBlock {
   const category = getSlotCategory(slot);
-  const rarityFlat = GameConfig.RARITY_BONUS[rarity] ?? 0;
+  const rarityMult = GameConfig.RARITY_MULTIPLIER[rarity] ?? 1.0;
+  const exponent = GameConfig.FLOOR_SCALE_EXPONENT;
+  const pow = Math.pow(level, exponent);
 
   switch (category) {
     case "weapon":
       return {
-        atk: GameConfig.WEAPON_BASE_ATK + ((level - 10) / 10) * GameConfig.WEAPON_ATK_PER_BRACKET + rarityFlat,
+        atk: Math.round(GameConfig.WEAPON_BASE_ATK * pow * rarityMult),
         def: 0, hp: 0,
       };
     case "armor":
       return {
         atk: 0,
-        def: GameConfig.ARMOR_BASE_DEF + ((level - 10) / 10) * GameConfig.ARMOR_DEF_PER_BRACKET + rarityFlat,
+        def: Math.round(GameConfig.ARMOR_BASE_DEF * pow * rarityMult),
         hp: 0,
       };
     case "accessory":
       return {
         atk: 0, def: 0,
-        hp: GameConfig.ACC_BASE_HP + ((level - 10) / 10) * GameConfig.ACC_HP_PER_BRACKET + rarityFlat,
+        hp: Math.round(GameConfig.ACC_BASE_HP * pow * rarityMult),
       };
   }
 }

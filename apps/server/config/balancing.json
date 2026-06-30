@@ -20,19 +20,17 @@
     "epic": 1.5,
     "legendary": 0.5
   },
-  "RARITY_BONUS": {
-    "common": 0,
-    "uncommon": 100,
-    "rare": 200,
-    "epic": 300,
-    "legendary": 400
+  "RARITY_MULTIPLIER": {
+    "common": 1.0,
+    "uncommon": 1.05,
+    "rare": 1.15,
+    "epic": 1.5,
+    "legendary": 2.0
   },
-  "WEAPON_BASE_ATK": 500,
-  "WEAPON_ATK_PER_BRACKET": 300,
-  "ARMOR_BASE_DEF": 100,
-  "ARMOR_DEF_PER_BRACKET": 300,
-  "ACC_BASE_HP": 500,
-  "ACC_HP_PER_BRACKET": 300,
+  "WEAPON_BASE_ATK": 250,
+  "ARMOR_BASE_DEF": 50,
+  "ACC_BASE_HP": 200,
+  "HEAL_BASE": 50,
   "HERO_STAT_MULTIPLIER": 0,
   "FLOOR_SCALE_EXPONENT": 0.85,
   "FLOOR_SCALE_FACTOR": 0.02,

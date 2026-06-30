@@ -565,7 +565,7 @@ class CombatService {
       }
 
       for (const m of monsterList) {
-        const rawDmg = m.atk - target.def;
+        const rawDmg = m.atk / Math.pow(2, target.def / m.atk);
         // ±2 variance, 10% crit doubles the hit
         const isCrit = calculateCrit();
         const variance = (Math.random() - 0.5) * 4;

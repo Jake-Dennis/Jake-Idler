@@ -33,11 +33,11 @@ export function generateFloor(floorNumber: number): Floor {
 }
 
 /**
- * Calculate the equipment level for gear dropped in a given floor bracket.
+ * Calculate the equipment level for gear dropped at a given floor.
+ * Returns the floor number directly for smooth per-floor stat progression.
  */
 export function getBracketEquipmentLevel(floorNumber: number): number {
-  const bracketNumber = Math.ceil(floorNumber / GameConfig.FLOORS_PER_BRACKET);
-  return bracketNumber * 10;
+  return Math.max(1, floorNumber);
 }
 
 /**

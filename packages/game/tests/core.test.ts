@@ -70,19 +70,19 @@ describe("computeHeroStats", () => {
 
 describe("computeEquipmentStats", () => {
   it("generates correct stats for weapon slot", () => {
-    // level 1 common → 500 + ((1-10)/10)*300 + 0 = 230 ATK
+    // level 1 common → WEAPON_BASE_ATK(250) * pow(1, 0.85) * 1.0 = 250 ATK
     const stats = computeEquipmentStats("rightHandWeapon", 1, Rarity.Common);
-    expect(stats.atk).toBe(230);
+    expect(stats.atk).toBe(250);
     expect(stats.def).toBe(0);
     expect(stats.hp).toBe(0);
   });
 
   it("generates correct stats for accessory slot", () => {
-    // level 1 common → 500 + ((1-10)/10)*300 + 0 = 230 HP
+    // level 1 common → ACC_BASE_HP(200) * pow(1, 0.85) * 1.0 = 200 HP
     const stats = computeEquipmentStats("necklace", 1, Rarity.Common);
     expect(stats.atk).toBe(0);
     expect(stats.def).toBe(0);
-    expect(stats.hp).toBe(230);
+    expect(stats.hp).toBe(200);
   });
 });
 
@@ -163,8 +163,8 @@ describe("monster scaling vs starter gear", () => {
     const commonDef = GameConfig.ARMOR_BASE_DEF;
     expect(Math.max(0, bossAtk - commonDef)).toBeGreaterThan(0);
 
-    // Lv10 rare DEF (one piece) — hero takes reduced dmg, but total DEF ×5 slots keeps them alive
-    const rareDef = GameConfig.ARMOR_BASE_DEF + (GameConfig.RARITY_BONUS?.rare || 200);
+    // Lv10 rare DEF (one piece) — multiplicative formula
+    const rareDef = Math.round(GameConfig.ARMOR_BASE_DEF * Math.pow(10, GameConfig.FLOOR_SCALE_EXPONENT) * (GameConfig.RARITY_MULTIPLIER?.rare ?? 1.15));
     const rareTotalDef = rareDef * 5;
     // Boss ATK should be less than total rare DEF to be survivable
     expect(bossAtk).toBeLessThan(rareTotalDef);
@@ -348,10 +348,10 @@ describe("GameConfig", () => {
     expect(total).toBeCloseTo(100, -1);
   });
 
-  it("has valid RARITY_BONUS in ascending order", () => {
-    const bonuses = Object.values(GameConfig.RARITY_BONUS);
-    for (let i = 1; i < bonuses.length; i++) {
-      expect(bonuses[i]).toBeGreaterThan(bonuses[i - 1]);
+  it("has valid RARITY_MULTIPLIER in ascending order", () => {
+    const mults = Object.values(GameConfig.RARITY_MULTIPLIER);
+    for (let i = 1; i < mults.length; i++) {
+      expect(mults[i]).toBeGreaterThan(mults[i - 1]);
     }
   });
 });
@@ -374,13 +374,13 @@ describe("getBracketName", () => {
 // ─── Bracket Equipment Level ─────────────────────────────────────
 
 describe("getBracketEquipmentLevel", () => {
-  it("returns Lv10 for bracket 1", () => {
-    expect(getBracketEquipmentLevel(1)).toBe(10);
+  it("returns per-floor equipment level", () => {
+    expect(getBracketEquipmentLevel(1)).toBe(1);
     expect(getBracketEquipmentLevel(10)).toBe(10);
   });
 
-  it("returns Lv20 for bracket 2", () => {
-    expect(getBracketEquipmentLevel(11)).toBe(20);
+  it("returns floor number for deeper floors", () => {
+    expect(getBracketEquipmentLevel(11)).toBe(11);
     expect(getBracketEquipmentLevel(20)).toBe(20);
   });
 });

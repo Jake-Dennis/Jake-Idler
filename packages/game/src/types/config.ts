@@ -74,28 +74,30 @@ const BASE_CONFIG = {
    * Per-rarity flat bonus added to equipment base level
    * to compute effective level.
    */
-  RARITY_BONUS: {
-    [Rarity.Common]: 0,
-    [Rarity.Uncommon]: 100,
-    [Rarity.Rare]: 200,
-    [Rarity.Epic]: 300,
-    [Rarity.Legendary]: 400,
+  RARITY_MULTIPLIER: {
+    [Rarity.Common]: 1.0,
+    [Rarity.Uncommon]: 1.05,
+    [Rarity.Rare]: 1.15,
+    [Rarity.Epic]: 1.5,
+    [Rarity.Legendary]: 2.0,
   } as Record<Rarity, number>,
 
   /**
-   * Equipment stat = BASE + ((level - 10) / 10) × PER_BRACKET + RARITY_BONUS[rarity].
+   * Equipment stat = BASE × level^FLOOR_SCALE_EXPONENT × RARITY_MULTIPLIER[rarity].
    *
-   * Linear per-bracket growth. Default +300 per bracket:
-   *   B1 Lv10: 500 + 0 + 0 = 500 ATK
-   *   B2 Lv20: 500 + 1×300 + 0 = 800 ATK
-   *   B5 Lv50: 500 + 4×300 + 0 = 1,700 ATK
+   * Multiplicative scaling — every stat grows 27.5× from floor 1 to 50.
+   * Rarity is a flat multiplier that stays relevant at ALL floors:
+   *   common=1×, uncommon=1.05×, rare=1.15×, epic=1.5×, legendary=2×
    */
-  WEAPON_BASE_ATK: 500,
-  WEAPON_ATK_PER_BRACKET: 300,
-  ARMOR_BASE_DEF: 100,
-  ARMOR_DEF_PER_BRACKET: 300,
-  ACC_BASE_HP: 500,
-  ACC_HP_PER_BRACKET: 300,
+  WEAPON_BASE_ATK: 250,
+  ARMOR_BASE_DEF: 50,
+  ACC_BASE_HP: 200,
+
+  /**
+   * Base healing output for healer role.
+   * healing = HEAL_BASE × floor^FLOOR_SCALE_EXPONENT × healerRarityMult × 0.5
+   */
+  HEAL_BASE: 50,
 
   /**
    * Hero-level stat multiplier.

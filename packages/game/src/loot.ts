@@ -153,7 +153,7 @@ export function generateEquipment(
   level: number,
   rarity: Rarity,
 ): Equipment {
-  const rarityBonus = GameConfig.RARITY_BONUS[rarity];
+  const rarityMult = GameConfig.RARITY_MULTIPLIER[rarity] ?? 1.0;
 
   return {
     id: uuidv4(),
@@ -163,7 +163,7 @@ export function generateEquipment(
     level,
     rarity,
     stats: computeEquipmentStats(slot, level, rarity),
-    effectiveLevel: level + rarityBonus,
+    effectiveLevel: level,
   };
 }
 
