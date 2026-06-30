@@ -2905,17 +2905,12 @@ function renderAdminConfig(config) {
   html += '<tr style="color:#5a555a;border-bottom:1px solid #1a1518"><th style="padding:4px 6px;text-align:left">Floor</th><th style="padding:4px 6px;text-align:left">Gear Mix</th><th style="padding:4px 6px;text-align:right">Avg ATK</th><th style="padding:4px 6px;text-align:right">Mon HP</th><th style="padding:4px 6px;text-align:right">Hits</th></tr>';
   html += tableRows;
   html += '</table></div></div>';
-  html += '<div style="margin-bottom:16px;border:1px solid #1a1518;border-radius:4px;padding:12px;background:#080608">';
-  html += '<h3 style="font-size:1rem;font-weight:700;color:#6a623a;margin-bottom:8px;letter-spacing:1px">📈 Difficulty Curve</h3>';
-  html += '<p style="font-size:.78rem;color:#5a555a;margin-bottom:8px">Expected gear per floor bracket. Green ≤15 hits, Yellow 16-25, Red ≥26.</p>';
-  html += '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:.75rem">';
-  html += '<tr style="color:#5a555a;border-bottom:1px solid #1a1518"><th style="padding:4px 6px;text-align:left">Floor</th><th style="padding:4px 6px;text-align:left">Gear</th><th style="padding:4px 6px;text-align:right">ATK</th><th style="padding:4px 6px;text-align:right">Mon HP</th><th style="padding:4px 6px;text-align:right">Hits</th></tr>';
-  html += tableRows;
-  html += '</table></div></div>';
-
   html += '</div>';
 
-  // ── Grouped config sections ──
+  // ── Advanced config (collapsible) ──
+  html += '<details style="margin-bottom:16px">';
+  html += '<summary style="cursor:pointer;font-size:.85rem;color:#5a555a;padding:8px;border:1px solid #1a1518;border-radius:4px;background:#080608">⚙ Advanced — monster stats, crit, rewards, animation, economy</summary>';
+  html += '<div style="padding:12px;border:1px solid #1a1518;border-top:none;border-radius:0 0 4px 4px;background:#060406">';
   var groups = [
     {
       label: 'Monster Stats',
@@ -3069,6 +3064,7 @@ function renderAdminConfig(config) {
     html += '<h3 style="font-size:1rem;font-weight:700;color:#6a623a;margin-bottom:10px;letter-spacing:1px;border-bottom:1px solid #1a1518;padding-bottom:6px">Other</h3>';
     html += orphanHtml + '</div>';
   }
+  html += '</div></details>';
 
   container.innerHTML = html;
 }
@@ -3171,12 +3167,15 @@ function updateAbFromTime() {
 }
 
 function autoBalanceFromTime() {
-  if (!window._abComputed) updateAbFromTime();
+  var cfg = ADMIN_CONFIG_CACHE;
+  if (!cfg) return;
+  updateAbFromTime();
   var comp = window._abComputed;
   if (!comp) return;
   var tok = window.__INITIAL_TOKEN__ || localStorage.getItem('token') || '';
   var status = document.getElementById('admin-status');
   if (status) status.textContent = 'Applying balance...';
+
   fetch('/api/admin/balancing', {
     method: 'PUT',
     headers: { 'Authorization': 'Bearer ' + tok, 'Content-Type': 'application/json' },
@@ -3232,11 +3231,11 @@ function runSimulation() {
   var bAtkM = cfg.BOSS_ATK_MULTIPLIER || 2;
   var bHpM = cfg.BOSS_HP_MULTIPLIER || 2;
 
-  // Build party
+  // Build party (matching server role stat conversions)
   var heroes = [];
-  for (var i = 0; i < tanks; i++) heroes.push({ role: 'tank', atk: Math.round(baseAtk * 0.7), def: Math.round(baseDef * 1.5), hp: Math.round(baseHp * 1.5), maxHp: Math.round(baseHp * 1.5), alive: true });
-  for (var i = 0; i < dps; i++) heroes.push({ role: 'dps', atk: Math.round(baseAtk * 1.0), def: Math.round(baseDef * 0.7), hp: Math.round(baseHp * 0.7), maxHp: Math.round(baseHp * 0.7), alive: true });
-  for (var i = 0; i < healers; i++) heroes.push({ role: 'healer', atk: Math.round(baseAtk * 0.5), def: Math.round(baseDef * 0.5), hp: Math.round(baseHp * 0.7), maxHp: Math.round(baseHp * 0.7), alive: true });
+  for (var i = 0; i < tanks; i++) heroes.push({ role: 'tank', atk: Math.round(baseAtk * 0.5), def: Math.round(baseDef), hp: Math.round(baseHp + baseAtk * 0.5), maxHp: Math.round(baseHp + baseAtk * 0.5), alive: true, healing: 0 });
+  for (var i = 0; i < dps; i++) heroes.push({ role: 'dps', atk: Math.round(baseAtk), def: Math.round(baseDef), hp: Math.round(baseHp), maxHp: Math.round(baseHp), alive: true, healing: 0 });
+  for (var i = 0; i < healers; i++) heroes.push({ role: 'healer', atk: Math.round(baseAtk * 0.5), def: Math.round(baseDef), hp: Math.round(baseHp), maxHp: Math.round(baseHp), alive: true, healing: Math.round(baseAtk * 0.5) });
 
   var trials = 20;
   var totalRounds = 0;
@@ -3257,12 +3256,13 @@ function runSimulation() {
 
     // Build monster queue
     var scale = Math.pow(refFloor, fse);
+    var hpScale = 1.3 + (partySize - 1) * 0.29; // party HP scaling (server line 196)
     var monsters = [];
     for (var mi = 0; mi < trashCount; mi++) {
-      monsters.push({ hp: Math.round(monBaseHp * scale), maxHp: Math.round(monBaseHp * scale), def: Math.round(monBaseDef * scale), atk: Math.round(monBaseAtk * scale), isBoss: false, alive: true });
+      monsters.push({ hp: Math.round(monBaseHp * scale * hpScale), maxHp: Math.round(monBaseHp * scale * hpScale), def: Math.round(monBaseDef * scale), atk: Math.round(monBaseAtk * scale), isBoss: false, alive: true });
     }
     for (var bi = 0; bi < bossCount; bi++) {
-      monsters.push({ hp: Math.round(monBaseHp * scale * bHpM), maxHp: Math.round(monBaseHp * scale * bHpM), def: Math.round(monBaseDef * scale * bAtkM), atk: Math.round(monBaseAtk * scale * bAtkM), isBoss: true, alive: true });
+      monsters.push({ hp: Math.round(monBaseHp * scale * hpScale * bHpM), maxHp: Math.round(monBaseHp * scale * hpScale * bHpM), def: Math.round(monBaseDef * scale * bAtkM), atk: Math.round(monBaseAtk * scale * bAtkM), isBoss: true, alive: true });
     }
 
     var rounds = 0;
@@ -3273,28 +3273,49 @@ function runSimulation() {
       var mon = monsters[currentMonsterIdx];
       rounds++;
 
-      // 1. Healers heal
+      // 1. Healers heal (party healer: 50% ATK to lowest HP% ally; solo: 12% ATK self-heal)
+      var isSolo = heroes.length === 1;
       for (var hi = 0; hi < heroes.length; hi++) {
         var h = heroes[hi];
-        if (!h.alive || h.role !== 'healer') continue;
-        var lowest = null;
-        for (var hi2 = 0; hi2 < heroes.length; hi2++) {
-          if (!heroes[hi2].alive) continue;
-          if (!lowest || (heroes[hi2].hp / heroes[hi2].maxHp) < (lowest.hp / lowest.maxHp)) lowest = heroes[hi2];
-        }
-        if (lowest && lowest.hp < lowest.maxHp) {
-          var healAmt = Math.round(h.atk * (0.8 + Math.random() * 0.4));
-          var variance = 0.8 + Math.random() * 0.4;
-          lowest.hp = Math.min(lowest.maxHp, lowest.hp + Math.round(h.atk * variance));
+        if (!h.alive) continue;
+        if (isSolo) {
+          // Solo hero self-heals (non-healer 12%, healer 50%)
+          if (h.hp < h.maxHp) {
+            var soloHealRate = h.role === 'healer' ? 0.5 : 0.12;
+            var variance = 0.8 + Math.random() * 0.4;
+            h.hp = Math.min(h.maxHp, h.hp + Math.round(h.atk * soloHealRate * variance));
+          }
+        } else if (h.role === 'healer') {
+          // Party healer: heal lowest HP% ally (not self), tank → dps → healer priority
+          var targets = [];
+          for (var hi2 = 0; hi2 < heroes.length; hi2++) {
+            if (!heroes[hi2].alive || heroes[hi2] === h) continue;
+            targets.push(heroes[hi2]);
+          }
+          // Sort by role priority (tank first, then dps, then healer), then by HP%
+          var roleOrder = { tank: 0, dps: 1, healer: 2 };
+          targets.sort(function(a, b) {
+            var ra = roleOrder[a.role] || 0;
+            var rb = roleOrder[b.role] || 0;
+            if (ra !== rb) return ra - rb;
+            return (a.hp / a.maxHp) - (b.hp / b.maxHp);
+          });
+          if (targets.length > 0) {
+            var target = targets[0];
+            if (target.hp < target.maxHp) {
+              var variance = 0.8 + Math.random() * 0.4;
+              target.hp = Math.min(target.maxHp, target.hp + Math.round(h.healing * variance * 0.5));
+            }
+          }
         }
       }
 
-      // 2. DPS attack monster
+      // 2. DPS attack monster (tanks and healers deal 0 damage)
       var critChance = cfg.CRIT_CHANCE || 0.1;
       var critMult = cfg.CRIT_MULTIPLIER || 1.5;
       for (var hi = 0; hi < heroes.length; hi++) {
         var h = heroes[hi];
-        if (!h.alive || h.role === 'healer') continue;
+        if (!h.alive || h.role !== 'dps') continue;
         var variance = 0.8 + Math.random() * 0.4;
         var isCrit = Math.random() < critChance;
         var dmg = Math.max(1, Math.round(h.atk * variance - mon.def));
@@ -3302,19 +3323,34 @@ function runSimulation() {
         mon.hp -= dmg;
       }
 
-      // 3. Monsters attack (target tank first, then first alive)
+      // 3. ALL alive monsters swarm the target (server aggro system)
       var target = null;
       for (var hi = 0; hi < heroes.length; hi++) {
         if (heroes[hi].alive && heroes[hi].role === 'tank') { target = heroes[hi]; break; }
       }
       if (!target) {
         for (var hi = 0; hi < heroes.length; hi++) {
-          if (heroes[hi].alive) { target = heroes[hi]; break; }
+          if (heroes[hi].alive && heroes[hi].role === 'dps') { target = heroes[hi]; break; }
         }
       }
-      if (target && mon.alive && mon.hp > 0) {
-        var monDmg = Math.max(1, Math.round(mon.atk - target.def * 0.5));
-        target.hp -= monDmg;
+      if (!target) {
+        for (var hi = 0; hi < heroes.length; hi++) {
+          if (heroes[hi].alive && heroes[hi].role === 'healer') { target = heroes[hi]; break; }
+        }
+      }
+      if (target) {
+        var totalMonDmg = 0;
+        for (var mi = currentMonsterIdx; mi < monsters.length; mi++) {
+          var m = monsters[mi];
+          if (m.hp <= 0) continue;
+          var ratio = m.atk / (m.atk + target.def);
+          var base = 1 + ratio * 9;
+          var monCrit = Math.random() < 0.1;
+          var variance = (Math.random() - 0.5) * 4;
+          var dmg = Math.max(1, Math.round((base + variance) * (monCrit ? 2 : 1)));
+          totalMonDmg += dmg;
+        }
+        target.hp -= totalMonDmg;
         if (target.hp <= 0) { target.hp = 0; target.alive = false; }
       }
 
