@@ -2828,19 +2828,21 @@ function renderAdminConfig(config) {
   html += '<div><span style="font-size:.75rem;color:#5a555a">Sim estimate</span><br><span style="font-size:.8rem;color:#9a949a" id="ab-sim-preview">' + simHtml + '</span></div>';
   html += '</div>';
 
-  // Controls row 1: party + target time
+  // Controls row 1: floor + target time + failure chance
   html += '<div style="display:flex;gap:12px;align-items:end;flex-wrap:wrap">';
-  html += '<div><label style="font-size:.75rem;color:#5a555a">Tanks</label><br><input type="number" id="sim-tanks" value="1" min="0" max="5" style="width:45px;padding:3px 6px;background:#0a080a;border:1px solid #2a2020;border-radius:4px;color:#9a949a;font-size:.8rem"></div>';
-  html += '<div><label style="font-size:.75rem;color:#5a555a">DPS</label><br><input type="number" id="sim-dps" value="2" min="0" max="5" style="width:45px;padding:3px 6px;background:#0a080a;border:1px solid #2a2020;border-radius:4px;color:#9a949a;font-size:.8rem"></div>';
-  html += '<div><label style="font-size:.75rem;color:#5a555a">Healers</label><br><input type="number" id="sim-healers" value="1" min="0" max="5" style="width:45px;padding:3px 6px;background:#0a080a;border:1px solid #2a2020;border-radius:4px;color:#9a949a;font-size:.8rem"></div>';
   html += '<div><label style="font-size:.75rem;color:#5a555a">Floor</label><br><input type="number" id="ab-ref-floor" value="' + refFloor + '" min="1" max="500" oninput="updateAbDisplay()" style="width:55px;padding:3px 6px;background:#0a080a;border:1px solid #2a2020;border-radius:4px;color:#9a949a;font-size:.8rem"></div>';
-  html += '<div><label style="font-size:.75rem;color:#5a555a">Target floor time (s)</label><br><input type="number" id="ab-target-time" value="60" min="5" max="600" step="5" oninput="updateAbFromTime()" style="width:60px;padding:3px 6px;background:#0a080a;border:1px solid #2a2020;border-radius:4px;color:#9a949a;font-size:.8rem"></div>';
+  html += '<div><label style="font-size:.75rem;color:#5a555a">Target time (s)</label><br><input type="number" id="ab-target-time" value="60" min="5" max="600" step="5" oninput="updateAbFromTime()" style="width:60px;padding:3px 6px;background:#0a080a;border:1px solid #2a2020;border-radius:4px;color:#9a949a;font-size:.8rem"></div>';
+  html += '<div><label style="font-size:.75rem;color:#5a555a">Failure chance %</label><br><input type="number" id="ab-fail-rate" value="15" min="0" max="99" step="5" oninput="updateAbFromTime()" style="width:55px;padding:3px 6px;background:#0a080a;border:1px solid #2a2020;border-radius:4px;color:#9a949a;font-size:.8rem"></div>';
   html += '</div>';
 
-  // Controls row 2: auto-balance + auto-apply
+  // Controls row 2: auto-balance + simulate
   html += '<div style="display:flex;gap:8px;align-items:center;margin-top:8px;flex-wrap:wrap">';
   html += '<button class="btn btn-primary btn-sm" style="padding:6px 16px;font-size:.8rem" onclick="autoBalanceFromTime()">Apply Balance</button>';
-  html += '<label style="font-size:.75rem;color:#5a555a;display:flex;align-items:center;gap:4px"><input type="checkbox" id="ab-auto" style="accent-color:#6a623a" onchange="toggleAutoBalance()"> Auto-apply on gear change</label>';
+  html += '<label style="font-size:.75rem;color:#5a555a;display:flex;align-items:center;gap:4px"><input type="checkbox" id="ab-auto" style="accent-color:#6a623a" onchange="toggleAutoBalance()"> Auto-apply</label>';
+  html += '<span style="color:#3a373a;margin:0 4px">|</span>';
+  html += '<label style="font-size:.7rem;color:#5a555a">Tk</label><input type="number" id="sim-tanks" value="0" min="0" max="5" style="width:35px;padding:2px 4px;background:#0a080a;border:1px solid #2a2020;border-radius:3px;color:#9a949a;font-size:.75rem">';
+  html += '<label style="font-size:.7rem;color:#5a555a">DPS</label><input type="number" id="sim-dps" value="1" min="0" max="5" style="width:35px;padding:2px 4px;background:#0a080a;border:1px solid #2a2020;border-radius:3px;color:#9a949a;font-size:.75rem">';
+  html += '<label style="font-size:.7rem;color:#5a555a">Heal</label><input type="number" id="sim-healers" value="0" min="0" max="5" style="width:35px;padding:2px 4px;background:#0a080a;border:1px solid #2a2020;border-radius:3px;color:#9a949a;font-size:.75rem">';
   html += '<button class="btn btn-ghost btn-sm" style="padding:4px 10px;font-size:.75rem" onclick="runSimulation()">▶ Simulate</button>';
   html += '</div>';
   html += '<div id="sim-result" style="margin-top:8px;font-size:.78rem;color:#5a555a;line-height:1.6">Set party above and click Simulate</div>';
@@ -3241,10 +3243,9 @@ function updateAbFromTime() {
   var cfg = ADMIN_CONFIG_CACHE;
   var refFloor = parseFloat(document.getElementById('ab-ref-floor').value) || 50;
   var targetSec = parseFloat(document.getElementById('ab-target-time').value) || 60;
-  var tanks = parseInt(document.getElementById('sim-tanks').value) || 0;
-  var dps = parseInt(document.getElementById('sim-dps').value) || 1;
-  var healers = parseInt(document.getElementById('sim-healers').value) || 0;
-  var partySize = tanks + dps + healers;
+  var failRate = (parseFloat(document.getElementById('ab-fail-rate').value) || 15) / 100;
+  // Solo DPS — that's the default balancing target
+  var tanks = 0, dps = 1, healers = 0, partySize = 1;
   var anim = cfg.ANIMATION || {};
   var msPerRound = (anim.projectileMs || 350) + (anim.phaseGapMs || 200) * 2 + (anim.roundGapMs || 200) + 200;
   var totalMs = targetSec * 1000;
@@ -3252,48 +3253,56 @@ function updateAbFromTime() {
   var totalRounds = Math.round(combatMs / msPerRound);
   var perPlayer = Math.max(0, partySize - 1);
   var weapBase = cfg.WEAPON_BASE_ATK || 500;
-  var armorBase = cfg.ARMOR_BASE_DEF || 100;
-  var accBase = cfg.ACC_BASE_HP || 500;
+  var armorBase = cfg.ARMOR_BASE_DEF || 50;
+  var accBase = cfg.ACC_BASE_HP || 200;
+  // Survival factor: maps failure rate 0→1 to how many× longer hero can survive vs rounds needed
+  // 0% fail → hero lasts 3× as long as needed (very safe)
+  // 50% fail → hero lasts 1× (dies exactly when floor clears)
+  // 99% fail → hero lasts 0.35× (dies early)
+  var survivalFactor = 3 - 2.65 * failRate;
   var baseHpVal = null, baseAtkVal = null, baseDefVal = null;
   var brackets = [];
   for (var bi = 1; bi <= 5; bi++) {
     var bracketFloor = bi * 10;
     var pos = bracketFloor % 10 || 10;
-    // Expected rarity at this floor
     var rarity = 'common';
     if (pos >= 6) rarity = 'rare';
     else if (pos >= 1) rarity = pos <= 2 ? 'common' : 'uncommon';
     var rarityBonus = (cfg.RARITY_BONUS && cfg.RARITY_BONUS[rarity]) || 0;
-    var gearLv = bi * 10;
-    var bracketPower = Math.max(0, (gearLv - 10) / 10);
+    var bracketPower = Math.max(0, ((bi * 10) - 10) / 10);
     var heroAtk = Math.round(weapBase + bracketPower * 300 + rarityBonus) * 2;
     var heroDef = Math.round(armorBase + bracketPower * 300 + rarityBonus) * 5;
     var heroHp = Math.round(accBase + bracketPower * 300 + rarityBonus) * 5;
-    var trashCount = (cfg.TRASH_BASE || 1) + (bracketFloor % 2) + perPlayer * (cfg.TRASH_PER_PLAYER || 1);
+    var trashCount = (cfg.TRASH_BASE || 1) + (bracketFloor % 2) + perPlayer * (cfg.TRASH_PER_PLAYER || 0);
     var bossCount = (cfg.BOSSES_BASE || 1) + perPlayer * (cfg.BOSSES_PER_PLAYER || 0);
     var totalMonsters = trashCount + bossCount;
-    var effectiveDPS = Math.max(1, dps + tanks);
-    var roundsPerMonster = Math.round(totalRounds / totalMonsters * effectiveDPS / 2);
-    var monBaseDef = cfg.MONSTER_BASE_DEF || 5;
-    var monDef = monBaseDef * bi;
-    var dmgPerRound = Math.max(1, heroAtk * 0.9 - monDef);
-    var targetMonHp = roundsPerMonster * dmgPerRound;
+    // HP: hero kills all monsters in totalRounds
+    var roundsPerMonster = Math.round(totalRounds / totalMonsters * 1 / 2);
+    var dmgPerHit = Math.max(1, heroAtk * 0.9);
+    var targetMonHp = roundsPerMonster * dmgPerHit;
     var newBaseHp = Math.round(targetMonHp / bi);
     if (baseHpVal === null) baseHpVal = newBaseHp;
-    var desiredDmgPerRound = heroHp / (totalRounds * 1.5);
-    var desiredDmgPerMonster = Math.max(0, desiredDmgPerRound / Math.min(3, totalMonsters));
-    var targetMonAtk = Math.round(desiredDmgPerMonster + heroDef);
-    var newBaseAtk = Math.round(targetMonAtk / bi);
+    // ATK: monster damage via ATK/(ATK+DEF) ratio formula
+    // Expected monster hit = (1 + ratio*9) * 1.1 due to 10% crit ×2
+    var desiredDmgPerRound = heroHp / (totalRounds * survivalFactor);
+    var monHitsPerRound = Math.min(3, totalMonsters); // monsters swarm one target
+    var desiredPerMon = desiredDmgPerRound / monHitsPerRound;
+    desiredPerMon = Math.max(1.2, Math.min(10.9, desiredPerMon));
+    var k = (desiredPerMon - 1.1) / 9.9;
+    var monAtk = Math.round(heroDef * k / (1 - k));
+    if (!isFinite(monAtk) || monAtk < 1) monAtk = 1;
+    var newBaseAtk = Math.round(monAtk / bi);
     if (baseAtkVal === null) baseAtkVal = newBaseAtk;
-    var targetMonDef = Math.round(heroAtk * 0.1);
+    // DEF: reduce hero damage by ~5%
+    var targetMonDef = Math.round(heroAtk * 0.05);
     var newBaseDef = Math.round(targetMonDef / bi);
+    if (newBaseDef < 1) newBaseDef = 1;
     if (baseDefVal === null) baseDefVal = newBaseDef;
     brackets.push({
       bracket: bi, floorRange: ((bi-1)*10+1) + '-' + (bi*10),
       heroAtk: heroAtk, heroDef: heroDef, heroHp: heroHp,
       monHp: newBaseHp * bi, monAtk: newBaseAtk * bi, monDef: newBaseDef * bi,
-      rarity: rarity,
-      trashCount: trashCount, bossCount: bossCount, totalMonsters: totalMonsters
+      rarity: rarity
     });
   }
   window._abComputed = { baseHp: baseHpVal, baseAtk: baseAtkVal, baseDef: baseDefVal };
@@ -3309,12 +3318,12 @@ function updateAbFromTime() {
   html += '<th style="text-align:right;padding:2px 4px;color:#f87171">Mon ATK</th>';
   html += '<th style="text-align:right;padding:2px 4px;color:#60a5fa">Mon DEF</th>';
   html += '<th style="text-align:right;padding:2px 4px;color:#fbbf24">Mon HP</th>';
-  html += '<th style="text-align:right;padding:2px 4px">Target s</th>';
+  html += '<th style="text-align:right;padding:2px 4px">Est. time</th>';
   html += '<th style="text-align:right;padding:2px 4px">Rounds</th>';
   html += '</tr></thead><tbody>';
   for (var i = 0; i < brackets.length; i++) {
     var b = brackets[i];
-    var bTargetSec = Math.round(totalRounds * msPerRound / 1000 * (1 + (0.2 * (5 - b.bracket))));
+    var bTargetSec = Math.round(totalRounds * msPerRound / 1000);
     html += '<tr' + (i % 2 === 1 ? ' style="background:#0a080a"' : '') + '>';
     html += '<td style="padding:2px 4px">' + b.floorRange + '</td>';
     html += '<td style="padding:2px 4px">' + b.rarity + '</td>';
@@ -3329,7 +3338,10 @@ function updateAbFromTime() {
     html += '</tr>';
   }
   html += '</tbody></table>';
-  html += '<div style="margin-top:4px;font-size:.7rem;color:#5a555a">Base values: <b style="color:#fbbf24">MONSTER_BASE_HP = ' + baseHpVal + '</b> &middot; <b style="color:#f87171">MONSTER_BASE_ATK = ' + baseAtkVal + '</b> &middot; <b style="color:#60a5fa">MONSTER_BASE_DEF = ' + baseDefVal + '</b></div>';
+  html += '<div style="margin-top:4px;font-size:.7rem;color:#5a555a">';
+  html += 'Base: <b style="color:#fbbf24">MONSTER_BASE_HP = ' + baseHpVal + '</b> &middot; <b style="color:#f87171">MONSTER_BASE_ATK = ' + baseAtkVal + '</b> &middot; <b style="color:#60a5fa">MONSTER_BASE_DEF = ' + baseDefVal + '</b>';
+  html += ' &middot; Fail rate: <b>' + Math.round(failRate * 100) + '%</b>';
+  html += '</div>';
   el.innerHTML = html;
 }
 
