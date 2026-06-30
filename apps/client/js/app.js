@@ -3263,9 +3263,6 @@ function updateAbFromTime() {
     var roundsToDie = Math.ceil(d.hHp / swarmDmgPerRound);
     var survives = roundsToDie > clearRounds;
     if (survives) wins++;
-    var roundsToDie = Math.ceil(d.hHp / swarmDmgPerRound);
-    var survives = roundsToDie > clearRounds;
-    if (survives) wins++;
     var pct = Math.round(roundsToDie / clearRounds * 100);
     var color = survives ? '#4ade80' : '#f87171';
 
