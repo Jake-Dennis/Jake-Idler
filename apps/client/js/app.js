@@ -2805,9 +2805,9 @@ function renderAdminConfig(config) {
   var refRarity = refPos <= 2 ? 'common' : refPos <= 5 ? 'uncommon' : 'rare';
   var refMult = rarityMult[refRarity] != null ? rarityMult[refRarity] : 1.0;
   var monScale = Math.pow(refFloor, fse);
-  var powRef = Math.pow(refFloor, fse);
+  var gearLevel = Math.max(10, refFloor);
   // Hero ATK at reference floor (multiplicative formula)
-  var heroAtk = Math.round(weapBase * powRef * refMult) * 2;
+  var heroAtk = Math.round(weapBase * Math.pow(gearLevel, fse) * refMult) * 2;
   var monDef = monBaseDef * monScale;
   var effDmg = Math.max(1, heroAtk - monDef);
   var currentHits = Math.ceil(monBaseHp * monScale / effDmg);
@@ -3113,8 +3113,8 @@ function updateAbDisplay() {
   else { rc = 12; }
   var rarityLabel = pos <= 2 ? 'common' : pos <= 5 ? 'uncommon' : 'rare';
   var monScale = Math.pow(floor, fse);
-  var powFloor = Math.pow(floor, fse);
-  var avgAtk = Math.round((cc * Math.round(weapBase * powFloor * (rm.common||1.0)) + uc * Math.round(weapBase * powFloor * (rm.uncommon||1.05)) + rc * Math.round(weapBase * powFloor * (rm.rare||1.15))) / slots) * 2;
+  var gearLevel = Math.max(10, floor);
+  var avgAtk = Math.round((cc * Math.round(weapBase * Math.pow(gearLevel, fse) * (rm.common||1.0)) + uc * Math.round(weapBase * Math.pow(gearLevel, fse) * (rm.uncommon||1.05)) + rc * Math.round(weapBase * Math.pow(gearLevel, fse) * (rm.rare||1.15))) / slots) * 2;
   var monDef = Math.round(monBaseDef * monScale);
   var monHp = Math.round(monBaseHp * monScale);
 
@@ -3374,8 +3374,9 @@ function runSimulation() {
   var weapBase = cfg.WEAPON_BASE_ATK || 250;
   var armorBase = cfg.ARMOR_BASE_DEF || 50;
   var accBase = cfg.ACC_BASE_HP || 200;
-  // Gear stats — multiplicative per-floor scaling
-  var powRef = Math.pow(refFloor, cfg.FLOOR_SCALE_EXPONENT || 0.85);
+  // Gear stats — multiplicative per-floor scaling (floored at 10 for early floors)
+  var gearLevel = Math.max(10, refFloor);
+  var powRef = Math.pow(gearLevel, cfg.FLOOR_SCALE_EXPONENT || 0.85);
   var baseAtk = Math.round(weapBase * powRef * rarityMult) * 2; // 2 weapon slots
   var baseDef = Math.round(armorBase * powRef * rarityMult) * 5; // 5 armor slots
   var baseHp = Math.round(accBase * powRef * rarityMult) * 5; // 5 accessory slots
