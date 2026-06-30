@@ -2766,22 +2766,17 @@ function renderAdminConfig(config) {
     html += '<input type="number" id="admin-' + cat.baseKey + '" value="' + baseVal + '" step="10" min="0" oninput="refreshGearPreview()" style="width:80px;padding:3px 6px;background:#0a080a;border:1px solid #2a2020;border-radius:4px;color:#9a949a;font-size:.8rem"></div>';
     html += '<div style="display:flex;align-items:center;gap:6px"><label style="font-size:.75rem;color:#5a555a">Per Lv</label>';
     html += '<input type="number" id="admin-' + cat.perKey + '" value="' + perVal + '" step="5" min="0" oninput="refreshGearPreview()" style="width:80px;padding:3px 6px;background:#0a080a;border:1px solid #2a2020;border-radius:4px;color:#9a949a;font-size:.8rem"></div>';
+    // Rarity bonus inline
+    html += '<span style="width:1px;height:24px;background:#1a1518;margin:0 4px"></span>';
+    for (var ri = 0; ri < rarities.length; ri++) {
+      var rb = rarityBonus[rarities[ri]] != null ? rarityBonus[rarities[ri]] : 0;
+      html += '<div style="display:flex;align-items:center;gap:3px">';
+      html += '<label style="font-size:.65rem;color:#5a555a;min-width:0">' + rarities[ri].charAt(0).toUpperCase() + '</label>';
+      html += '<input type="number" id="admin-RARITY_BONUS-' + rarities[ri] + '" value="' + rb + '" step="50" min="0" oninput="refreshGearPreview()" title="' + rarities[ri] + ' bonus" style="width:50px;padding:2px 4px;background:#0a080a;border:1px solid #2a2020;border-radius:3px;color:#9a949a;font-size:.75rem">';
+      html += '</div>';
+    }
     html += '</div></div>';
   }
-
-  // ── Rarity Bonus (shared) ──
-  html += '<div style="margin-bottom:16px;border:1px solid #1a1518;border-radius:4px;padding:12px;background:#080608">';
-  html += '<h3 style="font-size:1rem;font-weight:700;color:#6a623a;margin-bottom:8px;letter-spacing:1px">Rarity Bonus (shared)</h3>';
-  html += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr 1fr;gap:8px">';
-  for (var ri = 0; ri < rarities.length; ri++) {
-    var r = rarities[ri];
-    var rb = rarityBonus[r] != null ? rarityBonus[r] : 0;
-    html += '<div style="display:flex;flex-direction:column;align-items:center;gap:2px">';
-    html += '<label style="font-size:.75rem;color:#5a555a;font-weight:600">' + r + '</label>';
-    html += '<input type="number" id="admin-RARITY_BONUS-' + r + '" value="' + rb + '" step="50" min="0" oninput="refreshGearPreview()" style="width:100%;padding:4px 8px;background:#0a080a;border:1px solid #2a2020;border-radius:4px;color:#9a949a;font-size:.85rem;outline:none;text-align:center">';
-    html += '</div>';
-  }
-  html += '</div></div>';
 
   // ── Auto-Balance ──
   var fse = config.FLOOR_SCALE_EXPONENT != null ? config.FLOOR_SCALE_EXPONENT : 0.55;
