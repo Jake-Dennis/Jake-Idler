@@ -2792,7 +2792,8 @@ function renderAdminConfig(config) {
   var refFloor = 50;
   var refRarity = 'rare';
   var refRb = rarityBonus[refRarity] != null ? rarityBonus[refRarity] : 200;
-  var heroAtk = weapBase + ((refFloor - 10) / 10) * weapPer + refRb;
+  var refGearLv = Math.ceil(refFloor / 10) * 10;
+  var heroAtk = weapBase + ((refGearLv - 10) / 10) * weapPer + refRb;
   var monDef = monBaseDef * Math.pow(refFloor, fse);
   var effDmg = Math.max(1, heroAtk - monDef);
   var currentHits = Math.ceil(monBaseHp * Math.pow(refFloor, fse) / effDmg);
@@ -3155,7 +3156,8 @@ function updateAbFromTime() {
   var roundsPerMonster = Math.round(totalRounds / totalMonsters * effectiveDPS / 2);
   var weapBase = cfg.WEAPON_BASE_ATK || 700;
   var weapPerB = cfg.WEAPON_ATK_PER_BRACKET || 300;
-  var heroAtk = weapBase + ((refFloor - 10) / 10) * weapPerB + rarityBonus;
+  var gearLv = Math.ceil(refFloor / 10) * 10;
+  var heroAtk = weapBase + ((gearLv - 10) / 10) * weapPerB + rarityBonus;
   var monBaseDef = cfg.MONSTER_BASE_DEF || 5;
   var monDef = monBaseDef * Math.pow(refFloor, fse);
   var dmgPerRound = Math.max(1, heroAtk * 0.9 - monDef);
@@ -3218,9 +3220,10 @@ function runSimulation() {
   var armorPerB = cfg.ARMOR_DEF_PER_BRACKET || 300;
   var accBase = cfg.ACC_BASE_HP || 700;
   var accPerB = cfg.ACC_HP_PER_BRACKET || 300;
-  var baseAtk = weapBase + ((refFloor - 10) / 10) * weapPerB + rarityBonus;
-  var baseDef = armorBase + (refFloor / 10) * armorPerB + rarityBonus;
-  var baseHp = accBase + (refFloor / 10) * accPerB + rarityBonus;
+  var simGearLv = Math.ceil(refFloor / 10) * 10;
+  var baseAtk = weapBase + ((simGearLv - 10) / 10) * weapPerB + rarityBonus;
+  var baseDef = armorBase + ((simGearLv - 10) / 10) * armorPerB + rarityBonus;
+  var baseHp = accBase + ((simGearLv - 10) / 10) * accPerB + rarityBonus;
 
   // Monster stats at reference floor
   var monBaseHp = cfg.MONSTER_BASE_HP || 1500;
