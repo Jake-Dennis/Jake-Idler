@@ -3219,7 +3219,7 @@ function runSimulation() {
   var heroes = [];
   for (var i = 0; i < tanks; i++) heroes.push({ role: 'tank', atk: Math.round(baseAtk * 0.5), def: Math.round(baseDef), hp: Math.round(baseHp + baseAtk * 0.5), maxHp: Math.round(baseHp + baseAtk * 0.5), alive: true, healing: 0 });
   for (var i = 0; i < dps; i++) heroes.push({ role: 'dps', atk: Math.round(baseAtk), def: Math.round(baseDef), hp: Math.round(baseHp), maxHp: Math.round(baseHp), alive: true, healing: 0 });
-  for (var i = 0; i < healers; i++) heroes.push({ role: 'healer', atk: Math.round(baseAtk * 0.5), def: Math.round(baseDef), hp: Math.round(baseHp), maxHp: Math.round(baseHp), alive: true, healing: Math.round(baseAtk * 0.5) });
+  for (var i = 0; i < healers; i++) heroes.push({ role: 'healer', atk: Math.round(baseAtk * 0), def: Math.round(baseDef), hp: Math.round(baseHp), maxHp: Math.round(baseHp), alive: true, healing: Math.round(10 + baseAtk * 0.02) });
 
   var trials = 20;
   var totalRounds = 0;

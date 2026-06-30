@@ -412,11 +412,12 @@ class CombatService {
       let healing = 0;
 
       if (pm.role === "tank") {
-        atk = Math.round(rawAtk * 0.5);
-        hp = baseHp + Math.round(rawAtk * 0.5);
+        atk = 0; // deal no damage
+        def = rawDef + Math.round(rawAtk * 0.5); // convert 50% ATK to DEF
+        hp = baseHp + Math.round(rawAtk * 0.25); // convert 25% ATK to HP (less than before)
       } else if (pm.role === "healer") {
-        atk = Math.round(rawAtk * 0.5);
-        healing = Math.round(rawAtk * 0.5);
+        atk = Math.round(rawAtk * 0);
+        healing = Math.round(10 + rawAtk * 0.02); // flat base + small scaling
       } else {
         atk = rawAtk;
       }
