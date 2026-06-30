@@ -3192,8 +3192,8 @@ function updateAbFromTime() {
     var hDef = Math.round(totalDef / 12) * 5;
     var hHp = Math.round(totalHp / 12) * 5;
 
-    // Monsters at this floor
-    var trash = (cfg.TRASH_BASE || 1) + (fl % 2);
+    // Monsters at this floor — solo = 2 trash + 1 boss, parties scale trash+1
+    var trash = (cfg.TRASH_BASE || 2);
     var boss = (cfg.BOSSES_BASE || 1);
     var totalMobs = trash + boss;
 
@@ -3623,7 +3623,7 @@ function renderPreview() {
     var monHp = (c.MONSTER_BASE_HP || 5000) * monScale;
     var monAtk = (c.MONSTER_BASE_ATK || 500) * monScale;
     var monDef = (c.MONSTER_BASE_DEF || 5) * monScale;
-    var trash = (c.TRASH_BASE || 1) + (fl % 2);
+    var trash = (c.TRASH_BASE || 2);
     var boss = (c.BOSSES_BASE || 1);
     var totalMobs = trash + boss;
     var dmgPerHit = Math.max(1, hAtk - Math.round(monDef));
@@ -3736,7 +3736,7 @@ function selectFloor(fl) {
   var monHp = (c.MONSTER_BASE_HP || 5000) * monScale;
   var monAtk = (c.MONSTER_BASE_ATK || 500) * monScale;
   var monDef = (c.MONSTER_BASE_DEF || 5) * monScale;
-  var trash = (c.TRASH_BASE || 1) + (fl % 2);
+  var trash = (c.TRASH_BASE || 2);
   var boss = (c.BOSSES_BASE || 1);
   var totalMobs = trash + boss;
   var dmgPerHit = Math.max(1, hAtk - Math.round(monDef));

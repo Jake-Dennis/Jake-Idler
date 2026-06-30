@@ -30,9 +30,9 @@ const BASE_CONFIG = {
 
   /**
    * Base number of trash mobs before party-size bonuses.
-   * Trash = TRASH_BASE + floorNumber % 2 + TRASH_PER_PLAYER × (partySize − 1)
+   * Solo: TRASH_BASE trash + 1 boss. Parties: trash = TRASH_BASE + (partySize-1) × TRASH_PER_PLAYER
    */
-  TRASH_BASE: 1,
+  TRASH_BASE: 2,
   /** Extra trash mobs per additional party member (beyond the first). */
   TRASH_PER_PLAYER: 1,
 
@@ -56,6 +56,10 @@ const BASE_CONFIG = {
   BOSSES_BASE: 1,
   /** Extra bosses per additional party member. */
   BOSSES_PER_PLAYER: 0,
+  /** Boss HP multiplier per additional party member: base × (1 + (partySize-1) × BOSS_HP_PER_PLAYER) */
+  BOSS_HP_PER_PLAYER: 0.5,
+  /** Boss ATK multiplier per additional party member: base × (1 + (partySize-1) × BOSS_ATK_PER_PLAYER) */
+  BOSS_ATK_PER_PLAYER: 0.5,
 
   /**
    * Base drop rates (percentages) for each rarity tier at floor 1.

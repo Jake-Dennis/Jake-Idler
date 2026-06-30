@@ -721,14 +721,25 @@ class CombatService {
     } else {
       // Trash count scales with party size using config values
       const perPlayer = Math.max(0, partySize - 1);
-      const trashCount = GameConfig.TRASH_BASE + (floorNumber % 2) + perPlayer * GameConfig.TRASH_PER_PLAYER;
+      const trashCount = GameConfig.TRASH_BASE + perPlayer * GameConfig.TRASH_PER_PLAYER;
       const bossCount = GameConfig.BOSSES_BASE + perPlayer * GameConfig.BOSSES_PER_PLAYER;
+      const bossHpMult = 1 + perPlayer * (GameConfig.BOSS_HP_PER_PLAYER ?? 0.5);
+      const bossAtkMult = 1 + perPlayer * (GameConfig.BOSS_ATK_PER_PLAYER ?? 0.5);
 
       for (let i = 0; i < trashCount && i < floor.monsters.length; i++) {
         monsters.push(toFloorMonster(floor.monsters[i]));
       }
       for (let b = 0; b < bossCount; b++) {
-        monsters.push(toFloorMonster(floor.floorBoss));
+        const boss = toFloorMonster(floor.floorBoss);
+        boss.maxHp = Math.round(boss.maxHp * bossHpMult);
+        boss.currentHp = boss.maxHp;
+        boss.data.stats = {
+          atk: boss.data.stats.atk.multiply(bossAtkMult),
+          def: boss.data.stats.def,
+          hp: boss.data.stats.hp.multiply(bossHpMult),
+          spd: boss.data.stats.spd,
+        };
+        monsters.push(boss);
       }
     }
 
