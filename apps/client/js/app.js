@@ -2677,11 +2677,12 @@ document.getElementById('hero-photo-input').addEventListener('change', function(
   window.loadAdminConfig = loadAdminConfig;
   window.saveAdminConfig = saveAdminConfig;
   window.resetAdminConfig = resetAdminConfig;
-  window.autoBalanceMonsters = autoBalanceMonsters;
+  window.autoBalanceMonsters = autoBalanceFromTime;
   window.refreshGearPreview = refreshGearPreview;
-  window.updateAbEstimate = updateAbEstimate;
+  window.updateAbEstimate = updateAbFromTime;
   window.toggleAutoBalance = toggleAutoBalance;
   window.runSimulation = runSimulation;
+  window.autoBalanceFromTime = autoBalanceFromTime;
   })();
 }
 
@@ -2798,45 +2799,50 @@ function renderAdminConfig(config) {
   var animCfg = config.ANIMATION || {};
   var msPerHit = (animCfg.projectileMs || 350) + (animCfg.phaseGapMs || 200) * 2 + (animCfg.roundGapMs || 200) + 200;
 
-  html += '<div style="margin-bottom:16px;border:1px solid #1a1518;border-radius:4px;padding:12px;background:#080608">';
-  html += '<h3 style="font-size:1rem;font-weight:700;color:#6a623a;margin-bottom:8px;letter-spacing:1px">⚖ Auto-Balance Monsters to Heroes</h3>';
-  html += '<p style="font-size:.8rem;color:#5a555a;margin-bottom:10px">Adjust MONSTER_BASE_HP so that a ' + refRarity + ' weapon at floor ' + refFloor + ' takes a target number of hits to kill a trash mob.</p>';
 
-  // Current stats display
-  html += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px;padding:8px;background:#060406;border-radius:4px">';
+  // ── Current stats + simulation preview ──
+  var simResult = document.getElementById('sim-result');
+  var simHtml = simResult ? simResult.innerHTML : '';
+  if (!simHtml) simHtml = '<span style="color:#3a373a">Set party above and click Simulate Floor</span>';
+
+  html += '<div style="margin-bottom:16px;border:1px solid #1a1518;border-radius:4px;padding:12px;background:#080608">';
+  html += '<h3 style="font-size:1rem;font-weight:700;color:#6a623a;margin-bottom:8px;letter-spacing:1px">⚖ Floor Balance</h3>';
+  html += '<p style="font-size:.8rem;color:#5a555a;margin-bottom:10px">Set your party and target floor time — gear, monster HP, and encounter scaling adapt automatically.</p>';
+
+  // Current hero/monster stats
+  html += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;margin-bottom:12px;padding:8px;background:#060406;border-radius:4px">';
   html += '<div><span style="font-size:.75rem;color:#5a555a">Hero ATK (Lv' + refFloor + ' ' + refRarity + ')</span><br><span style="font-size:1.1rem;font-weight:700;color:#9a949a">' + Math.round(heroAtk) + '</span></div>';
   html += '<div><span style="font-size:.75rem;color:#5a555a">Monster DEF (Lv' + refFloor + ')</span><br><span style="font-size:1.1rem;font-weight:700;color:#9a949a">' + Math.round(monDef) + '</span></div>';
-  html += '<div><span style="font-size:.75rem;color:#5a555a">Current hits to kill</span><br><span style="font-size:1.1rem;font-weight:700;color:#fbbf24">' + currentHits + '</span></div>';
+  html += '<div><span style="font-size:.75rem;color:#5a555a">Monster HP (Lv' + refFloor + ')</span><br><span style="font-size:1.1rem;font-weight:700;color:#fbbf24" id="ab-current-hp">' + Math.round(monBaseHp * Math.pow(refFloor, fse)) + '</span></div>';
+  html += '<div><span style="font-size:.75rem;color:#5a555a">Sim estimate</span><br><span style="font-size:.8rem;color:#9a949a" id="ab-sim-preview">' + simHtml + '</span></div>';
   html += '</div>';
 
-  // Controls
+  // Controls row 1: party + target time
   html += '<div style="display:flex;gap:12px;align-items:end;flex-wrap:wrap">';
-  html += '<div><label style="font-size:.75rem;color:#5a555a">Target hits</label><br><input type="number" id="ab-target-hits" value="' + Math.max(3, currentHits) + '" min="1" max="100" oninput="updateAbEstimate()" style="width:70px;padding:4px 8px;background:#0a080a;border:1px solid #2a2020;border-radius:4px;color:#9a949a;font-size:.85rem"></div>';
-  html += '<div><label style="font-size:.75rem;color:#5a555a">Reference floor</label><br><input type="number" id="ab-ref-floor" value="' + refFloor + '" min="1" max="500" style="width:70px;padding:4px 8px;background:#0a080a;border:1px solid #2a2020;border-radius:4px;color:#9a949a;font-size:.85rem"></div>';
-  html += '<div><label style="font-size:.75rem;color:#5a555a">Rarity</label><br><select id="ab-rarity" style="padding:4px 8px;background:#0a080a;border:1px solid #2a2020;border-radius:4px;color:#9a949a;font-size:.85rem">';
+  html += '<div><label style="font-size:.75rem;color:#5a555a">Tanks</label><br><input type="number" id="sim-tanks" value="1" min="0" max="5" style="width:45px;padding:3px 6px;background:#0a080a;border:1px solid #2a2020;border-radius:4px;color:#9a949a;font-size:.8rem"></div>';
+  html += '<div><label style="font-size:.75rem;color:#5a555a">DPS</label><br><input type="number" id="sim-dps" value="2" min="0" max="5" style="width:45px;padding:3px 6px;background:#0a080a;border:1px solid #2a2020;border-radius:4px;color:#9a949a;font-size:.8rem"></div>';
+  html += '<div><label style="font-size:.75rem;color:#5a555a">Healers</label><br><input type="number" id="sim-healers" value="1" min="0" max="5" style="width:45px;padding:3px 6px;background:#0a080a;border:1px solid #2a2020;border-radius:4px;color:#9a949a;font-size:.8rem"></div>';
+  html += '<div><label style="font-size:.75rem;color:#5a555a">Floor</label><br><input type="number" id="ab-ref-floor" value="' + refFloor + '" min="1" max="500" style="width:55px;padding:3px 6px;background:#0a080a;border:1px solid #2a2020;border-radius:4px;color:#9a949a;font-size:.8rem"></div>';
+  html += '<div><label style="font-size:.75rem;color:#5a555a">Rarity</label><br><select id="ab-rarity" style="padding:3px 6px;background:#0a080a;border:1px solid #2a2020;border-radius:4px;color:#9a949a;font-size:.8rem">';
   for (var ri = 0; ri < rarities.length; ri++) {
     var sel = rarities[ri] === refRarity ? ' selected' : '';
     html += '<option value="' + rarities[ri] + '"' + sel + '>' + rarities[ri] + '</option>';
   }
   html += '</select></div>';
-  html += '<div><button id="ab-btn" class="btn btn-primary btn-sm" style="padding:6px 16px;font-size:.8rem" onclick="autoBalanceMonsters()">Auto-Balance</button></div>';
-  html += '<div style="display:flex;align-items:center;gap:6px;margin-left:4px">';
-  html += '<input type="checkbox" id="ab-auto" style="accent-color:#6a623a" onchange="toggleAutoBalance()">';
-  html += '<label for="ab-auto" style="font-size:.75rem;color:#5a555a">Auto-apply</label>';
-  html += '</div>';
+  html += '<div><label style="font-size:.75rem;color:#5a555a">Target floor time (s)</label><br><input type="number" id="ab-target-time" value="60" min="5" max="600" step="5" oninput="updateAbFromTime()" style="width:60px;padding:3px 6px;background:#0a080a;border:1px solid #2a2020;border-radius:4px;color:#9a949a;font-size:.8rem"></div>';
   html += '</div>';
 
-  // Simulation controls
-  html += '<div style="display:flex;gap:12px;align-items:end;flex-wrap:wrap;margin-top:8px;padding-top:8px;border-top:1px solid #1a1518">';
-  html += '<div><label style="font-size:.75rem;color:#5a555a">Tanks</label><br><input type="number" id="sim-tanks" value="1" min="0" max="5" style="width:50px;padding:3px 6px;background:#0a080a;border:1px solid #2a2020;border-radius:4px;color:#9a949a;font-size:.8rem"></div>';
-  html += '<div><label style="font-size:.75rem;color:#5a555a">DPS</label><br><input type="number" id="sim-dps" value="2" min="0" max="5" style="width:50px;padding:3px 6px;background:#0a080a;border:1px solid #2a2020;border-radius:4px;color:#9a949a;font-size:.8rem"></div>';
-  html += '<div><label style="font-size:.75rem;color:#5a555a">Healers</label><br><input type="number" id="sim-healers" value="1" min="0" max="5" style="width:50px;padding:3px 6px;background:#0a080a;border:1px solid #2a2020;border-radius:4px;color:#9a949a;font-size:.8rem"></div>';
-  html += '<div style="padding-top:4px"><button class="btn btn-ghost btn-sm" onclick="runSimulation()">▶ Simulate Floor</button></div>';
+  // Controls row 2: auto-balance + auto-apply
+  html += '<div style="display:flex;gap:8px;align-items:center;margin-top:8px;flex-wrap:wrap">';
+  html += '<button class="btn btn-primary btn-sm" style="padding:6px 16px;font-size:.8rem" onclick="autoBalanceFromTime()">Apply Balance</button>';
+  html += '<label style="font-size:.75rem;color:#5a555a;display:flex;align-items:center;gap:4px"><input type="checkbox" id="ab-auto" style="accent-color:#6a623a" onchange="toggleAutoBalance()"> Auto-apply on gear change</label>';
+  html += '<button class="btn btn-ghost btn-sm" style="padding:4px 10px;font-size:.75rem" onclick="runSimulation()">▶ Simulate</button>';
   html += '</div>';
 
-  // Simulation result
-  html += '<div id="sim-result" style="margin-top:8px;font-size:.78rem;color:#5a555a;line-height:1.6"></div>';
-  html += '<div id="ab-estimate" style="margin-top:8px;font-size:.75rem;color:#5a555a">~' + Math.round(Math.max(3, currentHits) * msPerHit / 1000) + 's per trash mob · ~' + Math.round(Math.max(3, currentHits) * 5 * 1.5 * msPerHit / 1000) + 's per full floor (5 trash + boss)</div></div>';
+  // Estimate display
+  html += '<div id="ab-estimate" style="margin-top:8px;font-size:.78rem;color:#5a555a;line-height:1.6">';
+  html += '<span id="ab-result-text">Set target time and click Apply Balance</span>';
+  html += '</div></div>';
 
   // ── Grouped config sections ──
   var groups = [
@@ -3054,18 +3060,70 @@ function saveAdminConfig() {
   });
 }
 
-function updateAbEstimate() {
-  var hits = parseFloat(document.getElementById('ab-target-hits').value) || 6;
-  var anim = (ADMIN_CONFIG_CACHE && ADMIN_CONFIG_CACHE.ANIMATION) || {};
-  var ms = (anim.projectileMs || 350) + (anim.phaseGapMs || 200) * 2 + (anim.roundGapMs || 200) + 200;
-  var el = document.getElementById('ab-estimate');
-  if (el) el.textContent = '~' + Math.round(hits * ms / 1000) + 's per trash mob · ~' + Math.round(hits * 5 * 1.5 * ms / 1000) + 's per full floor (5 trash + boss)';
+function updateAbFromTime() {
+  if (!ADMIN_CONFIG_CACHE) return;
+  var cfg = ADMIN_CONFIG_CACHE;
+  var fse = cfg.FLOOR_SCALE_EXPONENT || 0.55;
+  var refFloor = parseFloat(document.getElementById('ab-ref-floor').value) || 50;
+  var targetSec = parseFloat(document.getElementById('ab-target-time').value) || 60;
+  var rarity = document.getElementById('ab-rarity').value || 'rare';
+  var rarityBonus = (cfg.RARITY_BONUS && cfg.RARITY_BONUS[rarity]) || 200;
+  var tanks = parseInt(document.getElementById('sim-tanks').value) || 0;
+  var dps = parseInt(document.getElementById('sim-dps').value) || 1;
+  var healers = parseInt(document.getElementById('sim-healers').value) || 0;
+  var partySize = tanks + dps + healers;
+  var anim = cfg.ANIMATION || {};
+  var msPerRound = (anim.projectileMs || 350) + (anim.phaseGapMs || 200) * 2 + (anim.roundGapMs || 200) + 200;
+  var totalMs = targetSec * 1000;
+  var combatMs = totalMs * 0.8;
+  var totalRounds = Math.round(combatMs / msPerRound);
+  var perPlayer = Math.max(0, partySize - 1);
+  var trashCount = (cfg.TRASH_BASE || 1) + (refFloor % 2) + perPlayer * (cfg.TRASH_PER_PLAYER || 1);
+  var bossCount = (cfg.BOSSES_BASE || 1) + perPlayer * (cfg.BOSSES_PER_PLAYER || 0);
+  var totalMonsters = trashCount + bossCount;
+  var effectiveDPS = Math.max(1, dps + tanks);
+  var roundsPerMonster = Math.round(totalRounds / totalMonsters * effectiveDPS / 2);
+  var weapBase = cfg.WEAPON_BASE_ATK || 700;
+  var weapPerB = cfg.WEAPON_ATK_PER_BRACKET || 300;
+  var heroAtk = weapBase + (refFloor / 10) * weapPerB + rarityBonus;
+  var monBaseDef = cfg.MONSTER_BASE_DEF || 5;
+  var monDef = monBaseDef * Math.pow(refFloor, fse);
+  var dmgPerRound = Math.max(1, heroAtk * 0.9 - monDef);
+  var targetMonHp = roundsPerMonster * dmgPerRound;
+  var scale = Math.pow(refFloor, fse);
+  var newBaseHp = Math.round(targetMonHp / scale);
+  if (newBaseHp < 1) newBaseHp = 1;
+  window._abComputed = { baseHp: newBaseHp, trashCount: trashCount, bossCount: bossCount, totalRounds: totalRounds, targetSec: targetSec };
+  var el = document.getElementById('ab-result-text');
+  if (el) el.innerHTML = 'Target: <b style="color:#9a949a">' + targetSec + 's</b> &middot; ~' + totalRounds + ' rounds &middot; ' + totalMonsters + ' monsters (' + trashCount + ' trash + ' + bossCount + ' boss)' + '<br>Required: <b style="color:#fbbf24">MONSTER_BASE_HP = ' + newBaseHp + '</b> &middot; monster HP at Lv' + refFloor + ': ~' + Math.round(targetMonHp);
+}
+
+function autoBalanceFromTime() {
+  if (!window._abComputed) updateAbFromTime();
+  var comp = window._abComputed;
+  if (!comp) return;
+  var tok = window.__INITIAL_TOKEN__ || localStorage.getItem('token') || '';
+  var status = document.getElementById('admin-status');
+  if (status) status.textContent = 'Applying balance...';
+  fetch('/api/admin/balancing', {
+    method: 'PUT',
+    headers: { 'Authorization': 'Bearer ' + tok, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ key: 'MONSTER_BASE_HP', value: comp.baseHp })
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(resp) {
+    if (resp.error) throw new Error(resp.error);
+    if (status) { status.textContent = 'MONSTER_BASE_HP set to ' + comp.baseHp + ' for ~' + comp.targetSec + 's floor time'; status.style.color = '#4ade80'; }
+    loadAdminConfig();
+  })
+  .catch(function(err) {
+    if (status) { status.textContent = 'Failed: ' + err.message; status.style.color = '#ef4444'; }
+  });
 }
 
 var AUTO_BALANCE_TIMER = null;
 
 function toggleAutoBalance() {
-  // Auto-apply will trigger on the next gear stat change via refreshGearPreview
   var cb = document.getElementById('ab-auto');
   if (cb && cb.checked && window.toast) toast('Auto-balance enabled — gear changes auto-tune monster HP', 'success');
 }
@@ -3223,7 +3281,8 @@ function triggerAutoBalance() {
   if (AUTO_BALANCE_TIMER) clearTimeout(AUTO_BALANCE_TIMER);
   AUTO_BALANCE_TIMER = setTimeout(function() {
     AUTO_BALANCE_TIMER = null;
-    autoBalanceMonsters();
+    updateAbFromTime();
+    autoBalanceFromTime();
   }, 800);
 }
 
