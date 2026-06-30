@@ -968,8 +968,8 @@ document.getElementById('stop-btn').addEventListener('click', function() {
   // Only stops auto-looping; does NOT skip the current cutscene
   if (isLooping) toggleLoop();
 });
-document.getElementById('admin-save-btn').addEventListener('click', window.saveAdminConfig);
-document.getElementById('admin-reset-btn').addEventListener('click', window.resetAdminConfig);
+var sb = document.getElementById('admin-save-btn'); if (sb) sb.addEventListener('click', window.saveAdminConfig);
+var rb = document.getElementById('admin-reset-btn'); if (rb) rb.addEventListener('click', window.resetAdminConfig);
 
 function loopRetry() {
   loopRetryCount++;

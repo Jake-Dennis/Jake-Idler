@@ -376,8 +376,8 @@
         <p style="color:#5a555a;font-size:.85rem;margin-bottom:16px">Changes apply immediately — no server restart needed.</p>
         <div id="admin-config"><p style="color:#3a373a">Loading config...</p></div>
         <div style="margin-top:16px;display:flex;gap:8px;align-items:center">
-          <button id="admin-save-btn" class="btn btn-primary btn-sm">Save All Changes</button>
-          <button id="admin-reset-btn" class="btn btn-ghost btn-sm">Reset to Defaults</button>
+          <button id="admin-save-btn" class="btn btn-primary btn-sm" onclick="window.saveAdminConfig()">Save All Changes</button>
+          <button id="admin-reset-btn" class="btn btn-ghost btn-sm" onclick="window.resetAdminConfig()">Reset to Defaults</button>
           <span id="admin-status" style="font-size:.8rem;color:#5a555a;margin-left:8px"></span>
         </div>
       </div>
