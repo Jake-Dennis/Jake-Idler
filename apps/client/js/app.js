@@ -3335,9 +3335,9 @@ function runSimulation() {
   var simGearLv = Math.ceil(refFloor / 10) * 10;
   var simBracket = Math.max(1, Math.ceil(refFloor / 10));
   var gearPower = Math.max(0, (simGearLv - 10) / 10);
-  var baseAtk = Math.round(weapBase + gearPower * 300 + rarityBonus);
-  var baseDef = Math.round(armorBase + gearPower * 300 + rarityBonus);
-  var baseHp = Math.round(accBase + gearPower * 300 + rarityBonus);
+  var baseAtk = Math.round(weapBase + gearPower * 300 + rarityBonus) * 2; // 2 weapon slots
+  var baseDef = Math.round(armorBase + gearPower * 300 + rarityBonus) * 5; // 5 armor slots
+  var baseHp = Math.round(accBase + gearPower * 300 + rarityBonus) * 5; // 5 accessory slots
 
   // Monster stats at reference floor
   var monBaseHp = cfg.MONSTER_BASE_HP || 1500;
