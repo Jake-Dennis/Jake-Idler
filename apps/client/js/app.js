@@ -3244,104 +3244,124 @@ function updateAbFromTime() {
   var refFloor = parseFloat(document.getElementById('ab-ref-floor').value) || 50;
   var targetSec = parseFloat(document.getElementById('ab-target-time').value) || 60;
   var failRate = (parseFloat(document.getElementById('ab-fail-rate').value) || 15) / 100;
-  // Solo DPS — that's the default balancing target
-  var tanks = 0, dps = 1, healers = 0, partySize = 1;
   var anim = cfg.ANIMATION || {};
   var msPerRound = (anim.projectileMs || 350) + (anim.phaseGapMs || 200) * 2 + (anim.roundGapMs || 200) + 200;
   var totalMs = targetSec * 1000;
   var combatMs = totalMs * 0.8;
   var totalRounds = Math.round(combatMs / msPerRound);
-  var perPlayer = Math.max(0, partySize - 1);
   var weapBase = cfg.WEAPON_BASE_ATK || 500;
   var armorBase = cfg.ARMOR_BASE_DEF || 50;
   var accBase = cfg.ACC_BASE_HP || 200;
-  // Survival factor: maps failure rate 0→1 to how many× longer hero can survive vs rounds needed
-  // 0% fail → hero lasts 3× as long as needed (very safe)
-  // 50% fail → hero lasts 1× (dies exactly when floor clears)
-  // 99% fail → hero lasts 0.35× (dies early)
   var survivalFactor = 3 - 2.65 * failRate;
   var baseHpVal = null, baseAtkVal = null, baseDefVal = null;
-  var brackets = [];
-  for (var bi = 1; bi <= 5; bi++) {
-    var bracketFloor = bi * 10;
-    var pos = bracketFloor % 10 || 10;
-    var rarity = 'common';
-    if (pos >= 6) rarity = 'rare';
-    else if (pos >= 1) rarity = pos <= 2 ? 'common' : 'uncommon';
-    var rarityBonus = (cfg.RARITY_BONUS && cfg.RARITY_BONUS[rarity]) || 0;
-    var bracketPower = Math.max(0, ((bi * 10) - 10) / 10);
-    var heroAtk = Math.round(weapBase + bracketPower * 300 + rarityBonus) * 2;
-    var heroDef = Math.round(armorBase + bracketPower * 300 + rarityBonus) * 5;
-    var heroHp = Math.round(accBase + bracketPower * 300 + rarityBonus) * 5;
-    var trashCount = (cfg.TRASH_BASE || 1) + (bracketFloor % 2) + perPlayer * (cfg.TRASH_PER_PLAYER || 0);
-    var bossCount = (cfg.BOSSES_BASE || 1) + perPlayer * (cfg.BOSSES_PER_PLAYER || 0);
-    var totalMonsters = trashCount + bossCount;
-    // HP: hero kills all monsters in totalRounds
-    var roundsPerMonster = Math.round(totalRounds / totalMonsters * 1 / 2);
-    var dmgPerHit = Math.max(1, heroAtk * 0.9);
-    var targetMonHp = roundsPerMonster * dmgPerHit;
-    var newBaseHp = Math.round(targetMonHp / bi);
-    if (baseHpVal === null) baseHpVal = newBaseHp;
-    // ATK: monster damage via ATK/(ATK+DEF) ratio formula
-    // Expected monster hit = (1 + ratio*9) * 1.1 due to 10% crit ×2
-    var desiredDmgPerRound = heroHp / (totalRounds * survivalFactor);
-    var monHitsPerRound = Math.min(3, totalMonsters); // monsters swarm one target
-    var desiredPerMon = desiredDmgPerRound / monHitsPerRound;
-    desiredPerMon = Math.max(1.2, Math.min(10.9, desiredPerMon));
-    var k = (desiredPerMon - 1.1) / 9.9;
-    var monAtk = Math.round(heroDef * k / (1 - k));
-    if (!isFinite(monAtk) || monAtk < 1) monAtk = 1;
-    var newBaseAtk = Math.round(monAtk / bi);
-    if (baseAtkVal === null) baseAtkVal = newBaseAtk;
-    // DEF: reduce hero damage by ~5%
-    var targetMonDef = Math.round(heroAtk * 0.05);
-    var newBaseDef = Math.round(targetMonDef / bi);
-    if (newBaseDef < 1) newBaseDef = 1;
-    if (baseDefVal === null) baseDefVal = newBaseDef;
-    brackets.push({
-      bracket: bi, floorRange: ((bi-1)*10+1) + '-' + (bi*10),
-      heroAtk: heroAtk, heroDef: heroDef, heroHp: heroHp,
-      monHp: newBaseHp * bi, monAtk: newBaseAtk * bi, monDef: newBaseDef * bi,
-      rarity: rarity
-    });
-  }
+
+  // Compute base values from the reference floor bracket
+  var refBi = Math.ceil(refFloor / 10);
+  var refPos = ((refFloor - 1) % 10) + 1;
+  var refRarity = refPos <= 2 ? 'common' : refPos <= 5 ? 'uncommon' : 'rare';
+  var refRarityBonus = (cfg.RARITY_BONUS && cfg.RARITY_BONUS[refRarity]) || 0;
+  var refPower = Math.max(0, (refBi * 10 - 10) / 10);
+  var refHeroAtk = Math.round(weapBase + refPower * 300 + refRarityBonus) * 2;
+  var refHeroDef = Math.round(armorBase + refPower * 300 + refRarityBonus) * 5;
+  var refHeroHp = Math.round(accBase + refPower * 300 + refRarityBonus) * 5;
+  var refTrash = (cfg.TRASH_BASE || 1) + (refFloor % 2);
+  var refBoss = (cfg.BOSSES_BASE || 1);
+  var refMobs = refTrash + refBoss;
+  var refDmgPerHit = Math.max(1, refHeroAtk * 0.9);
+  var refRoundsPerMonster = Math.round(totalRounds / refMobs / 2);
+  baseHpVal = Math.round(refRoundsPerMonster * refDmgPerHit / refBi);
+  // ATK from failure rate
+  var refDmgPerRound = refHeroHp / (totalRounds * survivalFactor);
+  var refPerMon = Math.max(1.2, Math.min(10.9, refDmgPerRound / Math.min(3, refMobs)));
+  var k = (refPerMon - 1.1) / 9.9;
+  var refMonAtk = Math.round(refHeroDef * k / (1 - k));
+  if (!isFinite(refMonAtk) || refMonAtk < 1) refMonAtk = 1;
+  baseAtkVal = Math.round(refMonAtk / refBi);
+  baseDefVal = Math.max(1, Math.round(refHeroAtk * 0.05 / refBi));
+
   window._abComputed = { baseHp: baseHpVal, baseAtk: baseAtkVal, baseDef: baseDefVal };
   var el = document.getElementById('ab-estimate');
   if (!el) return;
-  var html = '<table style="width:100%;border-collapse:collapse;font-size:.7rem;color:#9a949a;margin-top:4px">';
-  html += '<thead><tr style="color:#5a555a;border-bottom:1px solid #2a2020">';
-  html += '<th style="text-align:left;padding:2px 4px">Floor</th>';
-  html += '<th style="text-align:left;padding:2px 4px">Rarity</th>';
-  html += '<th style="text-align:right;padding:2px 4px">Hero ATK</th>';
-  html += '<th style="text-align:right;padding:2px 4px">Hero DEF</th>';
-  html += '<th style="text-align:right;padding:2px 4px">Hero HP</th>';
-  html += '<th style="text-align:right;padding:2px 4px;color:#f87171">Mon ATK</th>';
-  html += '<th style="text-align:right;padding:2px 4px;color:#60a5fa">Mon DEF</th>';
-  html += '<th style="text-align:right;padding:2px 4px;color:#fbbf24">Mon HP</th>';
-  html += '<th style="text-align:right;padding:2px 4px">Est. time</th>';
-  html += '<th style="text-align:right;padding:2px 4px">Rounds</th>';
-  html += '</tr></thead><tbody>';
-  for (var i = 0; i < brackets.length; i++) {
-    var b = brackets[i];
-    var bTargetSec = Math.round(totalRounds * msPerRound / 1000);
-    html += '<tr' + (i % 2 === 1 ? ' style="background:#0a080a"' : '') + '>';
-    html += '<td style="padding:2px 4px">' + b.floorRange + '</td>';
-    html += '<td style="padding:2px 4px">' + b.rarity + '</td>';
-    html += '<td style="text-align:right;padding:2px 4px">' + b.heroAtk.toLocaleString() + '</td>';
-    html += '<td style="text-align:right;padding:2px 4px">' + b.heroDef.toLocaleString() + '</td>';
-    html += '<td style="text-align:right;padding:2px 4px">' + b.heroHp.toLocaleString() + '</td>';
-    html += '<td style="text-align:right;padding:2px 4px;color:#f87171">' + b.monAtk.toLocaleString() + '</td>';
-    html += '<td style="text-align:right;padding:2px 4px;color:#60a5fa">' + b.monDef.toLocaleString() + '</td>';
-    html += '<td style="text-align:right;padding:2px 4px;color:#fbbf24">' + b.monHp.toLocaleString() + '</td>';
-    html += '<td style="text-align:right;padding:2px 4px">' + bTargetSec + 's</td>';
-    html += '<td style="text-align:right;padding:2px 4px">' + totalRounds + '</td>';
-    html += '</tr>';
+
+  // Preview: what the difficulty curve will look like with these base values at each floor
+  var floorList = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 25, 30, 35, 40, 45, 50];
+  var rarities = ['common', 'uncommon', 'rare'];
+  var prevHtml = '';
+  var matchCount = 0, totalCount = floorList.length;
+  for (var fi = 0; fi < floorList.length; fi++) {
+    var fl = floorList[fi];
+    var pos = ((fl - 1) % 10) + 1;
+    var mix = { common: 0, uncommon: 0, rare: 0 };
+    mix.common = Math.max(0, 14 - pos * 2);
+    if (pos <= 5) { mix.uncommon = (pos - 1) * 2; }
+    else if (pos === 6) { mix.uncommon = 9; mix.rare = 1; }
+    else if (pos === 7) { mix.uncommon = 9; mix.rare = 3; }
+    else if (pos === 8) { mix.uncommon = 6; mix.rare = 6; }
+    else if (pos === 9) { mix.uncommon = 3; mix.rare = 9; }
+    else { mix.rare = 12; }
+    var bi = Math.ceil(fl / 10);
+    var bracketLv = bi * 10;
+    var power = Math.max(0, (bracketLv - 10) / 10);
+    var totalAtk = 0, totalDef = 0, totalHp = 0;
+    for (var ri = 0; ri < rarities.length; ri++) {
+      var r = rarities[ri];
+      var rb = (cfg.RARITY_BONUS && cfg.RARITY_BONUS[r]) || 0;
+      var rCount = mix[r] || 0;
+      if (rCount > 0) {
+        totalAtk += rCount * Math.round(weapBase + power * 300 + rb);
+        totalDef += rCount * Math.round(armorBase + power * 300 + rb);
+        totalHp += rCount * Math.round(accBase + power * 300 + rb);
+      }
+    }
+    var hAtk = Math.round(totalAtk / 12) * 2;
+    var hDef = Math.round(totalDef / 12) * 5;
+    var hHp = Math.round(totalHp / 12) * 5;
+    var mHp = baseHpVal * bi;
+    var mAtk = baseAtkVal * bi;
+    var mDef = baseDefVal * bi;
+    // Predicted clear: rounds = mHp / max(1, hAtk - mDef) per monster, times monsters
+    var dmgPerHit = Math.max(1, hAtk * 0.9 - mDef);
+    var trash = (cfg.TRASH_BASE || 1) + (fl % 2);
+    var boss = (cfg.BOSSES_BASE || 1);
+    var totalMobs = trash + boss;
+    var hitsToKill = Math.ceil(mHp / dmgPerHit);
+    var totalHits = hitsToKill * totalMobs;
+    var clearRounds = Math.ceil(totalHits / 1); // solo DPS hits once per round
+    var clearTimeSec = Math.round(clearRounds * msPerRound / 1000);
+    // Predicted survive: monster swarm damage vs hero HP
+    var ratio = mAtk / (mAtk + hDef);
+    var baseMonDmg = 1 + ratio * 9;
+    var expectedMonDmg = baseMonDmg * 1.1; // 10% crit ×2
+    var swarmDmgPerRound = Math.min(3, totalMobs) * expectedMonDmg;
+    var roundsToDie = Math.ceil(hHp / swarmDmgPerRound);
+    var survives = roundsToDie > clearRounds;
+    var color = survives ? '#4ade80' : '#f87171';
+    var outcome = survives ? '✓' : '✗';
+    prevHtml += '<tr' + (fi % 2 === 1 ? ' style="background:#0a080a"' : '') + '>';
+    prevHtml += '<td style="padding:1px 4px;color:#5a555a">' + fl + '</td>';
+    prevHtml += '<td style="text-align:right;padding:1px 4px">' + clearTimeSec + 's</td>';
+    prevHtml += '<td style="text-align:right;padding:1px 4px">' + clearRounds + '</td>';
+    prevHtml += '<td style="text-align:right;padding:1px 4px">' + roundsToDie + '</td>';
+    prevHtml += '<td style="text-align:right;padding:1px 4px;color:' + color + ';font-weight:700">' + outcome + '</td>';
+    prevHtml += '</tr>';
+    if (survives === (failRate < 0.5)) matchCount++;
   }
-  html += '</tbody></table>';
-  html += '<div style="margin-top:4px;font-size:.7rem;color:#5a555a">';
-  html += 'Base: <b style="color:#fbbf24">MONSTER_BASE_HP = ' + baseHpVal + '</b> &middot; <b style="color:#f87171">MONSTER_BASE_ATK = ' + baseAtkVal + '</b> &middot; <b style="color:#60a5fa">MONSTER_BASE_DEF = ' + baseDefVal + '</b>';
-  html += ' &middot; Fail rate: <b>' + Math.round(failRate * 100) + '%</b>';
-  html += '</div>';
+
+  var summaryColor = matchCount / totalCount >= 0.7 ? '#4ade80' : matchCount / totalCount >= 0.4 ? '#fbbf24' : '#f87171';
+  var html = '<div style="margin-bottom:6px;font-size:.75rem;color:#5a555a;line-height:1.6">';
+  html += '<b style="color:#fbbf24">MONSTER_BASE_HP = ' + baseHpVal + '</b> &middot; <b style="color:#f87171">MONSTER_BASE_ATK = ' + baseAtkVal + '</b> &middot; <b style="color:#60a5fa">MONSTER_BASE_DEF = ' + baseDefVal + '</b>';
+  html += '<br>Fail rate: <b>' + Math.round(failRate * 100) + '%</b> &middot; Survival factor: <b>' + survivalFactor.toFixed(2) + '×</b>';
+  html += ' &middot; Curve match: <b style="color:' + summaryColor + '">' + Math.round(matchCount / totalCount * 100) + '%</b></div>';
+
+  html += '<div style="max-height:200px;overflow-y:auto;border:1px solid #1a1518;border-radius:4px">';
+  html += '<table style="width:100%;border-collapse:collapse;font-size:.65rem">';
+  html += '<thead><tr style="color:#5a555a;border-bottom:1px solid #2a2020;position:sticky;top:0;background:#080608">';
+  html += '<th style="text-align:left;padding:2px 4px">Fl</th>';
+  html += '<th style="text-align:right;padding:2px 4px">Clear</th>';
+  html += '<th style="text-align:right;padding:2px 4px">Rnd</th>';
+  html += '<th style="text-align:right;padding:2px 4px">Die</th>';
+  html += '<th style="text-align:right;padding:2px 4px">?</th>';
+  html += '</tr></thead><tbody>' + prevHtml + '</tbody></table></div>';
   el.innerHTML = html;
 }
 
