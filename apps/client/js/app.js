@@ -2906,14 +2906,18 @@ function renderAdminConfig(config) {
     var flTrash = (config.TRASH_BASE || 1) + (fl % 2) + perPlayer * (config.TRASH_PER_PLAYER || 1);
     var flBoss = (config.BOSSES_BASE || 1) + perPlayer * (config.BOSSES_PER_PLAYER || 0);
     var totalEnemies = flTrash + flBoss;
+    var totalRounds = hits * totalEnemies;
+    var estSec = Math.round(totalRounds * 1.2 / 60);
+    var resultColor = hits <= 10 ? '#4ade80' : hits <= 20 ? '#fbbf24' : '#ef4444';
+    var estColor = estSec <= 3 ? '#4ade80' : estSec <= 6 ? '#fbbf24' : '#ef4444';
     tableRows += '<tr id="dc-' + fl + '" style="border-bottom:1px solid #0a080a">' +
       '<td style="padding:3px 6px;font-weight:600">' + fl + '</td>' +
       '<td style="padding:3px 6px;font-size:.7rem" id="dc-gear-' + fl + '">' + mixDisplay.join('<br>') + '</td>' +
       '<td style="padding:3px 6px;text-align:right" id="dc-atk-' + fl + '">' + avgAtk + '</td>' +
       '<td style="padding:3px 6px;text-align:right;color:#5a555a" id="dc-hero-hp-' + fl + '">' + avgHp + '</td>' +
       '<td style="padding:3px 6px;text-align:right" id="dc-mon-hp-' + fl + '">' + Math.round(eHp) + '</td>' +
-      '<td style="padding:3px 6px;text-align:right;font-weight:700" id="dc-result-' + fl + '">' + hits + 'h</td>' +
-      '<td style="padding:3px 6px;text-align:right;color:#5a555a" id="dc-time-' + fl + '">~' + Math.round(hits * totalEnemies * 1.2 / 60) + 'm</td>' +
+      '<td style="padding:3px 6px;text-align:right;font-weight:700;color:' + resultColor + '" id="dc-result-' + fl + '">' + hits + '</td>' +
+      '<td style="padding:3px 6px;text-align:right;color:' + estColor + '" id="dc-time-' + fl + '">~' + estSec + 'm</td>' +
       '</tr>';
   }
   html += '<div style="margin-bottom:16px;border:1px solid #1a1518;border-radius:4px;padding:12px;background:#080608">';
@@ -3086,43 +3090,6 @@ function renderAdminConfig(config) {
   html += '</div></details>';
 
   container.innerHTML = html;
-
-  // Run difficulty curve simulations asynchronously
-  var dcFloors = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 25, 30, 35, 40, 45, 50];
-  var dcIdx = 0;
-  function runNextDcSim() {
-    if (dcIdx >= dcFloors.length) return;
-    var fl = dcFloors[dcIdx];
-    // Temporarily set the floor input and run simulation
-    var floorInput = document.getElementById('ab-ref-floor');
-    if (floorInput) {
-      var prevVal = floorInput.value;
-      floorInput.value = fl;
-      var simResult = document.getElementById('sim-result');
-      var prevHtml = simResult ? simResult.innerHTML : '';
-      var prevLabel = document.querySelector('#ab-estimate, #ab-result-text');
-      runSimulation();
-      // Read result from sim-result
-      if (simResult) {
-        var text = simResult.textContent || '';
-        var winMatch = text.match(/(\d+)%/);
-        var roundMatch = text.match(/avg (\d+) rounds/);
-        var resultEl = document.getElementById('dc-result-' + fl);
-        if (resultEl) {
-          var winRate = winMatch ? parseInt(winMatch[1]) : 0;
-          var rounds = roundMatch ? parseInt(roundMatch[1]) : 0;
-          var color = winRate >= 80 ? '#4ade80' : winRate >= 50 ? '#fbbf24' : '#ef4444';
-          resultEl.textContent = winRate + '% / ' + rounds + 'r';
-          resultEl.style.color = color;
-        }
-      }
-      floorInput.value = prevVal;
-      dcIdx++;
-      setTimeout(runNextDcSim, 10);
-    }
-  }
-  setTimeout(runNextDcSim, 100);
-}
 
 function saveAdminConfig() {
   if (!ADMIN_CONFIG_CACHE) return;
