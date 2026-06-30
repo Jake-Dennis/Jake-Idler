@@ -3350,47 +3350,4 @@ function resetAdminConfig() {
     if (status) { status.textContent = 'Failed: ' + err.message; status.style.color = '#ef4444'; }
   });
 }
-
-function autoBalanceMonsters() {
-  var targetHits = parseFloat(document.getElementById('ab-target-hits').value);
-  var refFloor = parseFloat(document.getElementById('ab-ref-floor').value);
-  var rarity = document.getElementById('ab-rarity').value;
-  if (!targetHits || !refFloor) return;
-  if (!ADMIN_CONFIG_CACHE) return;
-
-  var cfg = ADMIN_CONFIG_CACHE;
-  var fse = cfg.FLOOR_SCALE_EXPONENT || 0.55;
-  var weapBase = cfg.WEAPON_BASE_ATK || 700;
-  var weapPerBracket = cfg.WEAPON_ATK_PER_BRACKET || 300;
-  var bonus = (cfg.RARITY_BONUS && cfg.RARITY_BONUS[rarity]) || 0;
-  var monBaseDef = cfg.MONSTER_BASE_DEF || 5;
-
-  var heroAtk = weapBase + (refFloor / 10) * weapPerBracket + bonus;
-  var monDef = monBaseDef * Math.pow(refFloor, fse);
-  var effDmg = Math.max(1, heroAtk - monDef);
-
-  // MONSTER_BASE_HP * floor^fse = targetHits * effDmg
-  // MONSTER_BASE_HP = targetHits * effDmg / floor^fse
-  var newBaseHp = Math.round(targetHits * effDmg / Math.pow(refFloor, fse));
-
-  if (newBaseHp < 1) { toast('Calculated HP too low (' + newBaseHp + '), increase target hits', 'error'); return; }
-
-  var status = document.getElementById('admin-status');
-  if (status) status.textContent = 'Auto-balancing...';
-  var tok = window.__INITIAL_TOKEN__ || localStorage.getItem('token') || '';
-  fetch('/api/admin/balancing', {
-    method: 'PUT',
-    headers: { 'Authorization': 'Bearer ' + tok, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ key: 'MONSTER_BASE_HP', value: newBaseHp })
-  })
-  .then(function(r) { return r.json(); })
-  .then(function(resp) {
-    if (resp.error) throw new Error(resp.error);
-    if (status) { status.textContent = 'MONSTER_BASE_HP set to ' + newBaseHp + ' (~' + targetHits + ' hits at Lv' + refFloor + ' ' + rarity + ')'; status.style.color = '#4ade80'; }
-    loadAdminConfig();
-  })
-  .catch(function(err) {
-    if (status) { status.textContent = 'Failed: ' + err.message; status.style.color = '#ef4444'; }
-  });
-}
 })();
