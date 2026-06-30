@@ -2680,6 +2680,7 @@ document.getElementById('hero-photo-input').addEventListener('change', function(
   window.autoBalanceMonsters = autoBalanceMonsters;
   window.refreshGearPreview = refreshGearPreview;
   window.updateAbEstimate = updateAbEstimate;
+  window.toggleAutoBalance = toggleAutoBalance;
   })();
 }
 
@@ -2818,6 +2819,10 @@ function renderAdminConfig(config) {
   }
   html += '</select></div>';
   html += '<div><button id="ab-btn" class="btn btn-primary btn-sm" style="padding:6px 16px;font-size:.8rem" onclick="autoBalanceMonsters()">Auto-Balance</button></div>';
+  html += '<div style="display:flex;align-items:center;gap:6px;margin-left:4px">';
+  html += '<input type="checkbox" id="ab-auto" style="accent-color:#6a623a" onchange="toggleAutoBalance()">';
+  html += '<label for="ab-auto" style="font-size:.75rem;color:#5a555a">Auto-apply</label>';
+  html += '</div>';
   html += '</div>';
   html += '<div id="ab-estimate" style="margin-top:8px;font-size:.75rem;color:#5a555a">~' + Math.round(Math.max(3, currentHits) * msPerHit / 1000) + 's per trash mob · ~' + Math.round(Math.max(3, currentHits) * 5 * 1.5 * msPerHit / 1000) + 's per full floor (5 trash + boss)</div></div>';
 
@@ -3045,6 +3050,24 @@ function updateAbEstimate() {
   if (el) el.textContent = '~' + Math.round(hits * ms / 1000) + 's per trash mob · ~' + Math.round(hits * 5 * 1.5 * ms / 1000) + 's per full floor (5 trash + boss)';
 }
 
+var AUTO_BALANCE_TIMER = null;
+
+function toggleAutoBalance() {
+  // Auto-apply will trigger on the next gear stat change via refreshGearPreview
+  var cb = document.getElementById('ab-auto');
+  if (cb && cb.checked && window.toast) toast('Auto-balance enabled — gear changes auto-tune monster HP', 'success');
+}
+
+function triggerAutoBalance() {
+  var cb = document.getElementById('ab-auto');
+  if (!cb || !cb.checked) return;
+  if (AUTO_BALANCE_TIMER) clearTimeout(AUTO_BALANCE_TIMER);
+  AUTO_BALANCE_TIMER = setTimeout(function() {
+    AUTO_BALANCE_TIMER = null;
+    autoBalanceMonsters();
+  }, 800);
+}
+
 function refreshGearPreview() {
   var gearCats = [
     { baseId: 'admin-WEAPON_BASE_ATK', perId: 'admin-WEAPON_ATK_PER_BRACKET' },
@@ -3088,6 +3111,7 @@ function refreshGearPreview() {
       div.textContent = txt;
     }
   }
+  triggerAutoBalance();
 }
 
 function resetAdminConfig() {
