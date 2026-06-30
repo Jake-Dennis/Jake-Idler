@@ -2679,6 +2679,7 @@ document.getElementById('hero-photo-input').addEventListener('change', function(
   window.resetAdminConfig = resetAdminConfig;
   window.autoBalanceMonsters = autoBalanceMonsters;
   window.refreshGearPreview = refreshGearPreview;
+  window.updateAbEstimate = updateAbEstimate;
   })();
 }
 
@@ -2805,7 +2806,7 @@ function renderAdminConfig(config) {
 
   // Controls
   html += '<div style="display:flex;gap:12px;align-items:end;flex-wrap:wrap">';
-  html += '<div><label style="font-size:.75rem;color:#5a555a">Target hits</label><br><input type="number" id="ab-target-hits" value="' + Math.max(3, currentHits) + '" min="1" max="100" style="width:70px;padding:4px 8px;background:#0a080a;border:1px solid #2a2020;border-radius:4px;color:#9a949a;font-size:.85rem"></div>';
+  html += '<div><label style="font-size:.75rem;color:#5a555a">Target hits</label><br><input type="number" id="ab-target-hits" value="' + Math.max(3, currentHits) + '" min="1" max="100" oninput="updateAbEstimate()" style="width:70px;padding:4px 8px;background:#0a080a;border:1px solid #2a2020;border-radius:4px;color:#9a949a;font-size:.85rem"></div>';
   html += '<div><label style="font-size:.75rem;color:#5a555a">Reference floor</label><br><input type="number" id="ab-ref-floor" value="' + refFloor + '" min="1" max="500" style="width:70px;padding:4px 8px;background:#0a080a;border:1px solid #2a2020;border-radius:4px;color:#9a949a;font-size:.85rem"></div>';
   html += '<div><label style="font-size:.75rem;color:#5a555a">Rarity</label><br><select id="ab-rarity" style="padding:4px 8px;background:#0a080a;border:1px solid #2a2020;border-radius:4px;color:#9a949a;font-size:.85rem">';
   for (var ri = 0; ri < rarities.length; ri++) {
@@ -2814,7 +2815,8 @@ function renderAdminConfig(config) {
   }
   html += '</select></div>';
   html += '<div><button id="ab-btn" class="btn btn-primary btn-sm" style="padding:6px 16px;font-size:.8rem" onclick="autoBalanceMonsters()">Auto-Balance</button></div>';
-  html += '</div></div>';
+  html += '</div>';
+  html += '<div id="ab-estimate" style="margin-top:8px;font-size:.75rem;color:#5a555a">~' + Math.max(3, currentHits) + 's per trash mob · ~' + Math.round(Math.max(3, currentHits) * 5 * 1.5) + 's per full floor (5 trash + boss)</div></div>';
 
   // ── Other config keys (exclude gear keys already rendered) ──
   var gearKeys = ['WEAPON_BASE_ATK','WEAPON_ATK_PER_BRACKET','ARMOR_BASE_DEF','ARMOR_DEF_PER_BRACKET','ACC_BASE_HP','ACC_HP_PER_BRACKET','RARITY_BONUS'];
@@ -2907,6 +2909,12 @@ function saveAdminConfig() {
   .catch(function(err) {
     if (status) { status.textContent = 'Failed: ' + err.message; status.style.color = '#ef4444'; }
   });
+}
+
+function updateAbEstimate() {
+  var hits = parseFloat(document.getElementById('ab-target-hits').value) || 6;
+  var el = document.getElementById('ab-estimate');
+  if (el) el.textContent = '~' + hits + 's per trash mob · ~' + Math.round(hits * 5 * 1.5) + 's per full floor (5 trash + boss)';
 }
 
 function refreshGearPreview() {
