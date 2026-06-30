@@ -2681,6 +2681,7 @@ document.getElementById('hero-photo-input').addEventListener('change', function(
   window.refreshGearPreview = refreshGearPreview;
   window.updateAbEstimate = updateAbEstimate;
   window.toggleAutoBalance = toggleAutoBalance;
+  window.runSimulation = runSimulation;
   })();
 }
 
@@ -2824,6 +2825,17 @@ function renderAdminConfig(config) {
   html += '<label for="ab-auto" style="font-size:.75rem;color:#5a555a">Auto-apply</label>';
   html += '</div>';
   html += '</div>';
+
+  // Simulation controls
+  html += '<div style="display:flex;gap:12px;align-items:end;flex-wrap:wrap;margin-top:8px;padding-top:8px;border-top:1px solid #1a1518">';
+  html += '<div><label style="font-size:.75rem;color:#5a555a">Tanks</label><br><input type="number" id="sim-tanks" value="1" min="0" max="5" style="width:50px;padding:3px 6px;background:#0a080a;border:1px solid #2a2020;border-radius:4px;color:#9a949a;font-size:.8rem"></div>';
+  html += '<div><label style="font-size:.75rem;color:#5a555a">DPS</label><br><input type="number" id="sim-dps" value="2" min="0" max="5" style="width:50px;padding:3px 6px;background:#0a080a;border:1px solid #2a2020;border-radius:4px;color:#9a949a;font-size:.8rem"></div>';
+  html += '<div><label style="font-size:.75rem;color:#5a555a">Healers</label><br><input type="number" id="sim-healers" value="1" min="0" max="5" style="width:50px;padding:3px 6px;background:#0a080a;border:1px solid #2a2020;border-radius:4px;color:#9a949a;font-size:.8rem"></div>';
+  html += '<div style="padding-top:4px"><button class="btn btn-ghost btn-sm" onclick="runSimulation()">▶ Simulate Floor</button></div>';
+  html += '</div>';
+
+  // Simulation result
+  html += '<div id="sim-result" style="margin-top:8px;font-size:.78rem;color:#5a555a;line-height:1.6"></div>';
   html += '<div id="ab-estimate" style="margin-top:8px;font-size:.75rem;color:#5a555a">~' + Math.round(Math.max(3, currentHits) * msPerHit / 1000) + 's per trash mob · ~' + Math.round(Math.max(3, currentHits) * 5 * 1.5 * msPerHit / 1000) + 's per full floor (5 trash + boss)</div></div>';
 
   // ── Grouped config sections ──
@@ -3056,6 +3068,153 @@ function toggleAutoBalance() {
   // Auto-apply will trigger on the next gear stat change via refreshGearPreview
   var cb = document.getElementById('ab-auto');
   if (cb && cb.checked && window.toast) toast('Auto-balance enabled — gear changes auto-tune monster HP', 'success');
+}
+
+function runSimulation() {
+  if (!ADMIN_CONFIG_CACHE) return;
+  var cfg = ADMIN_CONFIG_CACHE;
+  var fse = cfg.FLOOR_SCALE_EXPONENT || 0.55;
+  var rarity = document.getElementById('ab-rarity').value || 'rare';
+  var refFloor = parseFloat(document.getElementById('ab-ref-floor').value) || 50;
+  var rarityBonus = (cfg.RARITY_BONUS && cfg.RARITY_BONUS[rarity]) || 200;
+  var tanks = parseInt(document.getElementById('sim-tanks').value) || 0;
+  var dps = parseInt(document.getElementById('sim-dps').value) || 1;
+  var healers = parseInt(document.getElementById('sim-healers').value) || 0;
+  var partySize = tanks + dps + healers;
+  if (partySize < 1) { document.getElementById('sim-result').textContent = 'Need at least 1 hero'; return; }
+
+  // Gear stats per hero at reference floor with this rarity
+  var weapBase = cfg.WEAPON_BASE_ATK || 700;
+  var weapPerB = cfg.WEAPON_ATK_PER_BRACKET || 300;
+  var armorBase = cfg.ARMOR_BASE_DEF || 700;
+  var armorPerB = cfg.ARMOR_DEF_PER_BRACKET || 300;
+  var accBase = cfg.ACC_BASE_HP || 700;
+  var accPerB = cfg.ACC_HP_PER_BRACKET || 300;
+  var baseAtk = weapBase + (refFloor / 10) * weapPerB + rarityBonus;
+  var baseDef = armorBase + (refFloor / 10) * armorPerB + rarityBonus;
+  var baseHp = accBase + (refFloor / 10) * accPerB + rarityBonus;
+
+  // Monster stats at reference floor
+  var monBaseHp = cfg.MONSTER_BASE_HP || 1500;
+  var monBaseDef = cfg.MONSTER_BASE_DEF || 5;
+  var monBaseAtk = cfg.MONSTER_BASE_ATK || 50;
+  var bAtkM = cfg.BOSS_ATK_MULTIPLIER || 2;
+  var bHpM = cfg.BOSS_HP_MULTIPLIER || 2;
+
+  // Build party
+  var heroes = [];
+  for (var i = 0; i < tanks; i++) heroes.push({ role: 'tank', atk: Math.round(baseAtk * 0.7), def: Math.round(baseDef * 1.5), hp: Math.round(baseHp * 1.5), maxHp: Math.round(baseHp * 1.5), alive: true });
+  for (var i = 0; i < dps; i++) heroes.push({ role: 'dps', atk: Math.round(baseAtk * 1.0), def: Math.round(baseDef * 0.7), hp: Math.round(baseHp * 0.7), maxHp: Math.round(baseHp * 0.7), alive: true });
+  for (var i = 0; i < healers; i++) heroes.push({ role: 'healer', atk: Math.round(baseAtk * 0.5), def: Math.round(baseDef * 0.5), hp: Math.round(baseHp * 0.7), maxHp: Math.round(baseHp * 0.7), alive: true });
+
+  var trials = 20;
+  var totalRounds = 0;
+  var wins = 0;
+  var totalSurvivors = 0;
+
+  for (var t = 0; t < trials; t++) {
+    // Reset heroes
+    for (var hi = 0; hi < heroes.length; hi++) {
+      heroes[hi].hp = heroes[hi].maxHp;
+      heroes[hi].alive = true;
+    }
+
+    // Determine trash count for this floor
+    var perPlayer = Math.max(0, partySize - 1);
+    var trashCount = (cfg.TRASH_BASE || 1) + (refFloor % 2) + perPlayer * (cfg.TRASH_PER_PLAYER || 1);
+    var bossCount = (cfg.BOSSES_BASE || 1) + perPlayer * (cfg.BOSSES_PER_PLAYER || 0);
+
+    // Build monster queue
+    var scale = Math.pow(refFloor, fse);
+    var monsters = [];
+    for (var mi = 0; mi < trashCount; mi++) {
+      monsters.push({ hp: Math.round(monBaseHp * scale), maxHp: Math.round(monBaseHp * scale), def: Math.round(monBaseDef * scale), atk: Math.round(monBaseAtk * scale), isBoss: false, alive: true });
+    }
+    for (var bi = 0; bi < bossCount; bi++) {
+      monsters.push({ hp: Math.round(monBaseHp * scale * bHpM), maxHp: Math.round(monBaseHp * scale * bHpM), def: Math.round(monBaseDef * scale * bAtkM), atk: Math.round(monBaseAtk * scale * bAtkM), isBoss: true, alive: true });
+    }
+
+    var rounds = 0;
+    var currentMonsterIdx = 0;
+    var anyHeroAlive = function() { for (var hi = 0; hi < heroes.length; hi++) { if (heroes[hi].alive) return true; } return false; };
+
+    while (currentMonsterIdx < monsters.length && anyHeroAlive()) {
+      var mon = monsters[currentMonsterIdx];
+      rounds++;
+
+      // 1. Healers heal
+      for (var hi = 0; hi < heroes.length; hi++) {
+        var h = heroes[hi];
+        if (!h.alive || h.role !== 'healer') continue;
+        var lowest = null;
+        for (var hi2 = 0; hi2 < heroes.length; hi2++) {
+          if (!heroes[hi2].alive) continue;
+          if (!lowest || (heroes[hi2].hp / heroes[hi2].maxHp) < (lowest.hp / lowest.maxHp)) lowest = heroes[hi2];
+        }
+        if (lowest && lowest.hp < lowest.maxHp) {
+          var healAmt = Math.round(h.atk * (0.8 + Math.random() * 0.4));
+          var variance = 0.8 + Math.random() * 0.4;
+          lowest.hp = Math.min(lowest.maxHp, lowest.hp + Math.round(h.atk * variance));
+        }
+      }
+
+      // 2. DPS attack monster
+      var critChance = cfg.CRIT_CHANCE || 0.1;
+      var critMult = cfg.CRIT_MULTIPLIER || 1.5;
+      for (var hi = 0; hi < heroes.length; hi++) {
+        var h = heroes[hi];
+        if (!h.alive || h.role === 'healer') continue;
+        var variance = 0.8 + Math.random() * 0.4;
+        var isCrit = Math.random() < critChance;
+        var dmg = Math.max(1, Math.round(h.atk * variance - mon.def));
+        if (isCrit) dmg = Math.round(dmg * critMult);
+        mon.hp -= dmg;
+      }
+
+      // 3. Monsters attack (target tank first, then first alive)
+      var target = null;
+      for (var hi = 0; hi < heroes.length; hi++) {
+        if (heroes[hi].alive && heroes[hi].role === 'tank') { target = heroes[hi]; break; }
+      }
+      if (!target) {
+        for (var hi = 0; hi < heroes.length; hi++) {
+          if (heroes[hi].alive) { target = heroes[hi]; break; }
+        }
+      }
+      if (target && mon.alive && mon.hp > 0) {
+        var monDmg = Math.max(1, Math.round(mon.atk - target.def * 0.5));
+        target.hp -= monDmg;
+        if (target.hp <= 0) { target.hp = 0; target.alive = false; }
+      }
+
+      // 4. Check if monster died
+      if (mon.hp <= 0) {
+        currentMonsterIdx++;
+      }
+
+      // Safety: max 200 rounds
+      if (rounds > 200) break;
+    }
+
+    var won = currentMonsterIdx >= monsters.length;
+    var survivors = 0;
+    for (var hi = 0; hi < heroes.length; hi++) { if (heroes[hi].alive) survivors++; }
+
+    totalRounds += rounds;
+    if (won) wins++;
+    totalSurvivors += survivors;
+  }
+
+  var avgRounds = Math.round(totalRounds / trials);
+  var winRate = Math.round(wins / trials * 100);
+  var avgSurvivors = Math.round(totalSurvivors / trials * 10) / 10;
+
+  var el = document.getElementById('sim-result');
+  if (!el) return;
+  var color = winRate >= 80 ? '#4ade80' : winRate >= 50 ? '#fbbf24' : '#ef4444';
+  el.innerHTML = '<b style="color:#9a949a">Floor ' + refFloor + '</b> &middot; ' + partySize + ' heroes (' + tanks + 'T ' + dps + 'D ' + healers + 'H) &middot; ~' + trashCount + ' trash + ' + bossCount + ' boss' +
+    '<br><span style="color:' + color + '">' + winRate + '%</span> win rate &middot; avg <span style="color:#9a949a">' + avgRounds + '</span> rounds &middot; <span style="color:#9a949a">' + avgSurvivors + '</span> survivors' +
+    ' &middot; <span style="color:#5a555a">hero ATK ' + Math.round(baseAtk) + ' DEF ' + Math.round(baseDef) + ' HP ' + Math.round(baseHp) + '</span>';
 }
 
 function triggerAutoBalance() {
