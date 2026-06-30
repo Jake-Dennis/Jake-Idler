@@ -413,11 +413,11 @@ class CombatService {
 
       if (pm.role === "tank") {
         atk = 0; // deal no damage
-        def = rawDef + Math.round(rawAtk * 0.5); // convert 50% ATK to DEF
-        hp = baseHp + Math.round(rawAtk * 0.25); // convert 25% ATK to HP (less than before)
+        def = rawDef; // no DEF bonus (monster damage ignores DEF)
+        hp = baseHp + Math.round(rawAtk * 0.75); // convert 75% ATK to HP
       } else if (pm.role === "healer") {
         atk = Math.round(rawAtk * 0);
-        healing = Math.round(10 + rawAtk * 0.02); // flat base + small scaling
+        healing = Math.round((GameConfig.HEAL_BASE || 50) * Math.pow(pm.level || 1, GameConfig.FLOOR_SCALE_EXPONENT));
       } else {
         atk = rawAtk;
       }
