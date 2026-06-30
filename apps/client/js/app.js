@@ -2792,7 +2792,7 @@ function renderAdminConfig(config) {
   if (refPos <= 5) { refCommon = 7 - (refPos - 1); refUncommon = refPos - 1; }
   else if (refPos < 10) { refUncommon = 7 - (refPos - 5); refRare = refPos - 5; }
   else { refRare = 7; }
-  var refPower = Math.max(1, (refGearLv - 10) / 10);
+  var refPower = Math.max(0, (refGearLv - 10) / 10);
   var refRbC = rarityBonus['common'] != null ? rarityBonus['common'] : 0;
   var refRbU = rarityBonus['uncommon'] != null ? rarityBonus['uncommon'] : 0;
   var refRbR = rarityBonus['rare'] != null ? rarityBonus['rare'] : 0;
@@ -3280,7 +3280,7 @@ function runSimulation() {
   var accBase = cfg.ACC_BASE_HP || 200;
   var simGearLv = Math.ceil(refFloor / 10) * 10;
   var simBracket = Math.max(1, Math.ceil(refFloor / 10));
-  var gearPower = Math.max(1, (simGearLv - 10) / 10);
+  var gearPower = Math.max(0, (simGearLv - 10) / 10);
   var baseAtk = Math.round(weapBase + gearPower * 300 + rarityBonus);
   var baseDef = Math.round(armorBase + gearPower * 300 + rarityBonus);
   var baseHp = Math.round(accBase + gearPower * 300 + rarityBonus);
