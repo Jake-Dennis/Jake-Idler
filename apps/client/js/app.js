@@ -2728,7 +2728,7 @@ function renderAdminConfig(config) {
       var computedBase = baseVal + rb;
       html += '<div style="display:flex;flex-direction:column;align-items:center;gap:2px;padding:4px;background:#0a080a;border-radius:4px">';
       html += '<label style="font-size:.7rem;color:#5a555a">' + r + '</label>';
-      html += '<span style="font-size:.9rem;font-weight:700;color:#9a949a">' + computedBase + '</span>';
+      html += '<span id="gp-base-' + ci + '-' + ri + '" style="font-size:.9rem;font-weight:700;color:#9a949a">' + computedBase + '</span>';
       html += '</div>';
     }
     html += '</div>';
@@ -2737,20 +2737,18 @@ function renderAdminConfig(config) {
     html += '<div style="margin-bottom:6px"><label style="font-size:.8rem;color:#5a555a;font-weight:600">Bracket Offset (per level)</label></div>';
     html += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr 1fr;gap:6px;margin-bottom:8px">';
     for (var ri = 0; ri < rarities.length; ri++) {
-      var r = rarities[ri];
       html += '<div style="display:flex;flex-direction:column;align-items:center;gap:2px;padding:4px;background:#0a080a;border-radius:4px">';
-      html += '<label style="font-size:.7rem;color:#5a555a">' + r + '</label>';
+      html += '<label style="font-size:.7rem;color:#5a555a">' + rarities[ri] + '</label>';
       html += '<span style="font-size:.9rem;font-weight:700;color:#9a949a">' + perVal + '</span>';
-      html += '</div>';
     }
-    html += '</div>';
+    html += '</div></div>';
 
     // Computed examples at key levels
     html += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:4px;padding:6px;background:#060406;border-radius:4px">';
     var sampleLevels = [10, 20, 50];
     for (var sl = 0; sl < sampleLevels.length; sl++) {
       var lv = sampleLevels[sl];
-      html += '<div style="font-size:.75rem;color:#5a555a">Lv' + lv + ': ';
+      html += '<div id="gp-ex-' + ci + '-' + lv + '" style="font-size:.75rem;color:#5a555a">Lv' + lv + ': ';
       for (var ri = 0; ri < rarities.length; ri++) {
         var rb = rarityBonus[rarities[ri]] != null ? rarityBonus[rarities[ri]] : 0;
         var stat = baseVal + lv * perVal + rb;
@@ -2764,9 +2762,9 @@ function renderAdminConfig(config) {
     // Editable raw value for the base and per-level
     html += '<div style="display:flex;gap:12px;margin-top:8px;padding-top:8px;border-top:1px solid #1a1518">';
     html += '<div style="display:flex;align-items:center;gap:6px"><label style="font-size:.75rem;color:#5a555a">Base</label>';
-    html += '<input type="number" id="admin-' + cat.baseKey + '" value="' + baseVal + '" step="10" min="0" style="width:80px;padding:3px 6px;background:#0a080a;border:1px solid #2a2020;border-radius:4px;color:#9a949a;font-size:.8rem"></div>';
+    html += '<input type="number" id="admin-' + cat.baseKey + '" value="' + baseVal + '" step="10" min="0" oninput="refreshGearPreview()" style="width:80px;padding:3px 6px;background:#0a080a;border:1px solid #2a2020;border-radius:4px;color:#9a949a;font-size:.8rem"></div>';
     html += '<div style="display:flex;align-items:center;gap:6px"><label style="font-size:.75rem;color:#5a555a">Per Lv</label>';
-    html += '<input type="number" id="admin-' + cat.perKey + '" value="' + perVal + '" step="5" min="0" style="width:80px;padding:3px 6px;background:#0a080a;border:1px solid #2a2020;border-radius:4px;color:#9a949a;font-size:.8rem"></div>';
+    html += '<input type="number" id="admin-' + cat.perKey + '" value="' + perVal + '" step="5" min="0" oninput="refreshGearPreview()" style="width:80px;padding:3px 6px;background:#0a080a;border:1px solid #2a2020;border-radius:4px;color:#9a949a;font-size:.8rem"></div>';
     html += '</div></div>';
   }
 
@@ -2779,7 +2777,7 @@ function renderAdminConfig(config) {
     var rb = rarityBonus[r] != null ? rarityBonus[r] : 0;
     html += '<div style="display:flex;flex-direction:column;align-items:center;gap:2px">';
     html += '<label style="font-size:.75rem;color:#5a555a;font-weight:600">' + r + '</label>';
-    html += '<input type="number" id="admin-RARITY_BONUS-' + r + '" value="' + rb + '" step="50" min="0" style="width:100%;padding:4px 8px;background:#0a080a;border:1px solid #2a2020;border-radius:4px;color:#9a949a;font-size:.85rem;outline:none;text-align:center">';
+    html += '<input type="number" id="admin-RARITY_BONUS-' + r + '" value="' + rb + '" step="50" min="0" oninput="refreshGearPreview()" style="width:100%;padding:4px 8px;background:#0a080a;border:1px solid #2a2020;border-radius:4px;color:#9a949a;font-size:.85rem;outline:none;text-align:center">';
     html += '</div>';
   }
   html += '</div></div>';
@@ -2910,9 +2908,54 @@ function saveAdminConfig() {
       if (status) { status.textContent = 'Saved ' + promises.length + ' change(s)'; status.style.color = '#4ade80'; }
       loadAdminConfig();
     })
-    .catch(function(err) {
-      if (status) { status.textContent = 'Failed: ' + err.message; status.style.color = '#ef4444'; }
-    });
+  .catch(function(err) {
+    if (status) { status.textContent = 'Failed: ' + err.message; status.style.color = '#ef4444'; }
+  });
+}
+
+function refreshGearPreview() {
+  var gearCats = [
+    { baseId: 'admin-WEAPON_BASE_ATK', perId: 'admin-WEAPON_ATK_PER_LEVEL' },
+    { baseId: 'admin-ARMOR_BASE_DEF',  perId: 'admin-ARMOR_DEF_PER_LEVEL'  },
+    { baseId: 'admin-ACC_BASE_HP',     perId: 'admin-ACC_HP_PER_LEVEL'     },
+  ];
+  var rarities = ['common', 'uncommon', 'rare', 'epic', 'legendary'];
+  var sampleLevels = [10, 20, 50];
+
+  // Read rarity bonus values
+  var rb = {};
+  for (var ri = 0; ri < rarities.length; ri++) {
+    var el = document.getElementById('admin-RARITY_BONUS-' + rarities[ri]);
+    rb[rarities[ri]] = el ? (parseFloat(el.value) || 0) : 0;
+  }
+
+  for (var ci = 0; ci < gearCats.length; ci++) {
+    var baseEl = document.getElementById(gearCats[ci].baseId);
+    var perEl = document.getElementById(gearCats[ci].perId);
+    var baseVal = baseEl ? (parseFloat(baseEl.value) || 0) : 0;
+    var perVal = perEl ? (parseFloat(perEl.value) || 0) : 0;
+
+    // Update base stat previews
+    for (var ri = 0; ri < rarities.length; ri++) {
+      var span = document.getElementById('gp-base-' + ci + '-' + ri);
+      if (span) span.textContent = baseVal + (rb[rarities[ri]] || 0);
+    }
+
+    // Update example level previews
+    for (var sl = 0; sl < sampleLevels.length; sl++) {
+      var lv = sampleLevels[sl];
+      var div = document.getElementById('gp-ex-' + ci + '-' + lv);
+      if (!div) continue;
+      var txt = 'Lv' + lv + ': ';
+      for (var ri = 0; ri < rarities.length; ri++) {
+        var r = rarities[ri];
+        var stat = baseVal + lv * perVal + (rb[r] || 0);
+        txt += (ri === 2 ? 'rar ' : r.substring(0, 3) + ' ') + stat;
+        if (ri < rarities.length - 1) txt += ' · ';
+      }
+      div.textContent = txt;
+    }
+  }
 }
 
 function resetAdminConfig() {
