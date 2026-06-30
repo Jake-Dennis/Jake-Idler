@@ -2848,7 +2848,7 @@ function renderAdminConfig(config) {
   html += '</div>';
 
   // ── Difficulty curve table ──
-  var slots = config.GEAR_SLOTS || 7;
+  var slots = config.GEAR_SLOTS || 12;
   var floorList = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 25, 30, 35, 40, 45, 50];
   var rarities = ['common', 'uncommon', 'rare'];
   var tableRows = '';
@@ -2954,7 +2954,7 @@ function renderAdminConfig(config) {
   }
   html += '<div style="margin-bottom:16px;border:1px solid #1a1518;border-radius:4px;padding:12px;background:#080608">';
   html += '<h3 style="font-size:1rem;font-weight:700;color:#6a623a;margin-bottom:8px;letter-spacing:1px">📈 Difficulty Curve</h3>';
-  html += '<p style="font-size:.78rem;color:#5a555a;margin-bottom:8px">Expected gear per floor (7 slots). Green ≤12 hits, Yellow 13-20, Red ≥21. Time estimate at ~1.2s per round.</p>';
+  html += '<p style="font-size:.78rem;color:#5a555a;margin-bottom:8px">Expected gear per floor (12 slots). ATK×2, DEF×5, HP×5 for weapon/armor/acc slot counts.</p>';
   html += '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:.75rem">';
   html += '<tr style="color:#5a555a;border-bottom:1px solid #1a1518"><th style="padding:4px 6px;text-align:left">Floor</th><th style="padding:4px 6px;text-align:left">Gear Mix</th><th style="padding:4px 6px;text-align:right">ATK</th><th style="padding:4px 6px;text-align:right">HP</th><th style="padding:4px 6px;text-align:right">Mon HP</th><th style="padding:4px 6px;text-align:right">Result</th><th style="padding:4px 6px;text-align:right">Time</th></tr>';
   html += tableRows;
@@ -3190,7 +3190,7 @@ function updateAbDisplay() {
   var weapBase = cfg.WEAPON_BASE_ATK || 500;
   var monBaseHp = cfg.MONSTER_BASE_HP || 1500;
   var monBaseDef = cfg.MONSTER_BASE_DEF || 5;
-  var slots = cfg.GEAR_SLOTS || 7;
+  var slots = cfg.GEAR_SLOTS || 12;
   var rb = cfg.RARITY_BONUS || {};
 
   var pos = ((floor - 1) % 10) + 1;

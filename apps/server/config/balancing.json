@@ -7,7 +7,7 @@
   "TRASH_PER_PLAYER": 1,
   "BOSSES_BASE": 1,
   "BOSSES_PER_PLAYER": 0,
-  "GEAR_SLOTS": 7,
+  "GEAR_SLOTS": 12,
   "FLOOR_RARITY": {
     "1-2": "common",
     "3-5": "uncommon",
