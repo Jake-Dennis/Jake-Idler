@@ -374,8 +374,8 @@ describe("getBracketName", () => {
 // ─── Bracket Equipment Level ─────────────────────────────────────
 
 describe("getBracketEquipmentLevel", () => {
-  it("returns at least level 10 for early floors", () => {
-    expect(getBracketEquipmentLevel(1)).toBe(10);
+  it("returns per-floor equipment level", () => {
+    expect(getBracketEquipmentLevel(1)).toBe(1);
     expect(getBracketEquipmentLevel(10)).toBe(10);
   });
 

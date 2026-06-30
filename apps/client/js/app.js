@@ -2805,7 +2805,7 @@ function renderAdminConfig(config) {
   var refRarity = refPos <= 2 ? 'common' : refPos <= 5 ? 'uncommon' : 'rare';
   var refMult = rarityMult[refRarity] != null ? rarityMult[refRarity] : 1.0;
   var monScale = Math.pow(refFloor, fse);
-  var gearLevel = Math.max(10, refFloor);
+  var gearLevel = refFloor;
   // Hero ATK at reference floor (multiplicative formula)
   var heroAtk = Math.round(weapBase * Math.pow(gearLevel, fse) * refMult) * 2;
   var monDef = monBaseDef * monScale;
@@ -3113,7 +3113,7 @@ function updateAbDisplay() {
   else { rc = 12; }
   var rarityLabel = pos <= 2 ? 'common' : pos <= 5 ? 'uncommon' : 'rare';
   var monScale = Math.pow(floor, fse);
-  var gearLevel = Math.max(10, floor);
+  var gearLevel = floor;
   var avgAtk = Math.round((cc * Math.round(weapBase * Math.pow(gearLevel, fse) * (rm.common||1.0)) + uc * Math.round(weapBase * Math.pow(gearLevel, fse) * (rm.uncommon||1.05)) + rc * Math.round(weapBase * Math.pow(gearLevel, fse) * (rm.rare||1.15))) / slots) * 2;
   var monDef = Math.round(monBaseDef * monScale);
   var monHp = Math.round(monBaseHp * monScale);
@@ -3185,9 +3185,9 @@ function updateAbFromTime() {
       var mult = (cfg.RARITY_MULTIPLIER && cfg.RARITY_MULTIPLIER[r]) || 1.0;
       var rCount = mix[r] || 0;
       if (rCount > 0) {
-      totalAtk += rCount * Math.round(weapBase * Math.pow(Math.max(10, fl), expo) * mult);
-      totalDef += rCount * Math.round(armorBase * Math.pow(Math.max(10, fl), expo) * mult);
-      totalHp += rCount * Math.round(accBase * Math.pow(Math.max(10, fl), expo) * mult);
+      totalAtk += rCount * Math.round(weapBase * Math.pow(fl, expo) * mult);
+      totalDef += rCount * Math.round(armorBase * Math.pow(fl, expo) * mult);
+      totalHp += rCount * Math.round(accBase * Math.pow(fl, expo) * mult);
       }
     }
     var hAtk = Math.round(totalAtk / 12) * 2;
@@ -3212,12 +3212,10 @@ function updateAbFromTime() {
     if (impliedBaseHp < 1) impliedBaseHp = 1;
 
     // ── Solve monster ATK for failure rate ──
-    // Ratio formula: dmg = (1 + ATK/(ATK+DEF) × 9) × 1.1 (10% crit). Invert directly.
+    // Damage = ATK × 1.1 (10% crit). Invert: ATK = desiredDmg / 1.1 / avgAliveMonsters.
     var desiredDmgPerRound = hHp / (totalRounds * survivalFactor);
     var effectiveMonHits = (totalMobs + 1) / 2;
-    var desiredPerMon = Math.max(1.01, desiredDmgPerRound / effectiveMonHits / 1.1);
-    var ratio = Math.min(0.99, Math.max(0.001, (desiredPerMon - 1) / 9));
-    var neededMonAtk = Math.round(hDef * ratio / (1 - ratio));
+    var neededMonAtk = Math.round(Math.max(1, desiredDmgPerRound / effectiveMonHits / 1.1));
     if (!isFinite(neededMonAtk) || neededMonAtk < 1) neededMonAtk = 1;
     var impliedBaseAtk = Math.round(neededMonAtk / scale);
     if (impliedBaseAtk < 1) impliedBaseAtk = 1;
@@ -3253,8 +3251,7 @@ function updateAbFromTime() {
     var mDef = Math.round(finalBaseDef * d.scale);
     var clearRounds = Math.ceil(d.totalMobs * Math.ceil(mHp / d.dmgPerHit));
     var clearTimeSec = Math.round(clearRounds * msPerRound / 1000);
-    var monRatio = mAtk / (mAtk + d.hDef);
-    var rawMonDmg = (1 + monRatio * 9) * 1.1;
+    var rawMonDmg = mAtk * 1.1;
     var effectiveMonHits = (d.totalMobs + 1) / 2;
     var swarmDmgPerRound = effectiveMonHits * rawMonDmg;
     var roundsToDie = Math.ceil(d.hHp / swarmDmgPerRound);
@@ -3370,7 +3367,7 @@ function runSimulation() {
   var armorBase = cfg.ARMOR_BASE_DEF || 50;
   var accBase = cfg.ACC_BASE_HP || 200;
   // Gear stats — multiplicative per-floor scaling (floored at 10 for early floors)
-  var gearLevel = Math.max(10, refFloor);
+  var gearLevel = refFloor;
   var powRef = Math.pow(gearLevel, cfg.FLOOR_SCALE_EXPONENT || 0.85);
   var baseAtk = Math.round(weapBase * powRef * rarityMult) * 2; // 2 weapon slots
   var baseDef = Math.round(armorBase * powRef * rarityMult) * 5; // 5 armor slots
@@ -3490,11 +3487,10 @@ function runSimulation() {
         for (var mi = currentMonsterIdx; mi < monsters.length; mi++) {
           var m = monsters[mi];
           if (m.hp <= 0) continue;
-          var ratio = m.atk / (m.atk + target.def);
-          var base = 1 + ratio * 9;
+          var rawDmg = m.atk;
           var monCrit = Math.random() < 0.1;
           var variance = (Math.random() - 0.5) * 4;
-          var dmg = Math.max(1, Math.round((base + variance) * (monCrit ? 2 : 1)));
+          var dmg = Math.max(1, Math.round((rawDmg + variance) * (monCrit ? 2 : 1)));
           totalMonDmg += dmg;
         }
         target.hp -= totalMonDmg;
@@ -3610,9 +3606,9 @@ function renderPreview() {
       var cnt = mix[r] || 0; if (cnt === 0) continue;
       var mult = rarityMult[r] != null ? rarityMult[r] : (r === 'common' ? 1.0 : r === 'rare' ? 1.15 : 1.05);
       totalPieces += cnt;
-      totalAtk += cnt * Math.round(weapBase * Math.pow(Math.max(10, fl), c.FLOOR_SCALE_EXPONENT || 0.85) * mult);
-      totalDef += cnt * Math.round(armorBase * Math.pow(Math.max(10, fl), c.FLOOR_SCALE_EXPONENT || 0.85) * mult);
-      totalHp += cnt * Math.round(accBase * Math.pow(Math.max(10, fl), c.FLOOR_SCALE_EXPONENT || 0.85) * mult);
+      totalAtk += cnt * Math.round(weapBase * Math.pow(fl, c.FLOOR_SCALE_EXPONENT || 0.85) * mult);
+      totalDef += cnt * Math.round(armorBase * Math.pow(fl, c.FLOOR_SCALE_EXPONENT || 0.85) * mult);
+      totalHp += cnt * Math.round(accBase * Math.pow(fl, c.FLOOR_SCALE_EXPONENT || 0.85) * mult);
     }
     var hAtk = totalPieces > 0 ? Math.round(totalAtk / totalPieces) * 2 : 0;
     var hDef = totalPieces > 0 ? Math.round(totalDef / totalPieces) * 5 : 0;
@@ -3628,9 +3624,9 @@ function renderPreview() {
     var roundsPerMon = Math.ceil(monHp / dmgPerHit);
     var clearRounds = roundsPerMon * totalMobs;
     var clearSec = Math.round(clearRounds * 1350 / 1000);
-    var monRatio = monAtk / (monAtk + hDef);
+    var expectedMonDmg = monAtk * 1.1;
     var avgAtt = (totalMobs + 1) / 2;
-    var dmgPerRound = avgAtt * (1 + monRatio * 9) * 1.1;
+    var dmgPerRound = avgAtt * expectedMonDmg;
     var roundsToDie = dmgPerRound > 0 ? Math.ceil(hHp / dmgPerRound) : 999;
     var survives = roundsToDie > clearRounds;
     var pct = Math.round(roundsToDie / clearRounds * 100);
@@ -3723,9 +3719,9 @@ function selectFloor(fl) {
     var cnt = mix[r] || 0; if (cnt === 0) continue;
     var mult = rarityMult[r] != null ? rarityMult[r] : (r === 'common' ? 1.0 : r === 'rare' ? 1.15 : 1.05);
     totalPieces += cnt;
-      totalAtk += cnt * Math.round(weapBase * Math.pow(Math.max(10, fl), c.FLOOR_SCALE_EXPONENT || 0.85) * mult);
-      totalDef += cnt * Math.round(armorBase * Math.pow(Math.max(10, fl), c.FLOOR_SCALE_EXPONENT || 0.85) * mult);
-      totalHp += cnt * Math.round(accBase * Math.pow(Math.max(10, fl), c.FLOOR_SCALE_EXPONENT || 0.85) * mult);
+      totalAtk += cnt * Math.round(weapBase * Math.pow(fl, c.FLOOR_SCALE_EXPONENT || 0.85) * mult);
+      totalDef += cnt * Math.round(armorBase * Math.pow(fl, c.FLOOR_SCALE_EXPONENT || 0.85) * mult);
+      totalHp += cnt * Math.round(accBase * Math.pow(fl, c.FLOOR_SCALE_EXPONENT || 0.85) * mult);
   }
   var hAtk = totalPieces > 0 ? Math.round(totalAtk / totalPieces) * 2 : 0;
   var hDef = totalPieces > 0 ? Math.round(totalDef / totalPieces) * 5 : 0;
@@ -3740,9 +3736,9 @@ function selectFloor(fl) {
   var dmgPerHit = Math.max(1, hAtk - Math.round(monDef));
   var roundsPerMon = Math.ceil(monHp / dmgPerHit);
   var clearRounds = roundsPerMon * totalMobs;
-  var monRatio = monAtk / (monAtk + hDef);
+  var expectedMonDmg = monAtk * 1.1;
   var avgAtt = (totalMobs + 1) / 2;
-  var dmgPerRound = avgAtt * (1 + monRatio * 9) * 1.1;
+  var dmgPerRound = avgAtt * expectedMonDmg;
   var roundsToDie = dmgPerRound > 0 ? Math.ceil(hHp / dmgPerRound) : 999;
   heroDmgPerRound = Math.round(dmgPerHit);
   var survive = roundsToDie > clearRounds;
