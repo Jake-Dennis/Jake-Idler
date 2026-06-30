@@ -2847,24 +2847,44 @@ function renderAdminConfig(config) {
 
   // ── Difficulty curve table ──
   var slots = config.GEAR_SLOTS || 7;
-  var floorList = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 20, 30, 40, 50];
+  var floorList = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 25, 30, 35, 40, 45, 50];
+  var rarities = ['common', 'uncommon', 'rare', 'epic', 'legendary'];
   var tableRows = '';
   for (var fi = 0; fi < floorList.length; fi++) {
     var fl = floorList[fi];
-    // Compute gear mix for this floor
-    var mix = { common: 0, uncommon: 0, rare: 0, epic: 0, legendary: 0 };
-    if (fl <= 5) {
-      mix.common = slots - (fl - 1);  // F1:7, F2:6, F3:5, F4:4, F5:3
-      mix.uncommon = fl - 1;           // F1:0, F2:1, F3:2, F4:3, F5:4
-    } else if (fl <= 9) {
-      mix.uncommon = slots - (fl - 5); // F6:6, F7:5, F8:4, F9:3
-      mix.rare = fl - 5;               // F6:1, F7:2, F8:3, F9:4
+    // Determine bracket and position within bracket
+    var bracket = Math.ceil(fl / 10);        // 1, 2, 3, 4, 5
+    var pos = fl - (bracket - 1) * 10;        // 1-10 within bracket
+
+    // Map bracket to base rarity tier (0=common, 1=uncommon, etc.)
+    var baseTier = Math.min(bracket - 1, 3);  // bracket1→0, bracket2→1, bracket3→2, bracket4→3, bracket5→3
+
+    // Same progression pattern as floors 1-10, shifted by baseTier
+    var mix = {};
+    rarities.forEach(function(r) { mix[r] = 0; });
+
+    if (pos <= 5) {
+      // First half: low tier decreases, mid tier increases
+      var lowTier = baseTier;
+      var midTier = baseTier + 1;
+      if (lowTier < 5) mix[rarities[lowTier]] = slots - (pos - 1);
+      if (midTier < 5) mix[rarities[midTier]] = pos - 1;
     } else {
-      mix.rare = slots;                // F10+: 7 rares
+      // Second half: mid tier decreases, high tier increases
+      var midTier = baseTier + 1;
+      var highTier = Math.min(baseTier + 2, 4);
+      if (midTier < 5) mix[rarities[midTier]] = slots - (pos - 5);
+      if (highTier < 5) mix[rarities[highTier]] = pos - 5;
     }
-    // For floors above 10, upgrade everything to the next tier
-    if (fl > 10 && fl <= 20) { mix.epic = slots; mix.rare = 0; mix.uncommon = 0; mix.common = 0; }
-    if (fl > 20) { mix.legendary = slots; mix.epic = 0; }
+    // Ensure exactly 7 slots total
+    var totalSlots = 0;
+    rarities.forEach(function(r) { totalSlots += mix[r] || 0; });
+    // Fill any gaps with the highest non-zero tier
+    if (totalSlots < slots) {
+      for (var ti = rarities.length - 1; ti >= 0; ti--) {
+        if (mix[rarities[ti]] > 0) { mix[rarities[ti]] += slots - totalSlots; break; }
+      }
+    }
 
     // Weighted average ATK from gear mix
     var gearLevel = fl < 10 ? 10 : fl;
