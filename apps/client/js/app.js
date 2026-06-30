@@ -2688,6 +2688,7 @@ document.getElementById('hero-photo-input').addEventListener('change', function(
   window.renderPreview = renderPreview;
   window.refreshPreview = refreshPreview;
   window.saveAllConfig = saveAllConfig;
+  window.recalculateGear = recalculateGear;
   window.selectFloor = selectFloor;
   })();
 }
@@ -2722,6 +2723,7 @@ function renderAdminConfig(config) {
   html += '<div style="display:flex;gap:6px;align-items:center">';
   html += '<span id="admin-status" style="font-size:.75rem;color:#5a555a"></span>';
   html += '<button class="btn btn-primary btn-sm" onclick="saveAllConfig()" style="padding:6px 16px;font-size:.8rem">Save All</button>';
+  html += '<button class="btn btn-ghost btn-sm" onclick="recalculateGear()" style="padding:6px 12px;font-size:.75rem;color:#fbbf24">Recalculate Gear</button>';
   html += '<button class="btn btn-ghost btn-sm" onclick="resetAdminConfig()" style="padding:6px 12px;font-size:.8rem">Reset</button>';
   html += '</div></div>';
 
@@ -3769,6 +3771,25 @@ function resetAdminConfig() {
   .then(function() {
     if (status) { status.textContent = 'Reset complete'; status.style.color = '#4ade80'; }
     loadAdminConfig();
+  })
+  .catch(function(err) {
+    if (status) { status.textContent = 'Failed: ' + err.message; status.style.color = '#ef4444'; }
+  });
+}
+
+function recalculateGear() {
+  if (!confirm('Recalculate stats for ALL existing gear using the new multiplicative formula? This cannot be undone.')) return;
+  var status = document.getElementById('admin-status');
+  if (status) { status.textContent = 'Recalculating gear...'; status.style.color = '#fbbf24'; }
+  var tok = window.__INITIAL_TOKEN__ || localStorage.getItem('token') || '';
+  fetch('/api/admin/balancing/recalculate-gear', {
+    method: 'POST',
+    headers: { 'Authorization': 'Bearer ' + tok }
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(resp) {
+    if (resp.error) throw new Error(resp.error);
+    if (status) { status.textContent = 'Updated ' + resp.updated + ' items across ' + resp.heroesProcessed + ' heroes'; status.style.color = '#4ade80'; }
   })
   .catch(function(err) {
     if (status) { status.textContent = 'Failed: ' + err.message; status.style.color = '#ef4444'; }

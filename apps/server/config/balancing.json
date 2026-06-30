@@ -23,11 +23,11 @@
     "legendary": 0.5
   },
   "RARITY_MULTIPLIER": {
-    "common": 1.0,
+    "common": 1,
     "uncommon": 1.05,
     "rare": 1.15,
     "epic": 1.5,
-    "legendary": 2.0
+    "legendary": 2
   },
   "WEAPON_BASE_ATK": 250,
   "ARMOR_BASE_DEF": 50,
@@ -75,9 +75,9 @@
     "roundGapMs": 200,
     "vignetteDurationMs": 600
   },
-  "MONSTER_BASE_ATK": 188,
-  "MONSTER_BASE_DEF": 47,
-  "MONSTER_BASE_HP": 88740,
+  "MONSTER_BASE_ATK": 43,
+  "MONSTER_BASE_DEF": 26,
+  "MONSTER_BASE_HP": 38211,
   "BOSS_ATK_MULTIPLIER": 2,
   "BOSS_DEF_MULTIPLIER": 2,
   "BOSS_HP_MULTIPLIER": 2,

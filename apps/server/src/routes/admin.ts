@@ -2,7 +2,10 @@ import { Router } from "express";
 import { z } from "zod";
 import { requireAuth } from "../auth/middleware.js";
 import { balancingService } from "../services/balancing-service.js";
-import { applyConfigOverrides } from "@jake-idler/game";
+import { applyConfigOverrides, computeEquipmentStats } from "@jake-idler/game";
+import { db } from "../db/connection.js";
+import { heroes } from "../db/schema/index.js";
+import { eq } from "drizzle-orm";
 
 const router = Router();
 
@@ -78,6 +81,57 @@ router.post("/balancing/reset", requireAuth, requireAdmin, (_req, res) => {
   const config = balancingService.reset();
   applyConfigOverrides(config);
   res.json({ success: true, config });
+});
+
+// POST /api/admin/balancing/recalculate-gear — recalculate all existing gear stats
+router.post("/balancing/recalculate-gear", requireAuth, requireAdmin, async (_req, res) => {
+  try {
+    const allHeroes = await db.select().from(heroes);
+    let updated = 0, totalItems = 0;
+
+    for (const hero of allHeroes) {
+      let changed = false;
+      const equipped: Record<string, any> = (hero.equipped as any) || {};
+      const inventory: any[] = (hero.inventory as any) || [];
+
+      // Recalculate equipped gear
+      for (const slot of Object.keys(equipped)) {
+        const item = equipped[slot];
+        if (!item) continue;
+        totalItems++;
+        const newStats = computeEquipmentStats(item.slot, item.level, item.rarity);
+        if (JSON.stringify(item.stats) !== JSON.stringify(newStats)) {
+          item.stats = newStats;
+          item.effectiveLevel = item.level;
+          changed = true;
+          updated++;
+        }
+      }
+
+      // Recalculate inventory gear
+      for (const item of inventory) {
+        if (!item || !item.slot) continue;
+        totalItems++;
+        const newStats = computeEquipmentStats(item.slot, item.level, item.rarity);
+        if (JSON.stringify(item.stats) !== JSON.stringify(newStats)) {
+          item.stats = newStats;
+          item.effectiveLevel = item.level;
+          changed = true;
+          updated++;
+        }
+      }
+
+      if (changed) {
+        await db.update(heroes)
+          .set({ equipped: equipped as any, inventory: inventory as any })
+          .where(eq(heroes.id, hero.id));
+      }
+    }
+
+    res.json({ success: true, updated, totalItems, heroesProcessed: allHeroes.length });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 export default router;
