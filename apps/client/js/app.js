@@ -2678,6 +2678,7 @@ document.getElementById('hero-photo-input').addEventListener('change', function(
   window.saveAdminConfig = saveAdminConfig;
   window.resetAdminConfig = resetAdminConfig;
   window.autoBalanceMonsters = autoBalanceMonsters;
+  window.refreshGearPreview = refreshGearPreview;
   })();
 }
 
