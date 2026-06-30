@@ -146,14 +146,14 @@ function getBaseMonsterStats(): BigNumberStatBlock {
  */
 export function generateMonster(floor: number, isBoss: boolean = false): Monster {
   const base = getBaseMonsterStats();
-  const bracket = Math.max(1, Math.ceil(floor / 10)); // per-bracket scaling (matches gear)
+  const scale = Math.pow(floor, GameConfig.FLOOR_SCALE_EXPONENT); // smooth per-floor scaling
   const bossAtkMul = isBoss ? GameConfig.BOSS_ATK_MULTIPLIER : 1;
   const bossDefMul = isBoss ? GameConfig.BOSS_DEF_MULTIPLIER : 1;
   const bossHpMul = isBoss ? GameConfig.BOSS_HP_MULTIPLIER : 1;
 
-  const baseAtk = base.atk.toNumber() * bracket * bossAtkMul;
-  const baseDef = base.def.toNumber() * bracket * bossDefMul;
-  const baseHp = base.hp.toNumber() * bracket * bossHpMul;
+  const baseAtk = base.atk.toNumber() * scale * bossAtkMul;
+  const baseDef = base.def.toNumber() * scale * bossDefMul;
+  const baseHp = base.hp.toNumber() * scale * bossHpMul;
 
   const xpMul = isBoss ? GameConfig.BOSS_XP_MULTIPLIER : 1;
   const goldMul = isBoss ? GameConfig.BOSS_GOLD_MULTIPLIER : 1;
@@ -180,8 +180,8 @@ export function generateMonster(floor: number, isBoss: boolean = false): Monster
       hp: new BigNumber(Math.round(baseHp)),
       spd: new BigNumber(0),
     },
-    xpReward: new BigNumber(Math.round(GameConfig.MONSTER_XP_BASE * bracket * xpMul)),
-    goldReward: new BigNumber(Math.round(GameConfig.MONSTER_GOLD_BASE * bracket * goldMul)),
+    xpReward: new BigNumber(Math.round(GameConfig.MONSTER_XP_BASE * scale * xpMul)),
+    goldReward: new BigNumber(Math.round(GameConfig.MONSTER_GOLD_BASE * scale * goldMul)),
   };
 }
 

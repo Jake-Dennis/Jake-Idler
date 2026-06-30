@@ -2773,9 +2773,9 @@ function renderAdminConfig(config) {
   }
 
   // ── Auto-Balance ──
-  var fse = config.FLOOR_SCALE_EXPONENT != null ? config.FLOOR_SCALE_EXPONENT : 0.55;
+  var fse = config.FLOOR_SCALE_EXPONENT != null ? config.FLOOR_SCALE_EXPONENT : 0.85;
   var weapBase = config.WEAPON_BASE_ATK != null ? config.WEAPON_BASE_ATK : 500;
-  var monBaseHp = config.MONSTER_BASE_HP != null ? config.MONSTER_BASE_HP : 1500;
+  var monBaseHp = config.MONSTER_BASE_HP != null ? config.MONSTER_BASE_HP : 5000;
   var monBaseDef = config.MONSTER_BASE_DEF != null ? config.MONSTER_BASE_DEF : 5;
   var refFloorInput = document.getElementById('ab-ref-floor');
   var refFloor = refFloorInput ? parseInt(refFloorInput.value) : 50;
@@ -2784,7 +2784,7 @@ function renderAdminConfig(config) {
   var refRarity = refPos <= 2 ? 'common' : refPos <= 5 ? 'uncommon' : 'rare';
   var refRb = rarityBonus[refRarity] != null ? rarityBonus[refRarity] : 200;
   var refGearLv = Math.ceil(refFloor / 10) * 10;
-  var bracketScale = Math.max(1, Math.ceil(refFloor / 10));
+  var monScale = Math.pow(refFloor, fse);
   // Compute hero ATK from the floor's expected gear mix (same logic as difficulty curve)
   var refPos = ((refFloor - 1) % 10) + 1;
   // Compute hero ATK from the floor's expected gear mix (same logic as difficulty curve)
@@ -2801,14 +2801,14 @@ function renderAdminConfig(config) {
   var refRbR = rarityBonus['rare'] != null ? rarityBonus['rare'] : 0;
   var refAtkTotal = refCommon * Math.round(weapBase + refPower * 300 + refRbC) + refUncommon * Math.round(weapBase + refPower * 300 + refRbU) + refRare * Math.round(weapBase + refPower * 300 + refRbR);
   var heroAtk = Math.round(refAtkTotal / 12) * 2;
-  var monDef = monBaseDef * bracketScale;
+  var monDef = monBaseDef * monScale;
   var effDmg = Math.max(1, heroAtk - monDef);
-  var currentHits = Math.ceil(monBaseHp * bracketScale / effDmg);
+  var currentHits = Math.ceil(monBaseHp * monScale / effDmg);
   // Read animation timing for round estimate
   var animCfg = config.ANIMATION || {};
   var msPerHit = (animCfg.projectileMs || 350) + (animCfg.phaseGapMs || 200) * 2 + (animCfg.roundGapMs || 200) + 200;
-  // Monster HP display uses per-bracket scale
-  var monHpDisplay = Math.round(monBaseHp * bracketScale);
+  // Monster HP display uses exponent scaling
+  var monHpDisplay = Math.round(monBaseHp * monScale);
 
 
   // ── Current stats + simulation preview ──
@@ -2925,20 +2925,23 @@ function renderAdminConfig(config) {
       var heroTotalAtk = avgAtk * 2;
       var heroTotalDef = Math.round(avgDef * 5);
       var heroTotalHp = avgHp * 5;
+      var fse = config.FLOOR_SCALE_EXPONENT != null ? config.FLOOR_SCALE_EXPONENT : 0.85;
+      var monScale = Math.pow(fl, fse);
       // Monster stats
-      var monAtk = (config.MONSTER_BASE_ATK || 150) * bracketMul;
-      var monDef = monBaseDef * bracketMul;
-      var monHp = monBaseHp * bracketMul;
+      var monAtk = (config.MONSTER_BASE_ATK || 500) * monScale;
+      var monDef = (config.MONSTER_BASE_DEF || 5) * monScale;
+      var monHp = (config.MONSTER_BASE_HP || 5000) * monScale;
       // Floor enemy count
       var perPlayer = Math.max(0, 0);
       var flTrash = (config.TRASH_BASE || 1) + (fl % 2) + perPlayer * (config.TRASH_PER_PLAYER || 1);
       var flBoss = (config.BOSSES_BASE || 1) + perPlayer * (config.BOSSES_PER_PLAYER || 0);
       var totalEnemies = flTrash + flBoss;
-      // Rounds per monster
+      // Rounds per monster (hero damage uses ATK - DEF like the game engine)
       var dmgPerHit = Math.max(1, heroTotalAtk - Math.round(monDef));
       var roundsPerMon = Math.ceil(monHp / dmgPerHit);
-      // Damage per round from monsters (all swarm)
-      var monDmgPerHit = Math.max(1, monAtk - Math.round(heroTotalDef));
+      // Damage per round from monsters (uses ATK/(ATK+DEF) ratio like the server)
+      var monRatio = monAtk / (monAtk + Math.round(heroTotalDef));
+      var monDmgPerHit = (1 + monRatio * 9) * 1.1; // expected value with 10% crit
       var dmgPerRound = Math.min(monDmgPerHit * 3, monDmgPerHit * totalEnemies);
       // Can hero survive? Rounds to kill all vs rounds to die
       var roundsNeeded = roundsPerMon * totalEnemies;
@@ -3192,9 +3195,9 @@ function updateAbDisplay() {
   var floor = parseFloat(document.getElementById('ab-ref-floor').value) || 50;
   if (!ADMIN_CONFIG_CACHE) return;
   var cfg = ADMIN_CONFIG_CACHE;
-  var fse = cfg.FLOOR_SCALE_EXPONENT || 0.55;
+  var fse = cfg.FLOOR_SCALE_EXPONENT || 0.85;
   var weapBase = cfg.WEAPON_BASE_ATK || 500;
-  var monBaseHp = cfg.MONSTER_BASE_HP || 1500;
+  var monBaseHp = cfg.MONSTER_BASE_HP || 5000;
   var monBaseDef = cfg.MONSTER_BASE_DEF || 5;
   var slots = cfg.GEAR_SLOTS || 12;
   var rb = cfg.RARITY_BONUS || {};
@@ -3209,10 +3212,10 @@ function updateAbDisplay() {
   else { r = 12; }
   var rarityLabel = pos <= 2 ? 'common' : pos <= 5 ? 'uncommon' : 'rare';
   var gearLv = Math.ceil(floor / 10) * 10;
-  var bracket = Math.max(1, Math.ceil(floor / 10));
+  var monScale = Math.pow(floor, fse);
   var avgAtk = Math.round((c * Math.round(weapBase + ((gearLv - 10) / 10) * 300 + (rb.common||0)) + u * Math.round(weapBase + ((gearLv - 10) / 10) * 300 + (rb.uncommon||0)) + r * Math.round(weapBase + ((gearLv - 10) / 10) * 300 + (rb.rare||0))) / slots) * 2;
-  var monDef = Math.round(monBaseDef * bracket);
-  var monHp = Math.round(monBaseHp * bracket);
+  var monDef = Math.round(monBaseDef * monScale);
+  var monHp = Math.round(monBaseHp * monScale);
 
   var atkEl = document.getElementById('ab-hero-atk');
   var defEl = document.getElementById('ab-mon-def');
@@ -3253,6 +3256,7 @@ function updateAbFromTime() {
   var survivalFactor = 3 - 2.65 * failRate;
   var floorList = [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,25,30,35,40,45,50];
   var rarities = ['common','uncommon','rare'];
+  var expo = cfg.FLOOR_SCALE_EXPONENT != null ? cfg.FLOOR_SCALE_EXPONENT : 0.85;
 
   // Per-floor: compute gear mix → hero stats → needed monster stats → implied base values
   var floorData = [];
@@ -3260,6 +3264,7 @@ function updateAbFromTime() {
   var prevHtml = '';
   for (var fi = 0; fi < floorList.length; fi++) {
     var fl = floorList[fi];
+    var scale = Math.pow(fl, expo);
     var bi = Math.ceil(fl / 10);
     var pos = ((fl - 1) % 10) + 1;
 
@@ -3297,14 +3302,14 @@ function updateAbFromTime() {
 
     // ── Monster DEF: reduce hero damage by ~5% ──
     var defAtThisFloor = Math.round(hAtk * 0.05);
-    var impliedBaseDef = Math.max(1, Math.round(defAtThisFloor / bi));
+    var impliedBaseDef = Math.max(1, Math.round(defAtThisFloor / scale));
 
     // ── Solve monster HP for target time ──
     // Each hero hit deals hAtk * 0.9 minus monster DEF (the 0.9 accounts for variance)
     var dmgPerHit = Math.max(1, Math.round(hAtk * 0.9 - defAtThisFloor));
     var hitsPerMonster = totalRounds / totalMobs;
     var neededMonHp = Math.round(hitsPerMonster * dmgPerHit);
-    var impliedBaseHp = Math.round(neededMonHp / bi);
+    var impliedBaseHp = Math.round(neededMonHp / scale);
     if (impliedBaseHp < 1) impliedBaseHp = 1;
 
     // ── Solve monster ATK for failure rate ──
@@ -3317,7 +3322,7 @@ function updateAbFromTime() {
     var k = (desiredPerMon - 1.1) / 9.9;
     var neededMonAtk = Math.round(hDef * k / (1 - k));
     if (!isFinite(neededMonAtk) || neededMonAtk < 1) neededMonAtk = 1;
-    var impliedBaseAtk = Math.round(neededMonAtk / bi);
+    var impliedBaseAtk = Math.round(neededMonAtk / scale);
     if (impliedBaseAtk < 1) impliedBaseAtk = 1;
 
     baseHpSamples.push(impliedBaseHp);
@@ -3327,7 +3332,7 @@ function updateAbFromTime() {
     // Preview row
     var mHp = neededMonHp;
     var mAtk = neededMonAtk;
-    var mDef = Math.round(impliedBaseDef * bi);
+    var mDef = Math.round(impliedBaseDef * scale);
     var clearRounds = Math.ceil(totalMobs * Math.ceil(mHp / dmgPerHit));
     var clearTimeSec = Math.round(clearRounds * msPerRound / 1000);
     var ratio = mAtk / (mAtk + hDef);
@@ -3463,16 +3468,15 @@ function runSimulation() {
   var armorBase = cfg.ARMOR_BASE_DEF || 50;
   var accBase = cfg.ACC_BASE_HP || 200;
   var simGearLv = Math.ceil(refFloor / 10) * 10;
-  var simBracket = Math.max(1, Math.ceil(refFloor / 10));
   var gearPower = Math.max(0, (simGearLv - 10) / 10);
   var baseAtk = Math.round(weapBase + gearPower * 300 + rarityBonus) * 2; // 2 weapon slots
   var baseDef = Math.round(armorBase + gearPower * 300 + rarityBonus) * 5; // 5 armor slots
   var baseHp = Math.round(accBase + gearPower * 300 + rarityBonus) * 5; // 5 accessory slots
 
-  // Monster stats at reference floor
-  var monBaseHp = cfg.MONSTER_BASE_HP || 1500;
+  // Monster stats at reference floor (exponent scaling matches game)
+  var monBaseHp = cfg.MONSTER_BASE_HP || 5000;
   var monBaseDef = cfg.MONSTER_BASE_DEF || 5;
-  var monBaseAtk = cfg.MONSTER_BASE_ATK || 50;
+  var monBaseAtk = cfg.MONSTER_BASE_ATK || 500;
   var bAtkM = cfg.BOSS_ATK_MULTIPLIER || 2;
   var bHpM = cfg.BOSS_HP_MULTIPLIER || 2;
 
@@ -3499,14 +3503,15 @@ function runSimulation() {
     var trashCount = (cfg.TRASH_BASE || 1) + (refFloor % 2) + perPlayer * (cfg.TRASH_PER_PLAYER || 1);
     var bossCount = (cfg.BOSSES_BASE || 1) + perPlayer * (cfg.BOSSES_PER_PLAYER || 0);
 
-    // Build monster queue (per-bracket scaling matches gear)
+    // Build monster queue (exponent scaling matches game)
+    var simScale = Math.pow(refFloor, cfg.FLOOR_SCALE_EXPONENT || 0.85);
     var hpScale = 1.3 + (partySize - 1) * 0.29;
     var monsters = [];
     for (var mi = 0; mi < trashCount; mi++) {
-      monsters.push({ hp: Math.round(monBaseHp * simBracket * hpScale), maxHp: Math.round(monBaseHp * simBracket * hpScale), def: Math.round(monBaseDef * simBracket), atk: Math.round(monBaseAtk * simBracket), isBoss: false, alive: true });
+      monsters.push({ hp: Math.round(monBaseHp * simScale * hpScale), maxHp: Math.round(monBaseHp * simScale * hpScale), def: Math.round(monBaseDef * simScale), atk: Math.round(monBaseAtk * simScale), isBoss: false, alive: true });
     }
     for (var bi = 0; bi < bossCount; bi++) {
-      monsters.push({ hp: Math.round(monBaseHp * simBracket * hpScale * bHpM), maxHp: Math.round(monBaseHp * simBracket * hpScale * bHpM), def: Math.round(monBaseDef * simBracket * bAtkM), atk: Math.round(monBaseAtk * simBracket * bAtkM), isBoss: true, alive: true });
+      monsters.push({ hp: Math.round(monBaseHp * simScale * hpScale * bHpM), maxHp: Math.round(monBaseHp * simScale * hpScale * bHpM), def: Math.round(monBaseDef * simScale * bAtkM), atk: Math.round(monBaseAtk * simScale * bAtkM), isBoss: true, alive: true });
     }
 
     var rounds = 0;

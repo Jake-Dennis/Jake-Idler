@@ -107,10 +107,10 @@ const BASE_CONFIG = {
    * Floor scaling exponent for monster stats.
    * Monster stat = `baseMonsterStat * floor^FLOOR_SCALE_EXPONENT`
    *
-   * Using sqrt(floor) — even math, clean milestones:
-   *   floor 1: 1×    floor 4: 2×    floor 9: 3×    floor 16: 4×
+   * Tuned to track hero stat growth from gear:
+   *   floor 1: 1×    floor 10: ~7×    floor 25: ~15×    floor 50: ~28×
    */
-  FLOOR_SCALE_EXPONENT: 0.3,
+  FLOOR_SCALE_EXPONENT: 0.85,
 
   /**
    * Floor scaling factor for drop rate adjustments.
