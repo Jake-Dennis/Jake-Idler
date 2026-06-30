@@ -264,10 +264,10 @@ class CombatService {
       }));
 
       roundStates.push({
-        round: run.lastRound!.round,
+        round: run.lastRound?.round ?? run.roundIndex,
         events,
         monsters: monstersSnapshot,
-        partyHeroes: run.lastRound!.partyHeroes,
+        partyHeroes: run.lastRound?.partyHeroes ?? run.heroes.map((h) => this.makeHeroData(h, 0, false, 0, 0, false, 0)),
       });
 
       if (monsterDied && currentMonsterBefore && run.heroes.some((h) => h.alive)) {
