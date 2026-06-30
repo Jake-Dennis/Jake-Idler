@@ -34,12 +34,15 @@ const updateSchema = z.object({
 router.put("/balancing", requireAuth, requireAdmin, (req, res) => {
   try {
     const parsed = updateSchema.safeParse(req.body);
-    if (!parsed.success) {
-      res.status(400).json({ error: parsed.error.flatten().fieldErrors });
-      return;
+    if (parsed.success) {
+      // Single-key update: { key: "MONSTER_BASE_HP", value: 12345 }
+      const { key, value } = parsed.data;
+      const config = balancingService.update({ [key]: value });
+      applyConfigOverrides(config);
+      return res.json({ success: true, config });
     }
-    const { key, value } = parsed.data;
-    const config = balancingService.update({ [key]: value });
+    // Full config update: entire body is a map of key→value pairs
+    const config = balancingService.update(req.body);
     applyConfigOverrides(config);
     res.json({ success: true, config });
   } catch (err: any) {

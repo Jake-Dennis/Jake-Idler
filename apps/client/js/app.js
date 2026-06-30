@@ -2702,6 +2702,7 @@ function loadAdminConfig() {
   .then(function(config) {
     ADMIN_CONFIG_CACHE = config;
     renderAdminConfig(config);
+    setTimeout(renderPreview, 50);
   })
   .catch(function(err) { container.innerHTML = '<p style="color:#ef4444">Failed to load: ' + err.message + '</p>'; });
 }
@@ -2711,6 +2712,19 @@ function renderAdminConfig(config) {
   if (!container) return;
   var html = '';
 
+  // ── Header + Save/Reset ──
+  html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">';
+  html += '<h2 style="font-size:1.1rem;font-weight:700;color:#6a623a;margin:0">⚖ Balance Control Panel</h2>';
+  html += '<div style="display:flex;gap:6px;align-items:center">';
+  html += '<span id="admin-status" style="font-size:.75rem;color:#5a555a"></span>';
+  html += '<button class="btn btn-primary btn-sm" onclick="saveAllConfig()" style="padding:6px 16px;font-size:.8rem">Save All</button>';
+  html += '<button class="btn btn-ghost btn-sm" onclick="resetAdminConfig()" style="padding:6px 12px;font-size:.8rem">Reset</button>';
+  html += '</div></div>';
+
+  // ── Two-column layout ──
+  html += '<div style="display:flex;gap:16px;align-items:start">';
+  html += '<div style="flex:0 0 400px;min-width:0">'; // LEFT
+
   // ── Gear Stats: grouped by category ──
   var rarities = ['common', 'uncommon', 'rare', 'epic', 'legendary'];
   var gearCats = [
@@ -2718,7 +2732,7 @@ function renderAdminConfig(config) {
     { label: 'Armor',      baseKey: 'ARMOR_BASE_DEF',  stat: 'DEF' },
     { label: 'Accessories', baseKey: 'ACC_BASE_HP',     stat: 'HP'  },
   ];
-  var rarityBonus = (config.RARITY_BONUS || {});
+  var rarityMult = (config.RARITY_MULTIPLIER || {});
   for (var ci = 0; ci < gearCats.length; ci++) {
     var cat = gearCats[ci];
     var baseVal = config[cat.baseKey] != null ? config[cat.baseKey] : 700;
@@ -2726,12 +2740,12 @@ function renderAdminConfig(config) {
     html += '<h3 style="font-size:1rem;font-weight:700;color:#6a623a;margin-bottom:8px;letter-spacing:1px">' + cat.label + ' (' + cat.stat + ')</h3>';
 
     // Base stat inputs (per-rarity computed from WEAPON_BASE_ATK + RARITY_BONUS)
-    html += '<div style="margin-bottom:8px"><label style="font-size:.8rem;color:#5a555a;font-weight:600">Base Stats (level 0)</label></div>';
+    html += '<div style="margin-bottom:8px"><label style="font-size:.8rem;color:#5a555a;font-weight:600">Per-rarity at level 1</label></div>';
     html += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr 1fr;gap:6px;margin-bottom:12px">';
     for (var ri = 0; ri < rarities.length; ri++) {
       var r = rarities[ri];
-      var rb = rarityBonus[r] != null ? rarityBonus[r] : 0;
-      var computedBase = baseVal + rb;
+      var rm = rarityMult[r] != null ? rarityMult[r] : 1.0;
+      var computedBase = Math.round(baseVal * Math.pow(1, config.FLOOR_SCALE_EXPONENT || 0.85) * rm);
       html += '<div style="display:flex;flex-direction:column;align-items:center;gap:2px;padding:4px;background:#0a080a;border-radius:4px">';
       html += '<label style="font-size:.7rem;color:#5a555a">' + r + '</label>';
       html += '<span id="gp-base-' + ci + '-' + ri + '" style="font-size:.9rem;font-weight:700;color:#9a949a">' + computedBase + '</span>';
@@ -2743,12 +2757,13 @@ function renderAdminConfig(config) {
     var exFse = config.FLOOR_SCALE_EXPONENT || 0.55;
     html += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr 1fr;gap:8px;margin-top:4px;padding:6px;background:#060406;border-radius:4px">';
     var bracketLevels = [10, 20, 30, 40, 50];
+    var fse = config.FLOOR_SCALE_EXPONENT != null ? config.FLOOR_SCALE_EXPONENT : 0.85;
     for (var sl = 0; sl < bracketLevels.length; sl++) {
       var lv = bracketLevels[sl];
       html += '<div style="font-size:.75rem;color:#5a555a"><b>B' + (sl+1) + '</b> Lv' + lv + ': ';
       for (var ri = 0; ri < rarities.length; ri++) {
-        var rb = rarityBonus[rarities[ri]] != null ? rarityBonus[rarities[ri]] : 0;
-        var stat = baseVal + ((lv - 10) / 10) * 300 + rb;
+        var rm = rarityMult[rarities[ri]] != null ? rarityMult[rarities[ri]] : 1.0;
+        var stat = Math.round(baseVal * Math.pow(lv, fse) * rm);
         html += '<span style="color:' + (ri === 2 ? '#fbbf24' : '#9a949a') + '">' + rarities[ri].substring(0, 3) + ' ' + stat + '</span>';
         if (ri < rarities.length - 1) html += ' &middot; ';
       }
@@ -2759,14 +2774,14 @@ function renderAdminConfig(config) {
     // Editable raw values
     html += '<div style="display:flex;gap:12px;margin-top:8px;padding-top:8px;border-top:1px solid #1a1518">';
     html += '<div style="display:flex;align-items:center;gap:6px"><label style="font-size:.75rem;color:#5a555a">Base</label>';
-    html += '<input type="number" id="admin-' + cat.baseKey + '" value="' + baseVal + '" step="10" min="0" oninput="refreshGearPreview()" style="width:80px;padding:3px 6px;background:#0a080a;border:1px solid #2a2020;border-radius:4px;color:#9a949a;font-size:.8rem"></div>';
-    // Rarity bonus inline
+    html += '<input type="number" id="admin-' + cat.baseKey + '" value="' + baseVal + '" step="10" min="0" oninput="refreshGearPreview();refreshPreview()" style="width:80px;padding:3px 6px;background:#0a080a;border:1px solid #2a2020;border-radius:4px;color:#9a949a;font-size:.8rem"></div>';
+    // Rarity multiplier inline
     html += '<span style="width:1px;height:24px;background:#1a1518;margin:0 4px"></span>';
     for (var ri = 0; ri < rarities.length; ri++) {
-      var rb = rarityBonus[rarities[ri]] != null ? rarityBonus[rarities[ri]] : 0;
+      var rm = rarityMult[rarities[ri]] != null ? rarityMult[rarities[ri]] : 1.0;
       html += '<div style="display:flex;align-items:center;gap:3px">';
       html += '<label style="font-size:.65rem;color:#5a555a;min-width:0">' + rarities[ri].charAt(0).toUpperCase() + '</label>';
-      html += '<input type="number" id="admin-RARITY_BONUS-' + rarities[ri] + '" value="' + rb + '" step="50" min="0" oninput="refreshGearPreview()" title="' + rarities[ri] + ' bonus" style="width:50px;padding:2px 4px;background:#0a080a;border:1px solid #2a2020;border-radius:3px;color:#9a949a;font-size:.75rem">';
+      html += '<input type="number" id="admin-RARITY_MULTIPLIER-' + rarities[ri] + '" value="' + rm + '" step="0.05" min="0.5" max="5" oninput="refreshGearPreview();refreshPreview()" title="' + rarities[ri] + ' multiplier" style="width:50px;padding:2px 4px;background:#0a080a;border:1px solid #2a2020;border-radius:3px;color:#9a949a;font-size:.75rem">';
       html += '</div>';
     }
     html += '</div></div>';
@@ -2782,24 +2797,11 @@ function renderAdminConfig(config) {
   // Expected rarity from floor bracket
   var refPos = ((refFloor - 1) % 10) + 1;
   var refRarity = refPos <= 2 ? 'common' : refPos <= 5 ? 'uncommon' : 'rare';
-  var refRb = rarityBonus[refRarity] != null ? rarityBonus[refRarity] : 200;
+  var refMult = rarityMult[refRarity] != null ? rarityMult[refRarity] : 1.0;
   var monScale = Math.pow(refFloor, fse);
-  // Compute hero ATK from the floor's expected gear mix (smooth per-floor scaling)
-  var refPos = ((refFloor - 1) % 10) + 1;
-  // Compute hero ATK from the floor's expected gear mix (same logic as difficulty curve)
-  var refCommon = 0, refUncommon = 0, refRare = 0;
-  if (refPos <= 5) { refCommon = Math.max(0, 14 - refPos * 2); refUncommon = (refPos - 1) * 2; }
-  else if (refPos === 6) { refUncommon = 9; refRare = 1; }
-  else if (refPos === 7) { refUncommon = 9; refRare = 3; }
-  else if (refPos === 8) { refUncommon = 6; refRare = 6; }
-  else if (refPos === 9) { refUncommon = 3; refRare = 9; }
-  else { refRare = 12; }
-  var refPower = Math.max(0, (refFloor - 10) / 10);
-  var refRbC = rarityBonus['common'] != null ? rarityBonus['common'] : 0;
-  var refRbU = rarityBonus['uncommon'] != null ? rarityBonus['uncommon'] : 0;
-  var refRbR = rarityBonus['rare'] != null ? rarityBonus['rare'] : 0;
-  var refAtkTotal = refCommon * Math.round(weapBase + refPower * 300 + refRbC) + refUncommon * Math.round(weapBase + refPower * 300 + refRbU) + refRare * Math.round(weapBase + refPower * 300 + refRbR);
-  var heroAtk = Math.round(refAtkTotal / 12) * 2;
+  var powRef = Math.pow(refFloor, fse);
+  // Hero ATK at reference floor (multiplicative formula)
+  var heroAtk = Math.round(weapBase * powRef * refMult) * 2;
   var monDef = monBaseDef * monScale;
   var effDmg = Math.max(1, heroAtk - monDef);
   var currentHits = Math.ceil(monBaseHp * monScale / effDmg);
@@ -2851,123 +2853,17 @@ function renderAdminConfig(config) {
   html += '<span id="ab-result-text">Set target time and click Apply Balance</span>';
   html += '</div>';
 
-  // ── Difficulty curve table ──
-  var slots = config.GEAR_SLOTS || 12;
-  var floorList = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 25, 30, 35, 40, 45, 50];
-  var rarities = ['common', 'uncommon', 'rare'];
-  var tableRows = '';
-  for (var fi = 0; fi < floorList.length; fi++) {
-    var fl = floorList[fi];
-    // Same 1-10 pattern repeats every 10 floors — smoothly spread from common to rare
-    var pos = ((fl - 1) % 10) + 1;
-    var mix = { common: 0, uncommon: 0, rare: 0 };
-    mix.common = Math.max(0, 14 - pos * 2); // 12,10,8,6,4,2,0,0,0,0
-    if (pos <= 5) {
-      mix.uncommon = (pos - 1) * 2; // 0,2,4,6,8
-    } else if (pos === 6) {
-      mix.uncommon = 9; mix.rare = 1;
-    } else if (pos === 7) {
-      mix.uncommon = 9; mix.rare = 3;
-    } else if (pos === 8) {
-      mix.uncommon = 6; mix.rare = 6;
-    } else if (pos === 9) {
-      mix.uncommon = 3; mix.rare = 9;
-    } else {
-      mix.rare = 12; // pos 10
-    }
+  html += '</div>'; // end floor balance section
+  html += '</div>'; // end LEFT COLUMN
 
-    // Weighted average ATK from gear mix — smooth per-floor power
-      var power = Math.max(0, (fl - 10) / 10);
-      var totalAtk = 0;
-      var totalPieces = 0;
-      var mixDisplay = [];
-      rarities.forEach(function(r) {
-        var cnt = mix[r] || 0;
-        if (cnt === 0) return;
-        var rb = rarityBonus[r] != null ? rarityBonus[r] : 0;
-        var pieceAtk = Math.round(weapBase + power * 300 + rb);
-        totalAtk += cnt * pieceAtk;
-        totalPieces += cnt;
-        mixDisplay.push(cnt + ' ' + r);
-      });
-      var avgAtk = totalPieces > 0 ? Math.round(totalAtk / totalPieces) : 0;
-      // Compute hero HP from gear mix (same formula as ATK but with ACC base)
-      var accBase = config.ACC_BASE_HP || 500;
-      var totalHp = 0;
-      rarities.forEach(function(r) {
-        var cnt = mix[r] || 0;
-        if (cnt === 0) return;
-        var rb = rarityBonus[r] != null ? rarityBonus[r] : 0;
-        var pieceHp = Math.round(accBase + power * 300 + rb);
-        totalHp += cnt * pieceHp;
-      });
-      var avgHp = totalPieces > 0 ? Math.round(totalHp / totalPieces) : 0;
-      // Multiply by actual equipment slot counts:
-      // ATK: 2 weapon slots, DEF: 5 armor slots, HP: 5 accessory slots
-      var heroTotalAtk = avgAtk * 2;
-      var heroTotalDef = Math.round(avgDef * 5);
-      // Compute hero DEF from gear mix (same formula)
-      var armorBase = config.ARMOR_BASE_DEF || 100;
-      var totalDef = 0;
-      rarities.forEach(function(r) {
-        var cnt = mix[r] || 0;
-        if (cnt === 0) return;
-        var rb = rarityBonus[r] != null ? rarityBonus[r] : 0;
-        var pieceDef = Math.round(armorBase + power * 300 + rb);
-        totalDef += cnt * pieceDef;
-      });
-      var avgDef = totalPieces > 0 ? Math.round(totalDef / totalPieces) : 0;
-      // Multiply by actual equipment slot counts:
-      // ATK: 2 weapon slots, DEF: 5 armor slots, HP: 5 accessory slots
-      var heroTotalAtk = avgAtk * 2;
-      var heroTotalDef = Math.round(avgDef * 5);
-      var heroTotalHp = avgHp * 5;
-      var fse = config.FLOOR_SCALE_EXPONENT != null ? config.FLOOR_SCALE_EXPONENT : 0.85;
-      var monScale = Math.pow(fl, fse);
-      // Monster stats
-      var monAtk = (config.MONSTER_BASE_ATK || 500) * monScale;
-      var monDef = (config.MONSTER_BASE_DEF || 5) * monScale;
-      var monHp = (config.MONSTER_BASE_HP || 5000) * monScale;
-      // Floor enemy count
-      var perPlayer = Math.max(0, 0);
-      var flTrash = (config.TRASH_BASE || 1) + (fl % 2) + perPlayer * (config.TRASH_PER_PLAYER || 1);
-      var flBoss = (config.BOSSES_BASE || 1) + perPlayer * (config.BOSSES_PER_PLAYER || 0);
-      var totalEnemies = flTrash + flBoss;
-      // Rounds per monster (hero damage uses ATK - DEF like the game engine)
-      var dmgPerHit = Math.max(1, heroTotalAtk - Math.round(monDef));
-      var roundsPerMon = Math.ceil(monHp / dmgPerHit);
-      // Damage per round from monsters (sigmoid: ATK / 2^(DEF/ATK))
-      var rawMonDmg = monAtk / Math.pow(2, Math.round(heroTotalDef) / monAtk);
-      var expectedMonDmg = rawMonDmg * 1.1; // 10% crit ×2
-      // Monsters die one by one — average attackers = (totalEnemies + 1) / 2
-      var avgAttackers = (totalEnemies + 1) / 2;
-      var dmgPerRound = avgAttackers * expectedMonDmg;
-      // Can hero survive? Rounds to kill all vs rounds to die
-      var roundsNeeded = roundsPerMon * totalEnemies;
-      var roundsCanSurvive = dmgPerRound > 0 ? Math.ceil(heroTotalHp / dmgPerRound) : 999;
-      var survives = roundsCanSurvive > roundsNeeded;
-      var estSec = Math.round(roundsNeeded * 1.2 / 60);
-      var resultText = survives ? roundsPerMon + 'h' : 'dies';
-      var resultColor = survives ? (roundsPerMon <= 10 ? '#4ade80' : roundsPerMon <= 20 ? '#fbbf24' : '#ef4444') : '#ef4444';
-      var estColor = survives ? (estSec <= 3 ? '#4ade80' : estSec <= 6 ? '#fbbf24' : '#ef4444') : '#ef4444';
-    tableRows += '<tr id="dc-' + fl + '" style="border-bottom:1px solid #0a080a">' +
-      '<td style="padding:3px 6px;font-weight:600">' + fl + '</td>' +
-      '<td style="padding:3px 6px;font-size:.7rem" id="dc-gear-' + fl + '">' + mixDisplay.join('<br>') + '</td>' +
-      '<td style="padding:3px 6px;text-align:right" id="dc-atk-' + fl + '">' + heroTotalAtk + '</td>' +
-      '<td style="padding:3px 6px;text-align:right;color:#5a555a" id="dc-hero-hp-' + fl + '">' + heroTotalHp + '</td>' +
-      '<td style="padding:3px 6px;text-align:right" id="dc-mon-hp-' + fl + '">' + Math.round(monHp) + '</td>' +
-      '<td style="padding:3px 6px;text-align:right;font-weight:700;color:' + resultColor + '" id="dc-result-' + fl + '">' + resultText + '</td>' +
-      '<td style="padding:3px 6px;text-align:right;color:' + estColor + '" id="dc-time-' + fl + '">~' + estSec + 'm</td>' +
-      '</tr>';
-  }
-  html += '<div style="margin-bottom:16px;border:1px solid #1a1518;border-radius:4px;padding:12px;background:#080608">';
-  html += '<h3 style="font-size:1rem;font-weight:700;color:#6a623a;margin-bottom:8px;letter-spacing:1px">📈 Difficulty Curve</h3>';
-  html += '<p style="font-size:.78rem;color:#5a555a;margin-bottom:8px">Expected gear per floor (12 slots). ATK×2, DEF×5, HP×5 for weapon/armor/acc slot counts.</p>';
-  html += '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:.75rem">';
-  html += '<tr style="color:#5a555a;border-bottom:1px solid #1a1518"><th style="padding:4px 6px;text-align:left">Floor</th><th style="padding:4px 6px;text-align:left">Gear Mix</th><th style="padding:4px 6px;text-align:right">ATK</th><th style="padding:4px 6px;text-align:right">HP</th><th style="padding:4px 6px;text-align:right">Mon HP</th><th style="padding:4px 6px;text-align:right">Result</th><th style="padding:4px 6px;text-align:right">Time</th></tr>';
-  html += tableRows;
-  html += '</table></div></div>';
-  html += '</div>';
+  // ── RIGHT COLUMN: Live preview ──
+  html += '<div style="flex:1;min-width:0">';
+  html += '<div style="border:1px solid #1a1518;border-radius:4px;padding:12px;background:#080608">';
+  html += '<h3 style="font-size:1rem;font-weight:700;color:#6a623a;margin-bottom:8px;letter-spacing:1px">📈 Difficulty Curve Preview</h3>';
+  html += '<div id="preview-content">Loading...</div>';
+  html += '</div></div>'; // end right column
+
+  html += '</div>'; // end flex container
 
   // ── Advanced config (collapsible) ──
   html += '<details style="margin-bottom:16px">';
@@ -3003,7 +2899,7 @@ function renderAdminConfig(config) {
              'MAX_INVENTORY','PARTY_MAX_SIZE']
     },
   ];
-  var rendered = ['WEAPON_BASE_ATK','ARMOR_BASE_DEF','ACC_BASE_HP','RARITY_BONUS'];
+  var rendered = ['WEAPON_BASE_ATK','ARMOR_BASE_DEF','ACC_BASE_HP','RARITY_MULTIPLIER'];
   for (var gi = 0; gi < groups.length; gi++) {
     var grp = groups[gi];
     var grpKeys = [];
@@ -3199,20 +3095,20 @@ function updateAbDisplay() {
   var monBaseHp = cfg.MONSTER_BASE_HP || 5000;
   var monBaseDef = cfg.MONSTER_BASE_DEF || 5;
   var slots = cfg.GEAR_SLOTS || 12;
-  var rb = cfg.RARITY_BONUS || {};
+  var rm = cfg.RARITY_MULTIPLIER || {};
 
   var pos = ((floor - 1) % 10) + 1;
-  var c = 0, u = 0, r = 0;
-  if (pos <= 5) { c = Math.max(0, 14 - pos * 2); u = (pos - 1) * 2; }
-  else if (pos === 6) { u = 9; r = 1; }
-  else if (pos === 7) { u = 9; r = 3; }
-  else if (pos === 8) { u = 6; r = 6; }
-  else if (pos === 9) { u = 3; r = 9; }
-  else { r = 12; }
+  var cc = 0, uc = 0, rc = 0;
+  if (pos <= 5) { cc = Math.max(0, 14 - pos * 2); uc = (pos - 1) * 2; }
+  else if (pos === 6) { uc = 9; rc = 1; }
+  else if (pos === 7) { uc = 9; rc = 3; }
+  else if (pos === 8) { uc = 6; rc = 6; }
+  else if (pos === 9) { uc = 3; rc = 9; }
+  else { rc = 12; }
   var rarityLabel = pos <= 2 ? 'common' : pos <= 5 ? 'uncommon' : 'rare';
-  var gearPower = Math.max(0, (floor - 10) / 10);
   var monScale = Math.pow(floor, fse);
-  var avgAtk = Math.round((c * Math.round(weapBase + gearPower * 300 + (rb.common||0)) + u * Math.round(weapBase + gearPower * 300 + (rb.uncommon||0)) + r * Math.round(weapBase + gearPower * 300 + (rb.rare||0))) / slots) * 2;
+  var powFloor = Math.pow(floor, fse);
+  var avgAtk = Math.round((cc * Math.round(weapBase * powFloor * (rm.common||1.0)) + uc * Math.round(weapBase * powFloor * (rm.uncommon||1.05)) + rc * Math.round(weapBase * powFloor * (rm.rare||1.15))) / slots) * 2;
   var monDef = Math.round(monBaseDef * monScale);
   var monHp = Math.round(monBaseHp * monScale);
 
@@ -3280,12 +3176,12 @@ function updateAbFromTime() {
     var totalAtk = 0, totalDef = 0, totalHp = 0;
     for (var ri = 0; ri < rarities.length; ri++) {
       var r = rarities[ri];
-      var rb = (cfg.RARITY_BONUS && cfg.RARITY_BONUS[r]) || 0;
+      var mult = (cfg.RARITY_MULTIPLIER && cfg.RARITY_MULTIPLIER[r]) || 1.0;
       var rCount = mix[r] || 0;
       if (rCount > 0) {
-        totalAtk += rCount * Math.round(weapBase + power * 300 + rb);
-        totalDef += rCount * Math.round(armorBase + power * 300 + rb);
-        totalHp += rCount * Math.round(accBase + power * 300 + rb);
+        totalAtk += rCount * Math.round(weapBase * Math.pow(fl, expo) * mult);
+        totalDef += rCount * Math.round(armorBase * Math.pow(fl, expo) * mult);
+        totalHp += rCount * Math.round(accBase * Math.pow(fl, expo) * mult);
       }
     }
     var hAtk = Math.round(totalAtk / 12) * 2;
@@ -3465,22 +3361,22 @@ function runSimulation() {
   var refPos = ((refFloor - 1) % 10) + 1;
   if (refPos >= 6) rarity = 'rare';
   else if (refPos >= 1) rarity = refPos <= 2 ? 'common' : 'uncommon';
-  var rarityBonus = (cfg.RARITY_BONUS && cfg.RARITY_BONUS[rarity]) || 0;
+  var rarityMult = (cfg.RARITY_MULTIPLIER && cfg.RARITY_MULTIPLIER[rarity]) || 1.0;
   var tanks = parseInt(document.getElementById('sim-tanks').value) || 0;
   var dps = parseInt(document.getElementById('sim-dps').value) || 1;
   var healers = parseInt(document.getElementById('sim-healers').value) || 0;
   var partySize = tanks + dps + healers;
   if (partySize < 1) { document.getElementById('sim-result').textContent = 'Need at least 1 hero'; return; }
 
-  // Gear stats — exponential scaling matching monster growth
-  var weapBase = cfg.WEAPON_BASE_ATK || 500;
+  // Gear stats — multiplicative per-floor scaling
+  var weapBase = cfg.WEAPON_BASE_ATK || 250;
   var armorBase = cfg.ARMOR_BASE_DEF || 50;
   var accBase = cfg.ACC_BASE_HP || 200;
-  var simGearLv = Math.ceil(refFloor / 10) * 10;
-  var gearPower = Math.max(0, (simGearLv - 10) / 10);
-  var baseAtk = Math.round(weapBase + gearPower * 300 + rarityBonus) * 2; // 2 weapon slots
-  var baseDef = Math.round(armorBase + gearPower * 300 + rarityBonus) * 5; // 5 armor slots
-  var baseHp = Math.round(accBase + gearPower * 300 + rarityBonus) * 5; // 5 accessory slots
+  // Gear stats — multiplicative per-floor scaling
+  var powRef = Math.pow(refFloor, cfg.FLOOR_SCALE_EXPONENT || 0.85);
+  var baseAtk = Math.round(weapBase * powRef * rarityMult) * 2; // 2 weapon slots
+  var baseDef = Math.round(armorBase * powRef * rarityMult) * 5; // 5 armor slots
+  var baseHp = Math.round(accBase * powRef * rarityMult) * 5; // 5 accessory slots
 
   // Monster stats at reference floor (exponent scaling matches game)
   var monBaseHp = cfg.MONSTER_BASE_HP || 5000;
@@ -3648,43 +3544,31 @@ function triggerAutoBalance() {
 }
 
 function refreshGearPreview() {
-  var gearCats = [
-    { baseId: 'admin-WEAPON_BASE_ATK' },
-    { baseId: 'admin-ARMOR_BASE_DEF'  },
-    { baseId: 'admin-ACC_BASE_HP'     },
-  ];
+  var cats = ['WEAPON_BASE_ATK','ARMOR_BASE_DEF','ACC_BASE_HP'];
   var rarities = ['common', 'uncommon', 'rare', 'epic', 'legendary'];
-  var bracketLevels = [10, 20, 30, 40, 50];
-
-  // Read rarity bonus values
-  var rb = {};
+  var fse = (ADMIN_CONFIG_CACHE && ADMIN_CONFIG_CACHE.FLOOR_SCALE_EXPONENT) || 0.85;
+  var rm = {};
   for (var ri = 0; ri < rarities.length; ri++) {
-    var el = document.getElementById('admin-RARITY_BONUS-' + rarities[ri]);
-    rb[rarities[ri]] = el ? (parseFloat(el.value) || 0) : 0;
+    var el = document.getElementById('admin-RARITY_MULTIPLIER-' + rarities[ri]);
+    rm[rarities[ri]] = el ? (parseFloat(el.value) || 1.0) : 1.0;
   }
-
-  // Read floor exponent from admin cache
-  var fse = (ADMIN_CONFIG_CACHE && ADMIN_CONFIG_CACHE.FLOOR_SCALE_EXPONENT) || 0.55;
-
-  for (var ci = 0; ci < gearCats.length; ci++) {
-    var baseEl = document.getElementById(gearCats[ci].baseId);
+  for (var ci = 0; ci < cats.length; ci++) {
+    var baseEl = document.getElementById('admin-' + cats[ci]);
     var baseVal = baseEl ? (parseFloat(baseEl.value) || 0) : 0;
-
-    // Update base stat previews
     for (var ri = 0; ri < rarities.length; ri++) {
+      var r = rarities[ri];
       var span = document.getElementById('gp-base-' + ci + '-' + ri);
-      if (span) span.textContent = baseVal + (rb[rarities[ri]] || 0);
+      if (span) span.textContent = Math.round(baseVal * Math.pow(1, fse) * (rm[r] || 1.0));
     }
-
-    // Update example level previews
-    for (var sl = 0; sl < bracketLevels.length; sl++) {
-      var lv = bracketLevels[sl];
+    var levels = [10, 20, 30, 40, 50];
+    for (var sl = 0; sl < levels.length; sl++) {
+      var lv = levels[sl];
       var div = document.getElementById('gp-ex-' + ci + '-' + lv);
       if (!div) continue;
       var txt = 'B' + (sl+1) + ' Lv' + lv + ': ';
       for (var ri = 0; ri < rarities.length; ri++) {
         var r = rarities[ri];
-        var stat = Math.round(baseVal + ((lv - 10) / 10) * 300 + (rb[r] || 0));
+        var stat = Math.round(baseVal * Math.pow(lv, fse) * (rm[r] || 1.0));
         txt += (ri === 2 ? 'rar ' : r.substring(0, 3) + ' ') + stat;
         if (ri < rarities.length - 1) txt += ' · ';
       }
@@ -3694,22 +3578,181 @@ function refreshGearPreview() {
   triggerAutoBalance();
 }
 
-function resetAdminConfig() {
-  if (!confirm('Reset all values to defaults?')) return;
-  var status = document.getElementById('admin-status');
-  if (status) status.textContent = 'Resetting...';
+// ─── Control Panel Helpers ──────────────────────────────────
+
+function renderPreview() {
+  var c = ADMIN_CONFIG_CACHE;
+  if (!c) return;
+  var el = document.getElementById('preview-content');
+  if (!el) return;
+  var slots = c.GEAR_SLOTS || 12;
+  var floorList = [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,25,30,35,40,45,50];
+  var rarities = ['common','uncommon','rare'];
+  var rarityMult = c.RARITY_MULTIPLIER || {};
+  var weapBase = c.WEAPON_BASE_ATK || 250;
+  var armorBase = c.ARMOR_BASE_DEF || 50;
+  var accBase = c.ACC_BASE_HP || 200;
+  var rows = '';
+  for (var fi = 0; fi < floorList.length; fi++) {
+    var fl = floorList[fi];
+    var pos = ((fl - 1) % 10) + 1;
+    var mix = { common: 0, uncommon: 0, rare: 0 };
+    mix.common = Math.max(0, 14 - pos * 2);
+    if (pos <= 5) { mix.uncommon = (pos - 1) * 2; }
+    else if (pos === 6) { mix.uncommon = 9; mix.rare = 1; }
+    else if (pos === 7) { mix.uncommon = 9; mix.rare = 3; }
+    else if (pos === 8) { mix.uncommon = 6; mix.rare = 6; }
+    else if (pos === 9) { mix.uncommon = 3; mix.rare = 9; }
+    else { mix.rare = 12; }
+    var power = Math.max(0, (fl - 10) / 10);
+    var totalAtk = 0, totalDef = 0, totalHp = 0, totalPieces = 0;
+    for (var ri = 0; ri < rarities.length; ri++) {
+      var r = rarities[ri];
+      var cnt = mix[r] || 0; if (cnt === 0) continue;
+      var mult = rarityMult[r] != null ? rarityMult[r] : (r === 'common' ? 1.0 : r === 'rare' ? 1.15 : 1.05);
+      totalPieces += cnt;
+      totalAtk += cnt * Math.round(weapBase * Math.pow(fl, c.FLOOR_SCALE_EXPONENT || 0.85) * mult);
+      totalDef += cnt * Math.round(armorBase * Math.pow(fl, c.FLOOR_SCALE_EXPONENT || 0.85) * mult);
+      totalHp += cnt * Math.round(accBase * Math.pow(fl, c.FLOOR_SCALE_EXPONENT || 0.85) * mult);
+    }
+    var hAtk = totalPieces > 0 ? Math.round(totalAtk / totalPieces) * 2 : 0;
+    var hDef = totalPieces > 0 ? Math.round(totalDef / totalPieces) * 5 : 0;
+    var hHp = totalPieces > 0 ? Math.round(totalHp / totalPieces) * 5 : 0;
+    var monScale = Math.pow(fl, c.FLOOR_SCALE_EXPONENT || 0.85);
+    var monHp = (c.MONSTER_BASE_HP || 5000) * monScale;
+    var monAtk = (c.MONSTER_BASE_ATK || 500) * monScale;
+    var monDef = (c.MONSTER_BASE_DEF || 5) * monScale;
+    var trash = (c.TRASH_BASE || 1) + (fl % 2);
+    var boss = (c.BOSSES_BASE || 1);
+    var totalMobs = trash + boss;
+    var dmgPerHit = Math.max(1, hAtk - Math.round(monDef));
+    var roundsPerMon = Math.ceil(monHp / dmgPerHit);
+    var clearRounds = roundsPerMon * totalMobs;
+    var clearSec = Math.round(clearRounds * 1350 / 1000);
+    var rawMonDmg = monAtk / Math.pow(2, hDef / monAtk);
+    var avgAtt = (totalMobs + 1) / 2;
+    var dmgPerRound = avgAtt * rawMonDmg * 1.1;
+    var roundsToDie = dmgPerRound > 0 ? Math.ceil(hHp / dmgPerRound) : 999;
+    var survives = roundsToDie > clearRounds;
+    var pct = Math.round(roundsToDie / clearRounds * 100);
+    rows += '<tr style="border-bottom:1px solid #0a080a;cursor:pointer" onclick="selectFloor(' + fl + ')"' + (fi % 2 === 1 ? ' style="background:#0a080a"' : '') + '>';
+    rows += '<td style="padding:2px 4px;font-weight:600">' + fl + '</td>';
+    rows += '<td style="text-align:right;padding:2px 4px">' + hAtk.toLocaleString() + '</td>';
+    rows += '<td style="text-align:right;padding:2px 4px">' + hDef.toLocaleString() + '</td>';
+    rows += '<td style="text-align:right;padding:2px 4px">' + hHp.toLocaleString() + '</td>';
+    rows += '<td style="text-align:right;padding:2px 4px;color:#fbbf24">' + Math.round(monHp).toLocaleString() + '</td>';
+    rows += '<td style="text-align:right;padding:2px 4px;color:#f87171">' + Math.round(monAtk).toLocaleString() + '</td>';
+    rows += '<td style="text-align:right;padding:2px 4px;color:#60a5fa">' + Math.round(monDef).toLocaleString() + '</td>';
+    rows += '<td style="text-align:right;padding:2px 4px">' + clearSec + 's</td>';
+    rows += '<td style="text-align:right;padding:2px 4px">' + roundsToDie + '</td>';
+    rows += '<td style="text-align:right;padding:2px 4px;font-weight:700;color:' + (survives ? '#4ade80' : '#f87171') + '">' + pct + '%</td>';
+    rows += '</tr>';
+  }
+  var html = '<table style="width:100%;border-collapse:collapse;font-size:.65rem">';
+  html += '<thead><tr style="color:#5a555a;border-bottom:1px solid #2a2020;position:sticky;top:0;background:#080608">';
+  html += '<th style="text-align:left;padding:2px 4px">Fl</th><th style="text-align:right;padding:2px 4px">ATK</th><th style="text-align:right;padding:2px 4px">DEF</th><th style="text-align:right;padding:2px 4px">HP</th>';
+  html += '<th style="text-align:right;padding:2px 4px;color:#fbbf24">Mon HP</th><th style="text-align:right;padding:2px 4px;color:#f87171">Mon ATK</th><th style="text-align:right;padding:2px 4px;color:#60a5fa">Mon DEF</th>';
+  html += '<th style="text-align:right;padding:2px 4px">Clear</th><th style="text-align:right;padding:2px 4px">Die@</th><th style="text-align:right;padding:2px 4px">Life%</th>';
+  html += '</tr></thead><tbody>' + rows + '</tbody></table>';
+  html += '<div id="floor-detail" style="margin-top:8px;padding:8px;background:#060406;border-radius:4px;font-size:.75rem;color:#5a555a">Click a floor row for details</div>';
+  el.innerHTML = html;
+}
+
+function refreshPreview() {
+  renderPreview();
+}
+
+function saveAllConfig() {
   var tok = window.__INITIAL_TOKEN__ || localStorage.getItem('token') || '';
-  fetch('/api/admin/balancing/reset', {
-    method: 'POST',
-    headers: { 'Authorization': 'Bearer ' + tok }
+  var cfg = {};
+  cfg.WEAPON_BASE_ATK = parseInt(document.getElementById('admin-WEAPON_BASE_ATK')?.value) || 250;
+  cfg.ARMOR_BASE_DEF = parseInt(document.getElementById('admin-ARMOR_BASE_DEF')?.value) || 50;
+  cfg.ACC_BASE_HP = parseInt(document.getElementById('admin-ACC_BASE_HP')?.value) || 200;
+  cfg.RARITY_MULTIPLIER = {};
+  ['common','uncommon','rare','epic','legendary'].forEach(function(r) {
+    cfg.RARITY_MULTIPLIER[r] = parseFloat(document.getElementById('admin-RARITY_MULTIPLIER-' + r)?.value) || 1.0;
+  });
+  cfg.MONSTER_BASE_HP = parseInt(document.getElementById('admin-MONSTER_BASE_HP')?.value) || 5000;
+  cfg.MONSTER_BASE_ATK = parseInt(document.getElementById('admin-MONSTER_BASE_ATK')?.value) || 500;
+  cfg.MONSTER_BASE_DEF = parseInt(document.getElementById('admin-MONSTER_BASE_DEF')?.value) || 5;
+  cfg.FLOOR_SCALE_EXPONENT = parseFloat(document.getElementById('admin-FLOOR_SCALE_EXPONENT')?.value) || 0.85;
+  cfg.HEAL_BASE = parseInt(document.getElementById('admin-HEAL_BASE')?.value) || 50;
+  cfg.TRASH_BASE = parseInt(document.getElementById('admin-TRASH_BASE')?.value) || 1;
+  cfg.TRASH_PER_PLAYER = parseInt(document.getElementById('admin-TRASH_PER_PLAYER')?.value) || 1;
+  cfg.BOSSES_BASE = parseInt(document.getElementById('admin-BOSSES_BASE')?.value) || 1;
+  cfg.BOSSES_PER_PLAYER = parseInt(document.getElementById('admin-BOSSES_PER_PLAYER')?.value) || 0;
+  cfg.BOSS_ATK_MULTIPLIER = parseInt(document.getElementById('admin-BOSS_ATK_MULTIPLIER')?.value) || 2;
+  cfg.BOSS_DEF_MULTIPLIER = parseInt(document.getElementById('admin-BOSS_DEF_MULTIPLIER')?.value) || 2;
+  cfg.BOSS_HP_MULTIPLIER = parseInt(document.getElementById('admin-BOSS_HP_MULTIPLIER')?.value) || 2;
+  var status = document.getElementById('admin-status');
+  if (status) status.textContent = 'Saving...';
+  fetch('/api/admin/balancing', {
+    method: 'PUT', headers: { 'Authorization': 'Bearer ' + tok, 'Content-Type': 'application/json' },
+    body: JSON.stringify(cfg)
   })
   .then(function(r) { return r.json(); })
-  .then(function() {
-    if (status) { status.textContent = 'Reset complete'; status.style.color = '#4ade80'; }
-    loadAdminConfig();
+  .then(function(resp) {
+    if (resp.error) throw new Error(resp.error);
+    ADMIN_CONFIG_CACHE = resp.config;
+    if (status) status.textContent = 'Saved ✓';
+    refreshPreview();
   })
-  .catch(function(err) {
-    if (status) { status.textContent = 'Failed: ' + err.message; status.style.color = '#ef4444'; }
-  });
+  .catch(function(err) { if (status) status.textContent = 'Error: ' + err.message; });
 }
+
+function selectFloor(fl) {
+  var el = document.getElementById('floor-detail');
+  if (!el) return;
+  var c = ADMIN_CONFIG_CACHE;
+  if (!c) { el.textContent = 'No config loaded'; return; }
+  var pos = ((fl - 1) % 10) + 1;
+  var rarityNames = ['common','uncommon','rare'];
+  var rarityMult = c.RARITY_MULTIPLIER || {};
+  var weapBase = c.WEAPON_BASE_ATK || 250, armorBase = c.ARMOR_BASE_DEF || 50, accBase = c.ACC_BASE_HP || 200;
+  var mix = { common: 0, uncommon: 0, rare: 0 };
+  mix.common = Math.max(0, 14 - pos * 2);
+  if (pos <= 5) { mix.uncommon = (pos - 1) * 2; }
+  else if (pos === 6) { mix.uncommon = 9; mix.rare = 1; }
+  else if (pos === 7) { mix.uncommon = 9; mix.rare = 3; }
+  else if (pos === 8) { mix.uncommon = 6; mix.rare = 6; }
+  else if (pos === 9) { mix.uncommon = 3; mix.rare = 9; }
+  else { mix.rare = 12; }
+  var power = Math.max(0, (fl - 10) / 10);
+  var totalAtk = 0, totalDef = 0, totalHp = 0, totalPieces = 0;
+  for (var ri = 0; ri < rarityNames.length; ri++) {
+    var r = rarityNames[ri];
+    var cnt = mix[r] || 0; if (cnt === 0) continue;
+    var mult = rarityMult[r] != null ? rarityMult[r] : (r === 'common' ? 1.0 : r === 'rare' ? 1.15 : 1.05);
+    totalPieces += cnt;
+    totalAtk += cnt * Math.round(weapBase * Math.pow(fl, c.FLOOR_SCALE_EXPONENT || 0.85) * mult);
+    totalDef += cnt * Math.round(armorBase * Math.pow(fl, c.FLOOR_SCALE_EXPONENT || 0.85) * mult);
+    totalHp += cnt * Math.round(accBase * Math.pow(fl, c.FLOOR_SCALE_EXPONENT || 0.85) * mult);
+  }
+  var hAtk = totalPieces > 0 ? Math.round(totalAtk / totalPieces) * 2 : 0;
+  var hDef = totalPieces > 0 ? Math.round(totalDef / totalPieces) * 5 : 0;
+  var hHp = totalPieces > 0 ? Math.round(totalHp / totalPieces) * 5 : 0;
+  var monScale = Math.pow(fl, c.FLOOR_SCALE_EXPONENT || 0.85);
+  var monHp = (c.MONSTER_BASE_HP || 5000) * monScale;
+  var monAtk = (c.MONSTER_BASE_ATK || 500) * monScale;
+  var monDef = (c.MONSTER_BASE_DEF || 5) * monScale;
+  var trash = (c.TRASH_BASE || 1) + (fl % 2);
+  var boss = (c.BOSSES_BASE || 1);
+  var totalMobs = trash + boss;
+  var dmgPerHit = Math.max(1, hAtk - Math.round(monDef));
+  var roundsPerMon = Math.ceil(monHp / dmgPerHit);
+  var clearRounds = roundsPerMon * totalMobs;
+  var rawMonDmg = monAtk / Math.pow(2, hDef / monAtk);
+  var avgAtt = (totalMobs + 1) / 2;
+  var dmgPerRound = avgAtt * rawMonDmg * 1.1;
+  var roundsToDie = dmgPerRound > 0 ? Math.ceil(hHp / dmgPerRound) : 999;
+  heroDmgPerRound = Math.round(dmgPerHit);
+  var survive = roundsToDie > clearRounds;
+  el.innerHTML = '<b style="color:#6a623a">Floor ' + fl + '</b> — Hero vs Monster' +
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px">' +
+    '<div style="padding:6px;background:#080608;border-radius:4px"><b>Hero</b><br>ATK ' + hAtk.toLocaleString() + '<br>DEF ' + hDef.toLocaleString() + '<br>HP ' + hHp.toLocaleString() + '</div>' +
+    '<div style="padding:6px;background:#080608;border-radius:4px"><b>Monsters</b> (' + totalMobs + ')<br>HP ' + Math.round(monHp).toLocaleString() + '<br>ATK ' + Math.round(monAtk).toLocaleString() + '<br>DEF ' + Math.round(monDef).toLocaleString() + '</div>' +
+    '</div>' +
+    '<div style="margin-top:6px">Clear: <b>' + clearRounds + '</b> rounds (' + Math.round(clearRounds * 1350 / 1000) + 's) &middot; Die@ <b>' + roundsToDie + '</b> &middot; <span style="color:' + (survive ? '#4ade80' : '#f87171') + '">' + (survive ? '✓ Survives' : '✗ Dies') + '</span></div>';
+}
+
 })();
