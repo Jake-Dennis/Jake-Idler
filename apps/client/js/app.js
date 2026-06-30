@@ -3412,7 +3412,7 @@ function runSimulation() {
 
     // Build monster queue (exponent scaling matches game)
     var simScale = Math.pow(refFloor, cfg.FLOOR_SCALE_EXPONENT || 0.85);
-    var hpScale = 1.3 + (partySize - 1) * 0.29;
+    var hpScale = 1.0 + (partySize - 1) * 0.29;
     var monsters = [];
     for (var mi = 0; mi < trashCount; mi++) {
       monsters.push({ hp: Math.round(monBaseHp * simScale * hpScale), maxHp: Math.round(monBaseHp * simScale * hpScale), def: Math.round(monBaseDef * simScale), atk: Math.round(monBaseAtk * simScale), isBoss: false, alive: true });
