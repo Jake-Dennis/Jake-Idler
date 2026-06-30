@@ -2874,7 +2874,61 @@ function renderAdminConfig(config) {
       html += '<input type="number" id="admin-' + k + '" value="' + v + '" ' + step + ' ' + min + ' oninput="updateAbEstimate()" style="padding:4px 8px;background:#0a080a;border:1px solid #2a2020;border-radius:4px;color:#9a949a;font-size:.85rem;outline:none;width:100%">';
       html += '</div>';
     }
-    html += '</div></div>';
+    html += '</div>';
+
+    // Formula preview for this group
+    var fse = config.FLOOR_SCALE_EXPONENT || 0.55;
+    var preview = '';
+    switch (grp.label) {
+      case 'Monster Stats': {
+        var bAtk = config.MONSTER_BASE_ATK || 50;
+        var bDef = config.MONSTER_BASE_DEF || 5;
+        var bHp = config.MONSTER_BASE_HP || 1500;
+        var bAtkM = config.BOSS_ATK_MULTIPLIER || 2;
+        var bDefM = config.BOSS_DEF_MULTIPLIER || 2;
+        var bHpM = config.BOSS_HP_MULTIPLIER || 2;
+        preview += '<span style="color:#5a555a">Trash Lv10:</span> ATK ' + Math.round(bAtk*Math.pow(10,fse)) + ' DEF ' + Math.round(bDef*Math.pow(10,fse)) + ' HP ' + Math.round(bHp*Math.pow(10,fse));
+        preview += ' &middot; <span style="color:#5a555a">Lv50:</span> ATK ' + Math.round(bAtk*Math.pow(50,fse)) + ' DEF ' + Math.round(bDef*Math.pow(50,fse)) + ' HP ' + Math.round(bHp*Math.pow(50,fse));
+        preview += '<br><span style="color:#5a555a">Boss Lv50:</span> ATK ' + Math.round(bAtk*Math.pow(50,fse)*bAtkM) + ' DEF ' + Math.round(bDef*Math.pow(50,fse)*bDefM) + ' HP ' + Math.round(bHp*Math.pow(50,fse)*bHpM);
+        break;
+      }
+      case 'Combat Formulas': {
+        var critC = config.CRIT_CHANCE || 0.1;
+        var critM = config.CRIT_MULTIPLIER || 1.5;
+        var dpsBoost = ((1 - critC) + critC * critM - 1) * 100;
+        preview = '<span style="color:#5a555a">' + Math.round(critC*100) + '% crit chance &times; ' + critM + 'x = <b>' + Math.round(dpsBoost) + '%</b> DPS boost</span>';
+        break;
+      }
+      case 'Rewards': {
+        var xp = config.MONSTER_XP_BASE || 20;
+        var gp = config.MONSTER_GOLD_BASE || 10;
+        var bx = config.BOSS_XP_MULTIPLIER || 3;
+        var bg = config.BOSS_GOLD_MULTIPLIER || 3;
+        var sc = Math.pow(50, fse);
+        preview += '<span style="color:#5a555a">Lv50 trash:</span> ' + Math.round(xp*sc) + ' XP, ' + Math.round(gp*sc) + ' gold';
+        preview += ' &middot; <span style="color:#5a555a">Lv50 boss:</span> ' + Math.round(xp*sc*bx) + ' XP, ' + Math.round(gp*sc*bg) + ' gold';
+        break;
+      }
+      case 'Encounter Scaling': {
+        var tb = config.TRASH_BASE || 1;
+        var tp = config.TRASH_PER_PLAYER || 1;
+        var bb = config.BOSSES_BASE || 1;
+        var bp = config.BOSSES_PER_PLAYER || 0;
+        preview += '<span style="color:#5a555a">Solo (floor 1):</span> ' + (tb+1) + ' trash, ' + bb + ' boss';
+        preview += ' &middot; <span style="color:#5a555a">Party of 4:</span> ' + (tb+1+3*tp) + ' trash, ' + (bb+3*bp) + ' boss';
+        break;
+      }
+      case 'Floor & Economy': {
+        var floorE = config.FLOOR_SCALE_EXPONENT || 0.55;
+        var bAtk = config.MONSTER_BASE_ATK || 50;
+        preview += '<span style="color:#5a555a">Monster ATK:</span> base &times; floor<sup>' + floorE + '</sup> = Lv10: ' + Math.round(bAtk*Math.pow(10,floorE)) + ', Lv50: ' + Math.round(bAtk*Math.pow(50,floorE));
+        break;
+      }
+    }
+    if (preview) {
+      html += '<div style="margin-top:10px;padding:6px 8px;background:#060406;border-radius:4px;font-size:.78rem;line-height:1.6">' + preview + '</div>';
+    }
+    html += '</div>';
   }
 
   // ── Nested keys (ANIMATION, BASE_DROP_RATES, etc.) ──
