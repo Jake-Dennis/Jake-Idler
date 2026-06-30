@@ -2677,6 +2677,7 @@ document.getElementById('hero-photo-input').addEventListener('change', function(
   window.loadAdminConfig = loadAdminConfig;
   window.saveAdminConfig = saveAdminConfig;
   window.resetAdminConfig = resetAdminConfig;
+  window.autoBalanceMonsters = autoBalanceMonsters;
   })();
 }
 
@@ -2781,6 +2782,44 @@ function renderAdminConfig(config) {
     html += '<input type="number" id="admin-RARITY_BONUS-' + r + '" value="' + rb + '" step="50" min="0" style="width:100%;padding:4px 8px;background:#0a080a;border:1px solid #2a2020;border-radius:4px;color:#9a949a;font-size:.85rem;outline:none;text-align:center">';
     html += '</div>';
   }
+  html += '</div></div>';
+
+  // ── Auto-Balance ──
+  var fse = config.FLOOR_SCALE_EXPONENT != null ? config.FLOOR_SCALE_EXPONENT : 0.55;
+  var weapBase = config.WEAPON_BASE_ATK != null ? config.WEAPON_BASE_ATK : 700;
+  var weapPer = config.WEAPON_ATK_PER_LEVEL != null ? config.WEAPON_ATK_PER_LEVEL : 30;
+  var monBaseHp = config.MONSTER_BASE_HP != null ? config.MONSTER_BASE_HP : 1500;
+  var monBaseDef = config.MONSTER_BASE_DEF != null ? config.MONSTER_BASE_DEF : 5;
+  var refFloor = 50;
+  var refRarity = 'rare';
+  var refRb = rarityBonus[refRarity] != null ? rarityBonus[refRarity] : 200;
+  var heroAtk = weapBase + refFloor * weapPer + refRb;
+  var monDef = monBaseDef * Math.pow(refFloor, fse);
+  var effDmg = Math.max(1, heroAtk - monDef);
+  var currentHits = Math.ceil(monBaseHp * Math.pow(refFloor, fse) / effDmg);
+
+  html += '<div style="margin-bottom:16px;border:1px solid #1a1518;border-radius:4px;padding:12px;background:#080608">';
+  html += '<h3 style="font-size:1rem;font-weight:700;color:#6a623a;margin-bottom:8px;letter-spacing:1px">⚖ Auto-Balance Monsters to Heroes</h3>';
+  html += '<p style="font-size:.8rem;color:#5a555a;margin-bottom:10px">Adjust MONSTER_BASE_HP so that a ' + refRarity + ' weapon at floor ' + refFloor + ' takes a target number of hits to kill a trash mob.</p>';
+
+  // Current stats display
+  html += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px;padding:8px;background:#060406;border-radius:4px">';
+  html += '<div><span style="font-size:.75rem;color:#5a555a">Hero ATK (Lv' + refFloor + ' ' + refRarity + ')</span><br><span style="font-size:1.1rem;font-weight:700;color:#9a949a">' + Math.round(heroAtk) + '</span></div>';
+  html += '<div><span style="font-size:.75rem;color:#5a555a">Monster DEF (Lv' + refFloor + ')</span><br><span style="font-size:1.1rem;font-weight:700;color:#9a949a">' + Math.round(monDef) + '</span></div>';
+  html += '<div><span style="font-size:.75rem;color:#5a555a">Current hits to kill</span><br><span style="font-size:1.1rem;font-weight:700;color:#fbbf24">' + currentHits + '</span></div>';
+  html += '</div>';
+
+  // Controls
+  html += '<div style="display:flex;gap:12px;align-items:end;flex-wrap:wrap">';
+  html += '<div><label style="font-size:.75rem;color:#5a555a">Target hits</label><br><input type="number" id="ab-target-hits" value="' + Math.max(3, currentHits) + '" min="1" max="100" style="width:70px;padding:4px 8px;background:#0a080a;border:1px solid #2a2020;border-radius:4px;color:#9a949a;font-size:.85rem"></div>';
+  html += '<div><label style="font-size:.75rem;color:#5a555a">Reference floor</label><br><input type="number" id="ab-ref-floor" value="' + refFloor + '" min="1" max="500" style="width:70px;padding:4px 8px;background:#0a080a;border:1px solid #2a2020;border-radius:4px;color:#9a949a;font-size:.85rem"></div>';
+  html += '<div><label style="font-size:.75rem;color:#5a555a">Rarity</label><br><select id="ab-rarity" style="padding:4px 8px;background:#0a080a;border:1px solid #2a2020;border-radius:4px;color:#9a949a;font-size:.85rem">';
+  for (var ri = 0; ri < rarities.length; ri++) {
+    var sel = rarities[ri] === refRarity ? ' selected' : '';
+    html += '<option value="' + rarities[ri] + '"' + sel + '>' + rarities[ri] + '</option>';
+  }
+  html += '</select></div>';
+  html += '<div><button id="ab-btn" class="btn btn-primary btn-sm" style="padding:6px 16px;font-size:.8rem" onclick="autoBalanceMonsters()">Auto-Balance</button></div>';
   html += '</div></div>';
 
   // ── Other config keys (exclude gear keys already rendered) ──
@@ -2888,6 +2927,49 @@ function resetAdminConfig() {
   .then(function(r) { return r.json(); })
   .then(function() {
     if (status) { status.textContent = 'Reset complete'; status.style.color = '#4ade80'; }
+    loadAdminConfig();
+  })
+  .catch(function(err) {
+    if (status) { status.textContent = 'Failed: ' + err.message; status.style.color = '#ef4444'; }
+  });
+}
+
+function autoBalanceMonsters() {
+  var targetHits = parseFloat(document.getElementById('ab-target-hits').value);
+  var refFloor = parseFloat(document.getElementById('ab-ref-floor').value);
+  var rarity = document.getElementById('ab-rarity').value;
+  if (!targetHits || !refFloor) return;
+  if (!ADMIN_CONFIG_CACHE) return;
+
+  var cfg = ADMIN_CONFIG_CACHE;
+  var fse = cfg.FLOOR_SCALE_EXPONENT || 0.55;
+  var weapBase = cfg.WEAPON_BASE_ATK || 700;
+  var weapPer = cfg.WEAPON_ATK_PER_LEVEL || 30;
+  var bonus = (cfg.RARITY_BONUS && cfg.RARITY_BONUS[rarity]) || 0;
+  var monBaseDef = cfg.MONSTER_BASE_DEF || 5;
+
+  var heroAtk = weapBase + refFloor * weapPer + bonus;
+  var monDef = monBaseDef * Math.pow(refFloor, fse);
+  var effDmg = Math.max(1, heroAtk - monDef);
+
+  // MONSTER_BASE_HP * floor^fse = targetHits * effDmg
+  // MONSTER_BASE_HP = targetHits * effDmg / floor^fse
+  var newBaseHp = Math.round(targetHits * effDmg / Math.pow(refFloor, fse));
+
+  if (newBaseHp < 1) { toast('Calculated HP too low (' + newBaseHp + '), increase target hits', 'error'); return; }
+
+  var status = document.getElementById('admin-status');
+  if (status) status.textContent = 'Auto-balancing...';
+  var tok = window.__INITIAL_TOKEN__ || localStorage.getItem('token') || '';
+  fetch('/api/admin/balancing', {
+    method: 'PUT',
+    headers: { 'Authorization': 'Bearer ' + tok, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ key: 'MONSTER_BASE_HP', value: newBaseHp })
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(resp) {
+    if (resp.error) throw new Error(resp.error);
+    if (status) { status.textContent = 'MONSTER_BASE_HP set to ' + newBaseHp + ' (~' + targetHits + ' hits at Lv' + refFloor + ' ' + rarity + ')'; status.style.color = '#4ade80'; }
     loadAdminConfig();
   })
   .catch(function(err) {
