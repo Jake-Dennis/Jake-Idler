@@ -2887,6 +2887,17 @@ function renderAdminConfig(config) {
         mixDisplay.push(cnt + ' ' + r);
       });
       var avgAtk = totalPieces > 0 ? Math.round(totalAtk / totalPieces) : 0;
+      // Compute hero HP from gear mix (same formula as ATK but with ACC base)
+      var accBase = config.ACC_BASE_HP || 500;
+      var totalHp = 0;
+      rarities.forEach(function(r) {
+        var cnt = mix[r] || 0;
+        if (cnt === 0) return;
+        var rb = rarityBonus[r] != null ? rarityBonus[r] : 0;
+        var pieceHp = Math.round(accBase + ((gearLevel - 10) / 10) * 300 + rb);
+        totalHp += cnt * pieceHp;
+      });
+      var avgHp = totalPieces > 0 ? Math.round(totalHp / totalPieces) : 0;
       var eDef = monBaseDef * bracketMul;
       var eHp = monBaseHp * bracketMul;
     var eDmg = Math.max(1, avgAtk - Math.round(eDef));
@@ -2899,7 +2910,8 @@ function renderAdminConfig(config) {
       '<td style="padding:3px 6px;font-weight:600">' + fl + '</td>' +
       '<td style="padding:3px 6px;font-size:.7rem" id="dc-gear-' + fl + '">' + mixDisplay.join('<br>') + '</td>' +
       '<td style="padding:3px 6px;text-align:right" id="dc-atk-' + fl + '">' + avgAtk + '</td>' +
-      '<td style="padding:3px 6px;text-align:right" id="dc-hp-' + fl + '">' + Math.round(eHp) + '</td>' +
+      '<td style="padding:3px 6px;text-align:right;color:#5a555a" id="dc-hero-hp-' + fl + '">' + avgHp + '</td>' +
+      '<td style="padding:3px 6px;text-align:right" id="dc-mon-hp-' + fl + '">' + Math.round(eHp) + '</td>' +
       '<td style="padding:3px 6px;text-align:right;font-weight:700" id="dc-result-' + fl + '">' + hits + 'h</td>' +
       '<td style="padding:3px 6px;text-align:right;color:#5a555a" id="dc-time-' + fl + '">~' + Math.round(hits * totalEnemies * 1.2 / 60) + 'm</td>' +
       '</tr>';
@@ -2908,7 +2920,7 @@ function renderAdminConfig(config) {
   html += '<h3 style="font-size:1rem;font-weight:700;color:#6a623a;margin-bottom:8px;letter-spacing:1px">📈 Difficulty Curve</h3>';
   html += '<p style="font-size:.78rem;color:#5a555a;margin-bottom:8px">Expected gear per floor (7 slots). Green ≤12 hits, Yellow 13-20, Red ≥21. Time estimate at ~1.2s per round.</p>';
   html += '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:.75rem">';
-  html += '<tr style="color:#5a555a;border-bottom:1px solid #1a1518"><th style="padding:4px 6px;text-align:left">Floor</th><th style="padding:4px 6px;text-align:left">Gear Mix</th><th style="padding:4px 6px;text-align:right">Avg ATK</th><th style="padding:4px 6px;text-align:right">Mon HP</th><th style="padding:4px 6px;text-align:right">Hits</th><th style="padding:4px 6px;text-align:right">Time</th></tr>';
+  html += '<tr style="color:#5a555a;border-bottom:1px solid #1a1518"><th style="padding:4px 6px;text-align:left">Floor</th><th style="padding:4px 6px;text-align:left">Gear Mix</th><th style="padding:4px 6px;text-align:right">ATK</th><th style="padding:4px 6px;text-align:right">HP</th><th style="padding:4px 6px;text-align:right">Mon HP</th><th style="padding:4px 6px;text-align:right">Result</th><th style="padding:4px 6px;text-align:right">Time</th></tr>';
   html += tableRows;
   html += '</table></div></div>';
   html += '</div>';
