@@ -2702,9 +2702,93 @@ function renderAdminConfig(config) {
   var container = document.getElementById('admin-config');
   if (!container) return;
   var html = '';
+
+  // ── Gear Stats: grouped by category ──
+  var rarities = ['common', 'uncommon', 'rare', 'epic', 'legendary'];
+  var gearCats = [
+    { label: 'Weapons',    baseKey: 'WEAPON_BASE_ATK', perKey: 'WEAPON_ATK_PER_LEVEL', stat: 'ATK' },
+    { label: 'Armor',      baseKey: 'ARMOR_BASE_DEF',  perKey: 'ARMOR_DEF_PER_LEVEL',  stat: 'DEF' },
+    { label: 'Accessories', baseKey: 'ACC_BASE_HP',     perKey: 'ACC_HP_PER_LEVEL',     stat: 'HP'  },
+  ];
+  var rarityBonus = (config.RARITY_BONUS || {});
+  for (var ci = 0; ci < gearCats.length; ci++) {
+    var cat = gearCats[ci];
+    var baseVal = config[cat.baseKey] != null ? config[cat.baseKey] : 700;
+    var perVal = config[cat.perKey] != null ? config[cat.perKey] : 30;
+    html += '<div style="margin-bottom:16px;border:1px solid #1a1518;border-radius:4px;padding:12px;background:#080608">';
+    html += '<h3 style="font-size:1rem;font-weight:700;color:#6a623a;margin-bottom:8px;letter-spacing:1px">' + cat.label + ' (' + cat.stat + ')</h3>';
+
+    // Base stat inputs (per-rarity computed from WEAPON_BASE_ATK + RARITY_BONUS)
+    html += '<div style="margin-bottom:8px"><label style="font-size:.8rem;color:#5a555a;font-weight:600">Base Stats (level 0)</label></div>';
+    html += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr 1fr;gap:6px;margin-bottom:12px">';
+    for (var ri = 0; ri < rarities.length; ri++) {
+      var r = rarities[ri];
+      var rb = rarityBonus[r] != null ? rarityBonus[r] : 0;
+      var computedBase = baseVal + rb;
+      html += '<div style="display:flex;flex-direction:column;align-items:center;gap:2px;padding:4px;background:#0a080a;border-radius:4px">';
+      html += '<label style="font-size:.7rem;color:#5a555a">' + r + '</label>';
+      html += '<span style="font-size:.9rem;font-weight:700;color:#9a949a">' + computedBase + '</span>';
+      html += '</div>';
+    }
+    html += '</div>';
+
+    // Per-level inputs (same for all rarities)
+    html += '<div style="margin-bottom:6px"><label style="font-size:.8rem;color:#5a555a;font-weight:600">Bracket Offset (per level)</label></div>';
+    html += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr 1fr;gap:6px;margin-bottom:8px">';
+    for (var ri = 0; ri < rarities.length; ri++) {
+      var r = rarities[ri];
+      html += '<div style="display:flex;flex-direction:column;align-items:center;gap:2px;padding:4px;background:#0a080a;border-radius:4px">';
+      html += '<label style="font-size:.7rem;color:#5a555a">' + r + '</label>';
+      html += '<span style="font-size:.9rem;font-weight:700;color:#9a949a">' + perVal + '</span>';
+      html += '</div>';
+    }
+    html += '</div>';
+
+    // Computed examples at key levels
+    html += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:4px;padding:6px;background:#060406;border-radius:4px">';
+    var sampleLevels = [10, 20, 50];
+    for (var sl = 0; sl < sampleLevels.length; sl++) {
+      var lv = sampleLevels[sl];
+      html += '<div style="font-size:.75rem;color:#5a555a">Lv' + lv + ': ';
+      for (var ri = 0; ri < rarities.length; ri++) {
+        var rb = rarityBonus[rarities[ri]] != null ? rarityBonus[rarities[ri]] : 0;
+        var stat = baseVal + lv * perVal + rb;
+        html += '<span style="color:' + (ri === 2 ? '#fbbf24' : '#9a949a') + '">' + rarities[ri].substring(0, 3) + ' ' + stat + '</span>';
+        if (ri < rarities.length - 1) html += ' &middot; ';
+      }
+      html += '</div>';
+    }
+    html += '</div>';
+
+    // Editable raw value for the base and per-level
+    html += '<div style="display:flex;gap:12px;margin-top:8px;padding-top:8px;border-top:1px solid #1a1518">';
+    html += '<div style="display:flex;align-items:center;gap:6px"><label style="font-size:.75rem;color:#5a555a">Base</label>';
+    html += '<input type="number" id="admin-' + cat.baseKey + '" value="' + baseVal + '" step="10" min="0" style="width:80px;padding:3px 6px;background:#0a080a;border:1px solid #2a2020;border-radius:4px;color:#9a949a;font-size:.8rem"></div>';
+    html += '<div style="display:flex;align-items:center;gap:6px"><label style="font-size:.75rem;color:#5a555a">Per Lv</label>';
+    html += '<input type="number" id="admin-' + cat.perKey + '" value="' + perVal + '" step="5" min="0" style="width:80px;padding:3px 6px;background:#0a080a;border:1px solid #2a2020;border-radius:4px;color:#9a949a;font-size:.8rem"></div>';
+    html += '</div></div>';
+  }
+
+  // ── Rarity Bonus (shared) ──
+  html += '<div style="margin-bottom:16px;border:1px solid #1a1518;border-radius:4px;padding:12px;background:#080608">';
+  html += '<h3 style="font-size:1rem;font-weight:700;color:#6a623a;margin-bottom:8px;letter-spacing:1px">Rarity Bonus (shared)</h3>';
+  html += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr 1fr;gap:8px">';
+  for (var ri = 0; ri < rarities.length; ri++) {
+    var r = rarities[ri];
+    var rb = rarityBonus[r] != null ? rarityBonus[r] : 0;
+    html += '<div style="display:flex;flex-direction:column;align-items:center;gap:2px">';
+    html += '<label style="font-size:.75rem;color:#5a555a;font-weight:600">' + r + '</label>';
+    html += '<input type="number" id="admin-RARITY_BONUS-' + r + '" value="' + rb + '" step="50" min="0" style="width:100%;padding:4px 8px;background:#0a080a;border:1px solid #2a2020;border-radius:4px;color:#9a949a;font-size:.85rem;outline:none;text-align:center">';
+    html += '</div>';
+  }
+  html += '</div></div>';
+
+  // ── Other config keys (exclude gear keys already rendered) ──
+  var gearKeys = ['WEAPON_BASE_ATK','WEAPON_ATK_PER_LEVEL','ARMOR_BASE_DEF','ARMOR_DEF_PER_LEVEL','ACC_BASE_HP','ACC_HP_PER_LEVEL','RARITY_BONUS'];
   var keys = Object.keys(config).sort();
   for (var ki = 0; ki < keys.length; ki++) {
     var key = keys[ki];
+    if (gearKeys.indexOf(key) !== -1) continue;
     var val = config[key];
     if (val && typeof val === 'object' && !Array.isArray(val)) {
       var subKeys = Object.keys(val).sort();
