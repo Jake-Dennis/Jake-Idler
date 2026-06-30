@@ -2678,11 +2678,12 @@ document.getElementById('hero-photo-input').addEventListener('change', function(
   window.saveAdminConfig = saveAdminConfig;
   window.resetAdminConfig = resetAdminConfig;
   window.autoBalanceMonsters = autoBalanceFromTime;
+  window.autoBalanceFromTime = autoBalanceFromTime;
   window.refreshGearPreview = refreshGearPreview;
+  window.updateAbFromTime = updateAbFromTime;
   window.updateAbEstimate = updateAbFromTime;
   window.toggleAutoBalance = toggleAutoBalance;
   window.runSimulation = runSimulation;
-  window.autoBalanceFromTime = autoBalanceFromTime;
   })();
 }
 
