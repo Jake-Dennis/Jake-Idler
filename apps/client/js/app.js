@@ -2876,6 +2876,12 @@ function renderAdminConfig(config) {
     var eHp = monBaseHp * Math.pow(fl, fse);
     var eDmg = Math.max(1, avgAtk - Math.round(eDef));
     var hits = Math.ceil(eHp / eDmg);
+    // Estimate time: ~1.2s per round (animation + gaps). Trash count at this floor.
+    var perPlayer = Math.max(0, 0); // difficulty curve assumes solo
+    var flTrash = (config.TRASH_BASE || 1) + (fl % 2) + perPlayer * (config.TRASH_PER_PLAYER || 1);
+    var flBoss = (config.BOSSES_BASE || 1) + perPlayer * (config.BOSSES_PER_PLAYER || 0);
+    var totalEnemies = flTrash + flBoss;
+    var estSec = Math.round(hits * totalEnemies * 1.2 / 60); // in minutes
     var statusColor = hits <= 12 ? '#4ade80' : hits <= 20 ? '#fbbf24' : '#ef4444';
     tableRows += '<tr style="border-bottom:1px solid #0a080a">' +
       '<td style="padding:3px 6px;font-weight:600">' + fl + '</td>' +
@@ -2883,13 +2889,14 @@ function renderAdminConfig(config) {
       '<td style="padding:3px 6px;text-align:right">' + avgAtk + '</td>' +
       '<td style="padding:3px 6px;text-align:right">' + Math.round(eHp) + '</td>' +
       '<td style="padding:3px 6px;text-align:right;font-weight:700;color:' + statusColor + '">' + hits + '</td>' +
+      '<td style="padding:3px 6px;text-align:right;color:#5a555a">~' + estSec + 'm</td>' +
       '</tr>';
   }
   html += '<div style="margin-bottom:16px;border:1px solid #1a1518;border-radius:4px;padding:12px;background:#080608">';
   html += '<h3 style="font-size:1rem;font-weight:700;color:#6a623a;margin-bottom:8px;letter-spacing:1px">📈 Difficulty Curve</h3>';
-  html += '<p style="font-size:.78rem;color:#5a555a;margin-bottom:8px">Expected gear per floor (7 slots). Green ≤12 hits, Yellow 13-20, Red ≥21.</p>';
+  html += '<p style="font-size:.78rem;color:#5a555a;margin-bottom:8px">Expected gear per floor (7 slots). Green ≤12 hits, Yellow 13-20, Red ≥21. Time estimate at ~1.2s per round.</p>';
   html += '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:.75rem">';
-  html += '<tr style="color:#5a555a;border-bottom:1px solid #1a1518"><th style="padding:4px 6px;text-align:left">Floor</th><th style="padding:4px 6px;text-align:left">Gear Mix</th><th style="padding:4px 6px;text-align:right">Avg ATK</th><th style="padding:4px 6px;text-align:right">Mon HP</th><th style="padding:4px 6px;text-align:right">Hits</th></tr>';
+  html += '<tr style="color:#5a555a;border-bottom:1px solid #1a1518"><th style="padding:4px 6px;text-align:left">Floor</th><th style="padding:4px 6px;text-align:left">Gear Mix</th><th style="padding:4px 6px;text-align:right">Avg ATK</th><th style="padding:4px 6px;text-align:right">Mon HP</th><th style="padding:4px 6px;text-align:right">Hits</th><th style="padding:4px 6px;text-align:right">Time</th></tr>';
   html += tableRows;
   html += '</table></div></div>';
   html += '</div>';
