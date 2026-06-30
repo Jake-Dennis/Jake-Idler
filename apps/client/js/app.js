@@ -2939,10 +2939,12 @@ function renderAdminConfig(config) {
       // Rounds per monster (hero damage uses ATK - DEF like the game engine)
       var dmgPerHit = Math.max(1, heroTotalAtk - Math.round(monDef));
       var roundsPerMon = Math.ceil(monHp / dmgPerHit);
-      // Damage per round from monsters (uses ATK/(ATK+DEF) ratio like the server)
-      var monRatio = monAtk / (monAtk + Math.round(heroTotalDef));
-      var monDmgPerHit = (1 + monRatio * 9) * 1.1; // expected value with 10% crit
-      var dmgPerRound = Math.min(monDmgPerHit * 3, monDmgPerHit * totalEnemies);
+      // Damage per round from monsters (uses ATK - DEF like the game engine)
+      var monDmgPerHit = Math.max(1, Math.round(monAtk - heroTotalDef));
+      var expectedMonDmg = monDmgPerHit * 1.1; // 10% crit ×2
+      // Monsters die one by one — average attackers = (totalEnemies + 1) / 2
+      var avgAttackers = (totalEnemies + 1) / 2;
+      var dmgPerRound = avgAttackers * expectedMonDmg;
       // Can hero survive? Rounds to kill all vs rounds to die
       var roundsNeeded = roundsPerMon * totalEnemies;
       var roundsCanSurvive = dmgPerRound > 0 ? Math.ceil(heroTotalHp / dmgPerRound) : 999;
@@ -3313,15 +3315,13 @@ function updateAbFromTime() {
     if (impliedBaseHp < 1) impliedBaseHp = 1;
 
     // ── Solve monster ATK for failure rate ──
-    // Monster damage formula: E[dmg] = (1 + 9.9 * atk/(atk+def)) per hit, 10% crit ×2
-    // All alive monsters swarm same target, up to 3 hit per round
+    // Monster damage: max(1, ATK - DEF) × 1.1 (10% crit ×2), but monsters die one by one
+    // so the average number of attackers over the fight = (totalMobs + 1) / 2
     var desiredDmgPerRound = hHp / (totalRounds * survivalFactor);
-    var monHitsPerRound = Math.min(3, totalMobs);
-    var desiredPerMon = desiredDmgPerRound / monHitsPerRound;
-    desiredPerMon = Math.max(1.2, Math.min(10.9, desiredPerMon));
-    var k = (desiredPerMon - 1.1) / 9.9;
-    var neededMonAtk = Math.round(hDef * k / (1 - k));
-    if (!isFinite(neededMonAtk) || neededMonAtk < 1) neededMonAtk = 1;
+    var effectiveMonHits = (totalMobs + 1) / 2;
+    var desiredPerMon = desiredDmgPerRound / effectiveMonHits;
+    var neededMonAtk = Math.round(desiredPerMon / 1.1 + hDef);
+    if (neededMonAtk < 1) neededMonAtk = 1;
     var impliedBaseAtk = Math.round(neededMonAtk / scale);
     if (impliedBaseAtk < 1) impliedBaseAtk = 1;
 
@@ -3335,8 +3335,9 @@ function updateAbFromTime() {
     var mDef = Math.round(impliedBaseDef * scale);
     var clearRounds = Math.ceil(totalMobs * Math.ceil(mHp / dmgPerHit));
     var clearTimeSec = Math.round(clearRounds * msPerRound / 1000);
-    var ratio = mAtk / (mAtk + hDef);
-    var swarmDmgPerRound = monHitsPerRound * ((1 + ratio * 9) * 1.1);
+    var dmgPerMonHit = Math.max(1, mAtk - hDef);
+    var effectiveMonHits = (totalMobs + 1) / 2;
+    var swarmDmgPerRound = effectiveMonHits * dmgPerMonHit * 1.1;
     var roundsToDie = Math.ceil(hHp / swarmDmgPerRound);
     var survives = roundsToDie > clearRounds;
     var pct = Math.round(roundsToDie / clearRounds * 100);
@@ -3587,11 +3588,10 @@ function runSimulation() {
         for (var mi = currentMonsterIdx; mi < monsters.length; mi++) {
           var m = monsters[mi];
           if (m.hp <= 0) continue;
-          var ratio = m.atk / (m.atk + target.def);
-          var base = 1 + ratio * 9;
+          var rawDmg = m.atk - target.def;
           var monCrit = Math.random() < 0.1;
           var variance = (Math.random() - 0.5) * 4;
-          var dmg = Math.max(1, Math.round((base + variance) * (monCrit ? 2 : 1)));
+          var dmg = Math.max(1, Math.round((rawDmg + variance) * (monCrit ? 2 : 1)));
           totalMonDmg += dmg;
         }
         target.hp -= totalMonDmg;

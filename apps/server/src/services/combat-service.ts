@@ -557,7 +557,7 @@ class CombatService {
     if (!target) target = aliveHeroes[0];
 
     if (target) {
-      // Each monster deals 1-10 damage using ATK/(ATK+DEF) ratio
+      // Each monster deals ATK - DEF damage (matches game engine formula)
       const monsterList: Array<{ atk: number }> = [];
       for (let i = run.currentMonsterIndex; i < run.monsters.length; i++) {
         const m = run.monsters[i];
@@ -565,12 +565,11 @@ class CombatService {
       }
 
       for (const m of monsterList) {
-        const ratio = m.atk / (m.atk + target.def);
-        const base = 1 + ratio * 9;
+        const rawDmg = m.atk - target.def;
         // ±2 variance, 10% crit doubles the hit
         const isCrit = calculateCrit();
         const variance = (Math.random() - 0.5) * 4;
-        const dmg = Math.max(1, Math.round((base + variance) * (isCrit ? 2 : 1)));
+        const dmg = Math.max(1, Math.round((rawDmg + variance) * (isCrit ? 2 : 1)));
         totalMonsterDamage += dmg;
         if (dmg > 0 && isCrit) anyMonsterCrit = true;
       }
