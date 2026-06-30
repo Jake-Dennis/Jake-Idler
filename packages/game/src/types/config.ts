@@ -48,6 +48,12 @@ const BASE_CONFIG = {
     "21-999": "legendary",
   },
 
+  /**
+   * Number of equipped gear slots used for difficulty curve calculations.
+   * Determines how many pieces of gear the player is expected to have.
+   */
+  GEAR_SLOTS: 7,
+
   /** Floor bosses always present on non-bracket floors. */
   BOSSES_BASE: 1,
   /** Extra bosses per additional party member. */

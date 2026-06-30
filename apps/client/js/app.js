@@ -2684,7 +2684,6 @@ document.getElementById('hero-photo-input').addEventListener('change', function(
   window.updateAbEstimate = updateAbFromTime;
   window.toggleAutoBalance = toggleAutoBalance;
   window.runSimulation = runSimulation;
-  window.onFloorRarityChange = onFloorRarityChange;
   })();
 }
 
@@ -2847,40 +2846,61 @@ function renderAdminConfig(config) {
   html += '</div>';
 
   // ── Difficulty curve table ──
+  var slots = config.GEAR_SLOTS || 7;
   var floorList = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 20, 30, 40, 50];
-  var floorRarityConfig = config.FLOOR_RARITY || {};
-  // Build a lookup: floor → rarity from config ranges
-  var floorToRarity = {};
-  var rarityRanges = Object.keys(floorRarityConfig).sort();
-  for (var fri = 0; fri < rarityRanges.length; fri++) {
-    var rangeStr = rarityRanges[fri];
-    var parts = rangeStr.split('-');
-    var start = parseInt(parts[0]);
-    var end = parts[1] ? parseInt(parts[1]) : start;
-    for (var f = start; f <= end; f++) floorToRarity[f] = floorRarityConfig[rangeStr];
-  }
   var tableRows = '';
   for (var fi = 0; fi < floorList.length; fi++) {
     var fl = floorList[fi];
-    var expectedRarity = floorToRarity[fl] || 'common';
-    var erb = rarityBonus[expectedRarity] != null ? rarityBonus[expectedRarity] : 0;
+    // Compute gear mix for this floor
+    var mix = { common: 0, uncommon: 0, rare: 0, epic: 0, legendary: 0 };
+    if (fl <= 5) {
+      mix.common = slots - (fl - 1);  // F1:7, F2:6, F3:5, F4:4, F5:3
+      mix.uncommon = fl - 1;           // F1:0, F2:1, F3:2, F4:3, F5:4
+    } else if (fl <= 9) {
+      mix.uncommon = slots - (fl - 5); // F6:6, F7:5, F8:4, F9:3
+      mix.rare = fl - 5;               // F6:1, F7:2, F8:3, F9:4
+    } else {
+      mix.rare = slots;                // F10+: 7 rares
+    }
+    // For floors above 10, upgrade everything to the next tier
+    if (fl > 10 && fl <= 20) { mix.epic = slots; mix.rare = 0; mix.uncommon = 0; mix.common = 0; }
+    if (fl > 20) { mix.legendary = slots; mix.epic = 0; }
+
+    // Weighted average ATK from gear mix
     var gearLevel = fl < 10 ? 10 : fl;
-    var eAtk = Math.round(weapBase + ((gearLevel - 10) / 10) * weapPer + erb);
+    var totalAtk = 0;
+    var totalPieces = 0;
+    var mixDisplay = [];
+    rarities.forEach(function(r) {
+      var cnt = mix[r] || 0;
+      if (cnt === 0) return;
+      var rb = rarityBonus[r] != null ? rarityBonus[r] : 0;
+      var pieceAtk = Math.round(weapBase + ((gearLevel - 10) / 10) * weapPer + rb);
+      totalAtk += cnt * pieceAtk;
+      totalPieces += cnt;
+      mixDisplay.push(cnt + ' ' + r);
+    });
+    var avgAtk = totalPieces > 0 ? Math.round(totalAtk / totalPieces) : 0;
     var eDef = monBaseDef * Math.pow(fl, fse);
     var eHp = monBaseHp * Math.pow(fl, fse);
-    var eDmg = Math.max(1, eAtk - Math.round(eDef));
+    var eDmg = Math.max(1, avgAtk - Math.round(eDef));
     var hits = Math.ceil(eHp / eDmg);
-    var statusColor = hits <= 15 ? '#4ade80' : hits <= 25 ? '#fbbf24' : '#ef4444';
+    var statusColor = hits <= 12 ? '#4ade80' : hits <= 20 ? '#fbbf24' : '#ef4444';
     tableRows += '<tr style="border-bottom:1px solid #0a080a">' +
-      '<td style="padding:3px 6px">' + fl + '</td>' +
-      '<td style="padding:3px 6px"><select id="fr-' + fl + '" onchange="onFloorRarityChange(' + fl + ')" style="padding:1px 4px;background:#0a080a;border:1px solid #2a2020;border-radius:3px;color:#9a949a;font-size:.7rem">' +
-        rarities.map(function(r) { return '<option value="' + r + '"' + (r === expectedRarity ? ' selected' : '') + '>' + r.substr(0,3) + '</option>'; }).join('') +
-      '</select></td>' +
-      '<td style="padding:3px 6px;text-align:right">' + Math.round(eAtk) + '</td>' +
+      '<td style="padding:3px 6px;font-weight:600">' + fl + '</td>' +
+      '<td style="padding:3px 6px;font-size:.7rem">' + mixDisplay.join('<br>') + '</td>' +
+      '<td style="padding:3px 6px;text-align:right">' + avgAtk + '</td>' +
       '<td style="padding:3px 6px;text-align:right">' + Math.round(eHp) + '</td>' +
       '<td style="padding:3px 6px;text-align:right;font-weight:700;color:' + statusColor + '">' + hits + '</td>' +
       '</tr>';
   }
+  html += '<div style="margin-bottom:16px;border:1px solid #1a1518;border-radius:4px;padding:12px;background:#080608">';
+  html += '<h3 style="font-size:1rem;font-weight:700;color:#6a623a;margin-bottom:8px;letter-spacing:1px">📈 Difficulty Curve</h3>';
+  html += '<p style="font-size:.78rem;color:#5a555a;margin-bottom:8px">Expected gear per floor (7 slots). Green ≤12 hits, Yellow 13-20, Red ≥21.</p>';
+  html += '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:.75rem">';
+  html += '<tr style="color:#5a555a;border-bottom:1px solid #1a1518"><th style="padding:4px 6px;text-align:left">Floor</th><th style="padding:4px 6px;text-align:left">Gear Mix</th><th style="padding:4px 6px;text-align:right">Avg ATK</th><th style="padding:4px 6px;text-align:right">Mon HP</th><th style="padding:4px 6px;text-align:right">Hits</th></tr>';
+  html += tableRows;
+  html += '</table></div></div>';
   html += '<div style="margin-bottom:16px;border:1px solid #1a1518;border-radius:4px;padding:12px;background:#080608">';
   html += '<h3 style="font-size:1rem;font-weight:700;color:#6a623a;margin-bottom:8px;letter-spacing:1px">📈 Difficulty Curve</h3>';
   html += '<p style="font-size:.78rem;color:#5a555a;margin-bottom:8px">Expected gear per floor bracket. Green ≤15 hits, Yellow 16-25, Red ≥26.</p>';
@@ -3173,38 +3193,6 @@ var AUTO_BALANCE_TIMER = null;
 function toggleAutoBalance() {
   var cb = document.getElementById('ab-auto');
   if (cb && cb.checked && window.toast) toast('Auto-balance enabled — gear changes auto-tune monster HP', 'success');
-}
-
-function onFloorRarityChange(floor) {
-  // Update the difficulty curve row instantly — recalc and update the ATK/hits cells
-  var sel = document.getElementById('fr-' + floor);
-  if (!sel) return;
-  var rarity = sel.value;
-  if (!ADMIN_CONFIG_CACHE) return;
-  var cfg = ADMIN_CONFIG_CACHE;
-  var fse = cfg.FLOOR_SCALE_EXPONENT || 0.55;
-  var weapBase = cfg.WEAPON_BASE_ATK || 500;
-  var weapPer = cfg.WEAPON_ATK_PER_BRACKET || 300;
-  var bonus = (cfg.RARITY_BONUS && cfg.RARITY_BONUS[rarity]) || 0;
-  var monBaseHp = cfg.MONSTER_BASE_HP || 1500;
-  var monBaseDef = cfg.MONSTER_BASE_DEF || 5;
-  var gearLevel = floor < 10 ? 10 : floor;
-  var atk = Math.round(weapBase + ((gearLevel - 10) / 10) * weapPer + bonus);
-  var monDef = monBaseDef * Math.pow(floor, fse);
-  var monHp = monBaseHp * Math.pow(floor, fse);
-  var dmg = Math.max(1, atk - Math.round(monDef));
-  var hits = Math.ceil(monHp / dmg);
-  // Update the row's ATK and hits cells (2nd and 4th td from right)
-  var row = sel.closest('tr');
-  if (row) {
-    var cells = row.querySelectorAll('td');
-    if (cells.length >= 4) {
-      cells[2].textContent = atk;
-      cells[3].textContent = Math.round(monHp);
-      cells[4].textContent = hits;
-      cells[4].style.color = hits <= 15 ? '#4ade80' : hits <= 25 ? '#fbbf24' : '#ef4444';
-    }
-  }
 }
 
 function runSimulation() {
