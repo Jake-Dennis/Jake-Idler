@@ -3032,7 +3032,8 @@ function renderAdminConfig(config) {
       var min = (typeof sv === 'number' && sv >= 0 && sv <= 1) ? 'min="0" max="1"' : '';
       html += '<div style="display:flex;flex-direction:column;gap:2px">';
       html += '<label style="font-size:.75rem;color:#5a555a;font-weight:600">' + sk + '</label>';
-      html += '<input type="number" id="admin-' + key + '-' + sk + '" value="' + sv + '" ' + step + ' ' + min + ' oninput="updateAbEstimate()" style="padding:4px 8px;background:#0a080a;border:1px solid #2a2020;border-radius:4px;color:#9a949a;font-size:.85rem;outline:none;width:100%">';
+      var inputType = (typeof sv === 'string') ? 'text' : 'number';
+      html += '<input type="' + inputType + '" id="admin-' + key + '-' + sk + '" value="' + sv + '" ' + step + ' ' + min + ' oninput="updateAbEstimate()" style="padding:4px 8px;background:#0a080a;border:1px solid #2a2020;border-radius:4px;color:#9a949a;font-size:.85rem;outline:none;width:100%">';
       html += '</div>';
     }
     html += '</div></div>';
