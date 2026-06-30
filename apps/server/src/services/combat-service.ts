@@ -565,11 +565,12 @@ class CombatService {
       }
 
       for (const m of monsterList) {
-        const rawDmg = m.atk / Math.pow(2, target.def / m.atk);
+        const ratio = m.atk / (m.atk + target.def);
+        const base = 1 + ratio * 9;
         // ±2 variance, 10% crit doubles the hit
         const isCrit = calculateCrit();
         const variance = (Math.random() - 0.5) * 4;
-        const dmg = Math.max(1, Math.round((rawDmg + variance) * (isCrit ? 2 : 1)));
+        const dmg = Math.max(1, Math.round((base + variance) * (isCrit ? 2 : 1)));
         totalMonsterDamage += dmg;
         if (dmg > 0 && isCrit) anyMonsterCrit = true;
       }

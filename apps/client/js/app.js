@@ -3211,19 +3211,12 @@ function updateAbFromTime() {
     if (impliedBaseHp < 1) impliedBaseHp = 1;
 
     // ── Solve monster ATK for failure rate ──
-    // Sigmoid: dmg = ATK / 2^(DEF/ATK). Invert via binary search.
+    // Ratio formula: dmg = (1 + ATK/(ATK+DEF) × 9) × 1.1 (10% crit). Invert directly.
     var desiredDmgPerRound = hHp / (totalRounds * survivalFactor);
     var effectiveMonHits = (totalMobs + 1) / 2;
-    var desiredPerMon = Math.max(0.1, desiredDmgPerRound / effectiveMonHits / 1.1);
-    var lo = 1, hi = Math.max(hDef * 10, 1000);
-    for (var iter = 0; iter < 30; iter++) {
-      var mid = (lo + hi) / 2;
-      if (mid <= 0) { lo = 1; break; }
-      var dmg = mid / Math.pow(2, hDef / mid);
-      if (dmg > desiredPerMon) hi = mid;
-      else lo = mid;
-    }
-    var neededMonAtk = Math.round(hi);
+    var desiredPerMon = Math.max(1.01, desiredDmgPerRound / effectiveMonHits / 1.1);
+    var ratio = Math.min(0.99, Math.max(0.001, (desiredPerMon - 1) / 9));
+    var neededMonAtk = Math.round(hDef * ratio / (1 - ratio));
     if (!isFinite(neededMonAtk) || neededMonAtk < 1) neededMonAtk = 1;
     var impliedBaseAtk = Math.round(neededMonAtk / scale);
     if (impliedBaseAtk < 1) impliedBaseAtk = 1;
@@ -3259,9 +3252,10 @@ function updateAbFromTime() {
     var mDef = Math.round(finalBaseDef * d.scale);
     var clearRounds = Math.ceil(d.totalMobs * Math.ceil(mHp / d.dmgPerHit));
     var clearTimeSec = Math.round(clearRounds * msPerRound / 1000);
-    var rawMonDmg = mAtk / Math.pow(2, d.hDef / mAtk);
+    var monRatio = mAtk / (mAtk + d.hDef);
+    var rawMonDmg = (1 + monRatio * 9) * 1.1;
     var effectiveMonHits = (d.totalMobs + 1) / 2;
-    var swarmDmgPerRound = effectiveMonHits * rawMonDmg * 1.1;
+    var swarmDmgPerRound = effectiveMonHits * rawMonDmg;
     var roundsToDie = Math.ceil(d.hHp / swarmDmgPerRound);
     var survives = roundsToDie > clearRounds;
     if (survives) wins++;
@@ -3495,10 +3489,11 @@ function runSimulation() {
         for (var mi = currentMonsterIdx; mi < monsters.length; mi++) {
           var m = monsters[mi];
           if (m.hp <= 0) continue;
-          var rawDmg = m.atk / Math.pow(2, target.def / m.atk);
+          var ratio = m.atk / (m.atk + target.def);
+          var base = 1 + ratio * 9;
           var monCrit = Math.random() < 0.1;
           var variance = (Math.random() - 0.5) * 4;
-          var dmg = Math.max(1, Math.round((rawDmg + variance) * (monCrit ? 2 : 1)));
+          var dmg = Math.max(1, Math.round((base + variance) * (monCrit ? 2 : 1)));
           totalMonDmg += dmg;
         }
         target.hp -= totalMonDmg;
@@ -3632,9 +3627,9 @@ function renderPreview() {
     var roundsPerMon = Math.ceil(monHp / dmgPerHit);
     var clearRounds = roundsPerMon * totalMobs;
     var clearSec = Math.round(clearRounds * 1350 / 1000);
-    var rawMonDmg = monAtk / Math.pow(2, hDef / monAtk);
+    var monRatio = monAtk / (monAtk + hDef);
     var avgAtt = (totalMobs + 1) / 2;
-    var dmgPerRound = avgAtt * rawMonDmg * 1.1;
+    var dmgPerRound = avgAtt * (1 + monRatio * 9) * 1.1;
     var roundsToDie = dmgPerRound > 0 ? Math.ceil(hHp / dmgPerRound) : 999;
     var survives = roundsToDie > clearRounds;
     var pct = Math.round(roundsToDie / clearRounds * 100);
@@ -3744,9 +3739,9 @@ function selectFloor(fl) {
   var dmgPerHit = Math.max(1, hAtk - Math.round(monDef));
   var roundsPerMon = Math.ceil(monHp / dmgPerHit);
   var clearRounds = roundsPerMon * totalMobs;
-  var rawMonDmg = monAtk / Math.pow(2, hDef / monAtk);
+  var monRatio = monAtk / (monAtk + hDef);
   var avgAtt = (totalMobs + 1) / 2;
-  var dmgPerRound = avgAtt * rawMonDmg * 1.1;
+  var dmgPerRound = avgAtt * (1 + monRatio * 9) * 1.1;
   var roundsToDie = dmgPerRound > 0 ? Math.ceil(hHp / dmgPerRound) : 999;
   heroDmgPerRound = Math.round(dmgPerHit);
   var survive = roundsToDie > clearRounds;
