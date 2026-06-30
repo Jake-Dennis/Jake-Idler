@@ -2789,15 +2789,18 @@ function renderAdminConfig(config) {
   var refPos = ((refFloor - 1) % 10) + 1;
   // Compute hero ATK from the floor's expected gear mix (same logic as difficulty curve)
   var refCommon = 0, refUncommon = 0, refRare = 0;
-  if (refPos <= 5) { refCommon = 7 - (refPos - 1); refUncommon = refPos - 1; }
-  else if (refPos < 10) { refUncommon = 7 - (refPos - 5); refRare = refPos - 5; }
-  else { refRare = 7; }
+  if (refPos <= 5) { refCommon = Math.max(0, 14 - refPos * 2); refUncommon = (refPos - 1) * 2; }
+  else if (refPos === 6) { refUncommon = 9; refRare = 1; }
+  else if (refPos === 7) { refUncommon = 9; refRare = 3; }
+  else if (refPos === 8) { refUncommon = 6; refRare = 6; }
+  else if (refPos === 9) { refUncommon = 3; refRare = 9; }
+  else { refRare = 12; }
   var refPower = Math.max(0, (refGearLv - 10) / 10);
   var refRbC = rarityBonus['common'] != null ? rarityBonus['common'] : 0;
   var refRbU = rarityBonus['uncommon'] != null ? rarityBonus['uncommon'] : 0;
   var refRbR = rarityBonus['rare'] != null ? rarityBonus['rare'] : 0;
   var refAtkTotal = refCommon * Math.round(weapBase + refPower * 300 + refRbC) + refUncommon * Math.round(weapBase + refPower * 300 + refRbU) + refRare * Math.round(weapBase + refPower * 300 + refRbR);
-  var heroAtk = Math.round(refAtkTotal / 7);
+  var heroAtk = Math.round(refAtkTotal / 12);
   var monDef = monBaseDef * bracketScale;
   var effDmg = Math.max(1, heroAtk - monDef);
   var currentHits = Math.ceil(monBaseHp * bracketScale / effDmg);
@@ -2854,20 +2857,22 @@ function renderAdminConfig(config) {
   var tableRows = '';
   for (var fi = 0; fi < floorList.length; fi++) {
     var fl = floorList[fi];
-    // Same 1-10 pattern repeats every 10 floors
-    var pos = ((fl - 1) % 10) + 1;  // 1-10 within each bracket
+    // Same 1-10 pattern repeats every 10 floors — smoothly spread from common to rare
+    var pos = ((fl - 1) % 10) + 1;
     var mix = { common: 0, uncommon: 0, rare: 0 };
+    mix.common = Math.max(0, 14 - pos * 2); // 12,10,8,6,4,2,0,0,0,0
     if (pos <= 5) {
-      // First half: commons → uncommons
-      mix.common = slots - (pos - 1);
-      mix.uncommon = pos - 1;
-    } else if (pos < 10) {
-      // Second half (pos 6-9): uncommons → rares
-      mix.uncommon = slots - (pos - 5);
-      mix.rare = pos - 5;
+      mix.uncommon = (pos - 1) * 2; // 0,2,4,6,8
+    } else if (pos === 6) {
+      mix.uncommon = 9; mix.rare = 1;
+    } else if (pos === 7) {
+      mix.uncommon = 9; mix.rare = 3;
+    } else if (pos === 8) {
+      mix.uncommon = 6; mix.rare = 6;
+    } else if (pos === 9) {
+      mix.uncommon = 3; mix.rare = 9;
     } else {
-      // pos = 10: bracket boss — full rare set required
-      mix.rare = slots;
+      mix.rare = 12; // pos 10
     }
 
     // Weighted average ATK from gear mix — gear level is bracket × 10
@@ -3195,9 +3200,12 @@ function updateAbDisplay() {
 
   var pos = ((floor - 1) % 10) + 1;
   var c = 0, u = 0, r = 0;
-  if (pos <= 5) { c = slots - (pos - 1); u = pos - 1; }
-  else if (pos < 10) { u = slots - (pos - 5); r = pos - 5; }
-  else { r = slots; }
+  if (pos <= 5) { c = Math.max(0, 14 - pos * 2); u = (pos - 1) * 2; }
+  else if (pos === 6) { u = 9; r = 1; }
+  else if (pos === 7) { u = 9; r = 3; }
+  else if (pos === 8) { u = 6; r = 6; }
+  else if (pos === 9) { u = 3; r = 9; }
+  else { r = 12; }
   var rarityLabel = pos <= 2 ? 'common' : pos <= 5 ? 'uncommon' : 'rare';
   var gearLv = Math.ceil(floor / 10) * 10;
   var bracket = Math.max(1, Math.ceil(floor / 10));
