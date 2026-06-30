@@ -43,9 +43,7 @@ const BASE_CONFIG = {
   FLOOR_RARITY: {
     "1-2": "common",
     "3-5": "uncommon",
-    "6-10": "rare",
-    "11-20": "epic",
-    "21-999": "legendary",
+    "6-999": "rare",
   },
 
   /**
