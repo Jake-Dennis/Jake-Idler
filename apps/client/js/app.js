@@ -2780,7 +2780,22 @@ function renderAdminConfig(config) {
   var refRarity = 'rare';
   var refRb = rarityBonus[refRarity] != null ? rarityBonus[refRarity] : 200;
   var refGearLv = Math.ceil(refFloor / 10) * 10;
-  var heroAtk = Math.round(weapBase * Math.pow(Math.max(1, refGearLv / 10), fse) + refRb);
+  // Compute hero ATK from the floor's expected gear mix (same logic as difficulty curve)
+  var refPos = ((refFloor - 1) % 10) + 1;
+  var refMix = { common: 0, uncommon: 0, rare: 0 };
+  if (refPos <= 5) { refMix.common = slots - (refPos - 1); refMix.uncommon = refPos - 1; }
+  else if (refPos < 10) { refMix.uncommon = slots - (refPos - 5); refMix.rare = refPos - 5; }
+  else { refMix.rare = slots; }
+  var refTotalAtk = 0, refPieces = 0;
+  rarities.forEach(function(r) {
+    var cnt = refMix[r] || 0;
+    if (!cnt) return;
+    var rb = rarityBonus[r] != null ? rarityBonus[r] : 0;
+    refTotalAtk += cnt * Math.round(weapBase * Math.pow(Math.max(1, refGearLv / 10), fse) + rb);
+    refPieces += cnt;
+  });
+  var refAvgAtk = refPieces > 0 ? Math.round(refTotalAtk / refPieces) : 0;
+  var heroAtk = refAvgAtk;
   var monDef = monBaseDef * Math.pow(refFloor, fse);
   var effDmg = Math.max(1, heroAtk - monDef);
   var currentHits = Math.ceil(monBaseHp * Math.pow(refFloor, fse) / effDmg);
@@ -2812,12 +2827,6 @@ function renderAdminConfig(config) {
   html += '<div><label style="font-size:.75rem;color:#5a555a">DPS</label><br><input type="number" id="sim-dps" value="2" min="0" max="5" style="width:45px;padding:3px 6px;background:#0a080a;border:1px solid #2a2020;border-radius:4px;color:#9a949a;font-size:.8rem"></div>';
   html += '<div><label style="font-size:.75rem;color:#5a555a">Healers</label><br><input type="number" id="sim-healers" value="1" min="0" max="5" style="width:45px;padding:3px 6px;background:#0a080a;border:1px solid #2a2020;border-radius:4px;color:#9a949a;font-size:.8rem"></div>';
   html += '<div><label style="font-size:.75rem;color:#5a555a">Floor</label><br><input type="number" id="ab-ref-floor" value="' + refFloor + '" min="1" max="500" style="width:55px;padding:3px 6px;background:#0a080a;border:1px solid #2a2020;border-radius:4px;color:#9a949a;font-size:.8rem"></div>';
-  html += '<div><label style="font-size:.75rem;color:#5a555a">Rarity</label><br><select id="ab-rarity" style="padding:3px 6px;background:#0a080a;border:1px solid #2a2020;border-radius:4px;color:#9a949a;font-size:.8rem">';
-  for (var ri = 0; ri < rarities.length; ri++) {
-    var sel = rarities[ri] === refRarity ? ' selected' : '';
-    html += '<option value="' + rarities[ri] + '"' + sel + '>' + rarities[ri] + '</option>';
-  }
-  html += '</select></div>';
   html += '<div><label style="font-size:.75rem;color:#5a555a">Target floor time (s)</label><br><input type="number" id="ab-target-time" value="60" min="5" max="600" step="5" oninput="updateAbFromTime()" style="width:60px;padding:3px 6px;background:#0a080a;border:1px solid #2a2020;border-radius:4px;color:#9a949a;font-size:.8rem"></div>';
   html += '</div>';
 
@@ -3128,8 +3137,12 @@ function updateAbFromTime() {
   var fse = cfg.FLOOR_SCALE_EXPONENT || 0.55;
   var refFloor = parseFloat(document.getElementById('ab-ref-floor').value) || 50;
   var targetSec = parseFloat(document.getElementById('ab-target-time').value) || 60;
-  var rarity = document.getElementById('ab-rarity').value || 'rare';
-  var rarityBonus = (cfg.RARITY_BONUS && cfg.RARITY_BONUS[rarity]) || 200;
+  // Compute expected rarity from floor's gear mix
+  var rarity = 'common';
+  var refPos = ((refFloor - 1) % 10) + 1;
+  if (refPos >= 6) rarity = 'rare';
+  else if (refPos >= 1) rarity = refPos <= 2 ? 'common' : 'uncommon';
+  var rarityBonus = (cfg.RARITY_BONUS && cfg.RARITY_BONUS[rarity]) || 0;
   var tanks = parseInt(document.getElementById('sim-tanks').value) || 0;
   var dps = parseInt(document.getElementById('sim-dps').value) || 1;
   var healers = parseInt(document.getElementById('sim-healers').value) || 0;
@@ -3197,9 +3210,13 @@ function runSimulation() {
   if (!ADMIN_CONFIG_CACHE) return;
   var cfg = ADMIN_CONFIG_CACHE;
   var fse = cfg.FLOOR_SCALE_EXPONENT || 0.55;
-  var rarity = document.getElementById('ab-rarity').value || 'rare';
   var refFloor = parseFloat(document.getElementById('ab-ref-floor').value) || 50;
-  var rarityBonus = (cfg.RARITY_BONUS && cfg.RARITY_BONUS[rarity]) || 200;
+  // Compute expected rarity from floor's gear mix
+  var rarity = 'common';
+  var refPos = ((refFloor - 1) % 10) + 1;
+  if (refPos >= 6) rarity = 'rare';
+  else if (refPos >= 1) rarity = refPos <= 2 ? 'common' : 'uncommon';
+  var rarityBonus = (cfg.RARITY_BONUS && cfg.RARITY_BONUS[rarity]) || 0;
   var tanks = parseInt(document.getElementById('sim-tanks').value) || 0;
   var dps = parseInt(document.getElementById('sim-dps').value) || 1;
   var healers = parseInt(document.getElementById('sim-healers').value) || 0;
