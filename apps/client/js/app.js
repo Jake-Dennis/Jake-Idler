@@ -3245,7 +3245,7 @@ function updateAbFromTime() {
   var failRate = (parseFloat(document.getElementById('ab-fail-rate').value) || 15) / 100;
   var anim = cfg.ANIMATION || {};
   var msPerRound = (anim.projectileMs || 350) + (anim.phaseGapMs || 200) * 2 + (anim.roundGapMs || 200) + 200;
-  var combatMs = targetSec * 1000 * 0.8;
+  var combatMs = targetSec * 1000;
   var totalRounds = Math.round(combatMs / msPerRound);
   var weapBase = cfg.WEAPON_BASE_ATK || 500;
   var armorBase = cfg.ARMOR_BASE_DEF || 50;
@@ -3295,18 +3295,21 @@ function updateAbFromTime() {
     var boss = (cfg.BOSSES_BASE || 1);
     var totalMobs = trash + boss;
 
+    // ── Monster DEF: reduce hero damage by ~5% ──
+    var defAtThisFloor = Math.round(hAtk * 0.05);
+    var impliedBaseDef = Math.max(1, Math.round(defAtThisFloor / bi));
+
     // ── Solve monster HP for target time ──
-    // Each hero hit deals hAtk * 0.9 damage (the 0.9 accounts for the ±2 variance's floor-ish effect)
-    var dmgPerHit = Math.max(1, hAtk * 0.9);
-    // Round-robin: total monsters, hero does ~1 hit per round solo. Total hits available = totalRounds
+    // Each hero hit deals hAtk * 0.9 minus monster DEF (the 0.9 accounts for variance)
+    var dmgPerHit = Math.max(1, Math.round(hAtk * 0.9 - defAtThisFloor));
     var hitsPerMonster = totalRounds / totalMobs;
     var neededMonHp = Math.round(hitsPerMonster * dmgPerHit);
     var impliedBaseHp = Math.round(neededMonHp / bi);
     if (impliedBaseHp < 1) impliedBaseHp = 1;
 
     // ── Solve monster ATK for failure rate ──
-    // Monster damage formula: E[dmg] = (1 + 9.9 * atk/(atk+def)) per monster hit
-    // All alive monsters swarm the same target, up to 3 hit per round
+    // Monster damage formula: E[dmg] = (1 + 9.9 * atk/(atk+def)) per hit, 10% crit ×2
+    // All alive monsters swarm same target, up to 3 hit per round
     var desiredDmgPerRound = hHp / (totalRounds * survivalFactor);
     var monHitsPerRound = Math.min(3, totalMobs);
     var desiredPerMon = desiredDmgPerRound / monHitsPerRound;
@@ -3316,9 +3319,6 @@ function updateAbFromTime() {
     if (!isFinite(neededMonAtk) || neededMonAtk < 1) neededMonAtk = 1;
     var impliedBaseAtk = Math.round(neededMonAtk / bi);
     if (impliedBaseAtk < 1) impliedBaseAtk = 1;
-
-    // ── Monster DEF: reduce hero damage by ~5% ──
-    var impliedBaseDef = Math.max(1, Math.round(hAtk * 0.05 / bi));
 
     baseHpSamples.push(impliedBaseHp);
     baseAtkSamples.push(impliedBaseAtk);
