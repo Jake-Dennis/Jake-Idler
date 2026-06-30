@@ -42,32 +42,26 @@ const BASE_CONFIG = {
    * to compute effective level.
    */
   RARITY_BONUS: {
-    [Rarity.Common]: 10,
-    [Rarity.Uncommon]: 20,
-    [Rarity.Rare]: 30,
-    [Rarity.Epic]: 40,
-    [Rarity.Legendary]: 50,
+    [Rarity.Common]: 0,
+    [Rarity.Uncommon]: 100,
+    [Rarity.Rare]: 200,
+    [Rarity.Epic]: 300,
+    [Rarity.Legendary]: 400,
   } as Record<Rarity, number>,
 
-  // ──────────────────────────────────────────────────────────
-  //  Stat scaling formula constants
-  // ──────────────────────────────────────────────────────────
-
   /**
-   * Equipment stat = level + RARITY_BONUS[rarity].
-   * No multipliers or scale factors — purely linear.
-   * 
-   * Base stat at level 1 for each equipment category.
-   * Weapon: ATK = WEAPON_BASE_ATK + level * WEAPON_ATK_PER_LEVEL + RARITY_BONUS[rarity]
-   * Armor:  DEF = ARMOR_BASE_DEF  + level * ARMOR_DEF_PER_LEVEL  + RARITY_BONUS[rarity]
-   * Acc:    HP  = ACC_BASE_HP     + level * ACC_HP_PER_LEVEL     + RARITY_BONUS[rarity]
+   * Equipment stat = BASE + level × PER_LEVEL + RARITY_BONUS[rarity].
+   *
+   * Example with current values:
+   *   Level 10 common weapon: 700 + 10×30 + 0 = 1000 ATK
+   *   Level 20 rare weapon:   700 + 20×30 + 200 = 1700 ATK
    */
-  WEAPON_BASE_ATK: 40,
-  ARMOR_BASE_DEF: 10,
-  ACC_BASE_HP: 10,
-  WEAPON_ATK_PER_LEVEL: 1,
-  ARMOR_DEF_PER_LEVEL: 1,
-  ACC_HP_PER_LEVEL: 1,
+  WEAPON_BASE_ATK: 700,
+  ARMOR_BASE_DEF: 700,
+  ACC_BASE_HP: 700,
+  WEAPON_ATK_PER_LEVEL: 30,
+  ARMOR_DEF_PER_LEVEL: 30,
+  ACC_HP_PER_LEVEL: 30,
 
   /**
    * Hero-level stat multiplier.
