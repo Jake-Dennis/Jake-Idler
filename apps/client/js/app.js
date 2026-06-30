@@ -2684,6 +2684,7 @@ document.getElementById('hero-photo-input').addEventListener('change', function(
   window.updateAbEstimate = updateAbFromTime;
   window.toggleAutoBalance = toggleAutoBalance;
   window.runSimulation = runSimulation;
+  window.onFloorRarityChange = onFloorRarityChange;
   })();
 }
 
@@ -2847,23 +2848,34 @@ function renderAdminConfig(config) {
 
   // ── Difficulty curve table ──
   var floorList = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 20, 30, 40, 50];
+  var floorRarityConfig = config.FLOOR_RARITY || {};
+  // Build a lookup: floor → rarity from config ranges
+  var floorToRarity = {};
+  var rarityRanges = Object.keys(floorRarityConfig).sort();
+  for (var fri = 0; fri < rarityRanges.length; fri++) {
+    var rangeStr = rarityRanges[fri];
+    var parts = rangeStr.split('-');
+    var start = parseInt(parts[0]);
+    var end = parts[1] ? parseInt(parts[1]) : start;
+    for (var f = start; f <= end; f++) floorToRarity[f] = floorRarityConfig[rangeStr];
+  }
   var tableRows = '';
   for (var fi = 0; fi < floorList.length; fi++) {
     var fl = floorList[fi];
-    var expectedRarity = fl <= 2 ? 'common' : fl <= 5 ? 'uncommon' : fl <= 10 ? 'rare' : fl <= 20 ? 'epic' : 'legendary';
+    var expectedRarity = floorToRarity[fl] || 'common';
     var erb = rarityBonus[expectedRarity] != null ? rarityBonus[expectedRarity] : 0;
-    // All gear is at bracket level 10 minimum. Floors 1-9 drop Lv10 gear.
     var gearLevel = fl < 10 ? 10 : fl;
     var eAtk = Math.round(weapBase + ((gearLevel - 10) / 10) * weapPer + erb);
     var eDef = monBaseDef * Math.pow(fl, fse);
     var eHp = monBaseHp * Math.pow(fl, fse);
-    var eDmg = Math.max(1, eAtk - eDef);
+    var eDmg = Math.max(1, eAtk - Math.round(eDef));
     var hits = Math.ceil(eHp / eDmg);
     var statusColor = hits <= 15 ? '#4ade80' : hits <= 25 ? '#fbbf24' : '#ef4444';
-    var rarityColor = ['#9a949a','#9a949a','#fbbf24','#a78bfa','#f97316'][rarities.indexOf(expectedRarity)];
     tableRows += '<tr style="border-bottom:1px solid #0a080a">' +
       '<td style="padding:3px 6px">' + fl + '</td>' +
-      '<td style="padding:3px 6px;color:' + rarityColor + '">' + expectedRarity + '</td>' +
+      '<td style="padding:3px 6px"><select id="fr-' + fl + '" onchange="onFloorRarityChange(' + fl + ')" style="padding:1px 4px;background:#0a080a;border:1px solid #2a2020;border-radius:3px;color:#9a949a;font-size:.7rem">' +
+        rarities.map(function(r) { return '<option value="' + r + '"' + (r === expectedRarity ? ' selected' : '') + '>' + r.substr(0,3) + '</option>'; }).join('') +
+      '</select></td>' +
       '<td style="padding:3px 6px;text-align:right">' + Math.round(eAtk) + '</td>' +
       '<td style="padding:3px 6px;text-align:right">' + Math.round(eHp) + '</td>' +
       '<td style="padding:3px 6px;text-align:right;font-weight:700;color:' + statusColor + '">' + hits + '</td>' +
@@ -3161,6 +3173,38 @@ var AUTO_BALANCE_TIMER = null;
 function toggleAutoBalance() {
   var cb = document.getElementById('ab-auto');
   if (cb && cb.checked && window.toast) toast('Auto-balance enabled — gear changes auto-tune monster HP', 'success');
+}
+
+function onFloorRarityChange(floor) {
+  // Update the difficulty curve row instantly — recalc and update the ATK/hits cells
+  var sel = document.getElementById('fr-' + floor);
+  if (!sel) return;
+  var rarity = sel.value;
+  if (!ADMIN_CONFIG_CACHE) return;
+  var cfg = ADMIN_CONFIG_CACHE;
+  var fse = cfg.FLOOR_SCALE_EXPONENT || 0.55;
+  var weapBase = cfg.WEAPON_BASE_ATK || 500;
+  var weapPer = cfg.WEAPON_ATK_PER_BRACKET || 300;
+  var bonus = (cfg.RARITY_BONUS && cfg.RARITY_BONUS[rarity]) || 0;
+  var monBaseHp = cfg.MONSTER_BASE_HP || 1500;
+  var monBaseDef = cfg.MONSTER_BASE_DEF || 5;
+  var gearLevel = floor < 10 ? 10 : floor;
+  var atk = Math.round(weapBase + ((gearLevel - 10) / 10) * weapPer + bonus);
+  var monDef = monBaseDef * Math.pow(floor, fse);
+  var monHp = monBaseHp * Math.pow(floor, fse);
+  var dmg = Math.max(1, atk - Math.round(monDef));
+  var hits = Math.ceil(monHp / dmg);
+  // Update the row's ATK and hits cells (2nd and 4th td from right)
+  var row = sel.closest('tr');
+  if (row) {
+    var cells = row.querySelectorAll('td');
+    if (cells.length >= 4) {
+      cells[2].textContent = atk;
+      cells[3].textContent = Math.round(monHp);
+      cells[4].textContent = hits;
+      cells[4].style.color = hits <= 15 ? '#4ade80' : hits <= 25 ? '#fbbf24' : '#ef4444';
+    }
+  }
 }
 
 function runSimulation() {

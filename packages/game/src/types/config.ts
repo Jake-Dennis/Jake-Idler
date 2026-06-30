@@ -36,6 +36,18 @@ const BASE_CONFIG = {
   /** Extra trash mobs per additional party member (beyond the first). */
   TRASH_PER_PLAYER: 1,
 
+  /**
+   * Expected gear rarity per floor bracket for difficulty curve display.
+   * Keys are floor numbers or ranges ("1-2"), values are rarity names.
+   */
+  FLOOR_RARITY: {
+    "1-2": "common",
+    "3-5": "uncommon",
+    "6-10": "rare",
+    "11-20": "epic",
+    "21-999": "legendary",
+  },
+
   /** Floor bosses always present on non-bracket floors. */
   BOSSES_BASE: 1,
   /** Extra bosses per additional party member. */
