@@ -2685,6 +2685,10 @@ document.getElementById('hero-photo-input').addEventListener('change', function(
   window.updateAbEstimate = updateAbFromTime;
   window.toggleAutoBalance = toggleAutoBalance;
   window.runSimulation = runSimulation;
+  window.renderPreview = renderPreview;
+  window.refreshPreview = refreshPreview;
+  window.saveAllConfig = saveAllConfig;
+  window.selectFloor = selectFloor;
   })();
 }
 
@@ -3753,6 +3757,25 @@ function selectFloor(fl) {
     '<div style="padding:6px;background:#080608;border-radius:4px"><b>Monsters</b> (' + totalMobs + ')<br>HP ' + Math.round(monHp).toLocaleString() + '<br>ATK ' + Math.round(monAtk).toLocaleString() + '<br>DEF ' + Math.round(monDef).toLocaleString() + '</div>' +
     '</div>' +
     '<div style="margin-top:6px">Clear: <b>' + clearRounds + '</b> rounds (' + Math.round(clearRounds * 1350 / 1000) + 's) &middot; Die@ <b>' + roundsToDie + '</b> &middot; <span style="color:' + (survive ? '#4ade80' : '#f87171') + '">' + (survive ? '✓ Survives' : '✗ Dies') + '</span></div>';
+}
+
+function resetAdminConfig() {
+  if (!confirm('Reset all values to defaults?')) return;
+  var status = document.getElementById('admin-status');
+  if (status) status.textContent = 'Resetting...';
+  var tok = window.__INITIAL_TOKEN__ || localStorage.getItem('token') || '';
+  fetch('/api/admin/balancing/reset', {
+    method: 'POST',
+    headers: { 'Authorization': 'Bearer ' + tok }
+  })
+  .then(function(r) { return r.json(); })
+  .then(function() {
+    if (status) { status.textContent = 'Reset complete'; status.style.color = '#4ade80'; }
+    loadAdminConfig();
+  })
+  .catch(function(err) {
+    if (status) { status.textContent = 'Failed: ' + err.message; status.style.color = '#ef4444'; }
+  });
 }
 
 })();
