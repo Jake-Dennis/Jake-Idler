@@ -2852,15 +2852,20 @@ function renderAdminConfig(config) {
   var tableRows = '';
   for (var fi = 0; fi < floorList.length; fi++) {
     var fl = floorList[fi];
-    // Same 1-10 pattern repeats every 10 floors: common → uncommon → rare
+    // Same 1-10 pattern repeats every 10 floors
     var pos = ((fl - 1) % 10) + 1;  // 1-10 within each bracket
     var mix = { common: 0, uncommon: 0, rare: 0 };
     if (pos <= 5) {
+      // First half: commons → uncommons
       mix.common = slots - (pos - 1);
       mix.uncommon = pos - 1;
-    } else {
+    } else if (pos < 10) {
+      // Second half (pos 6-9): uncommons → rares
       mix.uncommon = slots - (pos - 5);
       mix.rare = pos - 5;
+    } else {
+      // pos = 10: bracket boss — full rare set required
+      mix.rare = slots;
     }
 
     // Weighted average ATK from gear mix
