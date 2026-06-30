@@ -2848,42 +2848,19 @@ function renderAdminConfig(config) {
   // ── Difficulty curve table ──
   var slots = config.GEAR_SLOTS || 7;
   var floorList = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 25, 30, 35, 40, 45, 50];
-  var rarities = ['common', 'uncommon', 'rare', 'epic', 'legendary'];
+  var rarities = ['common', 'uncommon', 'rare'];
   var tableRows = '';
   for (var fi = 0; fi < floorList.length; fi++) {
     var fl = floorList[fi];
-    // Determine bracket and position within bracket
-    var bracket = Math.ceil(fl / 10);        // 1, 2, 3, 4, 5
-    var pos = fl - (bracket - 1) * 10;        // 1-10 within bracket
-
-    // Map bracket to base rarity tier (0=common, 1=uncommon, etc.)
-    var baseTier = Math.min(bracket - 1, 3);  // bracket1→0, bracket2→1, bracket3→2, bracket4→3, bracket5→3
-
-    // Same progression pattern as floors 1-10, shifted by baseTier
-    var mix = {};
-    rarities.forEach(function(r) { mix[r] = 0; });
-
+    // Same 1-10 pattern repeats every 10 floors: common → uncommon → rare
+    var pos = ((fl - 1) % 10) + 1;  // 1-10 within each bracket
+    var mix = { common: 0, uncommon: 0, rare: 0 };
     if (pos <= 5) {
-      // First half: low tier decreases, mid tier increases
-      var lowTier = baseTier;
-      var midTier = baseTier + 1;
-      if (lowTier < 5) mix[rarities[lowTier]] = slots - (pos - 1);
-      if (midTier < 5) mix[rarities[midTier]] = pos - 1;
+      mix.common = slots - (pos - 1);
+      mix.uncommon = pos - 1;
     } else {
-      // Second half: mid tier decreases, high tier increases
-      var midTier = baseTier + 1;
-      var highTier = Math.min(baseTier + 2, 4);
-      if (midTier < 5) mix[rarities[midTier]] = slots - (pos - 5);
-      if (highTier < 5) mix[rarities[highTier]] = pos - 5;
-    }
-    // Ensure exactly 7 slots total
-    var totalSlots = 0;
-    rarities.forEach(function(r) { totalSlots += mix[r] || 0; });
-    // Fill any gaps with the highest non-zero tier
-    if (totalSlots < slots) {
-      for (var ti = rarities.length - 1; ti >= 0; ti--) {
-        if (mix[rarities[ti]] > 0) { mix[rarities[ti]] += slots - totalSlots; break; }
-      }
+      mix.uncommon = slots - (pos - 5);
+      mix.rare = pos - 5;
     }
 
     // Weighted average ATK from gear mix
