@@ -2787,7 +2787,7 @@ function renderAdminConfig(config) {
   var refFloor = 50;
   var refRarity = 'rare';
   var refRb = rarityBonus[refRarity] != null ? rarityBonus[refRarity] : 200;
-  var heroAtk = weapBase + refFloor * weapPer + refRb;
+  var heroAtk = weapBase + (refFloor / 10) * weapPer + refRb;
   var monDef = monBaseDef * Math.pow(refFloor, fse);
   var effDmg = Math.max(1, heroAtk - monDef);
   var currentHits = Math.ceil(monBaseHp * Math.pow(refFloor, fse) / effDmg);
