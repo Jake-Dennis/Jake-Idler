@@ -24,6 +24,23 @@ const BASE_CONFIG = {
   /** Number of regular monsters spawned on each floor. */
   MONSTERS_PER_FLOOR: 5,
 
+  // ──────────────────────────────────────────────────────────
+  //  Encounter scaling (per-player on a floor)
+  // ──────────────────────────────────────────────────────────
+
+  /**
+   * Base number of trash mobs before party-size bonuses.
+   * Trash = TRASH_BASE + floorNumber % 2 + TRASH_PER_PLAYER × (partySize − 1)
+   */
+  TRASH_BASE: 1,
+  /** Extra trash mobs per additional party member (beyond the first). */
+  TRASH_PER_PLAYER: 1,
+
+  /** Floor bosses always present on non-bracket floors. */
+  BOSSES_BASE: 1,
+  /** Extra bosses per additional party member. */
+  BOSSES_PER_PLAYER: 0,
+
   /**
    * Base drop rates (percentages) for each rarity tier at floor 1.
    * Scales upward with floor depth:

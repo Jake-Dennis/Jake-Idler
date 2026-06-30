@@ -722,16 +722,17 @@ class CombatService {
     if (floor.isBracketBoss && floor.bracketBoss) {
       monsters.push(toFloorMonster(floor.bracketBoss));
     } else {
-      // Trash count scales with party size
-      let trashCount = 1 + (floorNumber % 2);
-      if (partySize >= 2) trashCount = 2 + (floorNumber % 2);
-      if (partySize >= 3) trashCount = 3 + (floorNumber % 2);
-      if (partySize >= 4) trashCount = 3 + (floorNumber % 3);
+      // Trash count scales with party size using config values
+      const perPlayer = Math.max(0, partySize - 1);
+      const trashCount = GameConfig.TRASH_BASE + (floorNumber % 2) + perPlayer * GameConfig.TRASH_PER_PLAYER;
+      const bossCount = GameConfig.BOSSES_BASE + perPlayer * GameConfig.BOSSES_PER_PLAYER;
 
       for (let i = 0; i < trashCount && i < floor.monsters.length; i++) {
         monsters.push(toFloorMonster(floor.monsters[i]));
       }
-      monsters.push(toFloorMonster(floor.floorBoss));
+      for (let b = 0; b < bossCount; b++) {
+        monsters.push(toFloorMonster(floor.floorBoss));
+      }
     }
 
     return monsters;

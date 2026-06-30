@@ -3,6 +3,10 @@
   "PARTY_MAX_SIZE": 999,
   "FLOORS_PER_BRACKET": 10,
   "MONSTERS_PER_FLOOR": 5,
+  "TRASH_BASE": 1,
+  "TRASH_PER_PLAYER": 1,
+  "BOSSES_BASE": 1,
+  "BOSSES_PER_PLAYER": 0,
   "BASE_DROP_RATES": {
     "common": 70,
     "uncommon": 20,
