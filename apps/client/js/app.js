@@ -2793,7 +2793,7 @@ function renderAdminConfig(config) {
   var refRarity = 'rare';
   var refRb = rarityBonus[refRarity] != null ? rarityBonus[refRarity] : 200;
   var refGearLv = Math.ceil(refFloor / 10) * 10;
-  var heroAtk = weapBase + ((refGearLv - 10) / 10) * weapPer + refRb;
+  var heroAtk = Math.round(weapBase * Math.pow(Math.max(1, refGearLv / 10), fse) + refRb);
   var monDef = monBaseDef * Math.pow(refFloor, fse);
   var effDmg = Math.max(1, heroAtk - monDef);
   var currentHits = Math.ceil(monBaseHp * Math.pow(refFloor, fse) / effDmg);
@@ -2879,7 +2879,7 @@ function renderAdminConfig(config) {
       var cnt = mix[r] || 0;
       if (cnt === 0) return;
       var rb = rarityBonus[r] != null ? rarityBonus[r] : 0;
-      var pieceAtk = Math.round(weapBase + ((gearLevel - 10) / 10) * weapPer + rb);
+      var pieceAtk = Math.round(weapBase * Math.pow(Math.max(1, gearLevel / 10), fse) + rb);
       totalAtk += cnt * pieceAtk;
       totalPieces += cnt;
       mixDisplay.push(cnt + ' ' + r);
@@ -3153,7 +3153,7 @@ function updateAbFromTime() {
   var weapBase = cfg.WEAPON_BASE_ATK || 700;
   var weapPerB = cfg.WEAPON_ATK_PER_BRACKET || 300;
   var gearLv = Math.ceil(refFloor / 10) * 10;
-  var heroAtk = weapBase + ((gearLv - 10) / 10) * weapPerB + rarityBonus;
+  var heroAtk = Math.round(weapBase * Math.pow(Math.max(1, gearLv / 10), fse) + rarityBonus);
   var monBaseDef = cfg.MONSTER_BASE_DEF || 5;
   var monDef = monBaseDef * Math.pow(refFloor, fse);
   var dmgPerRound = Math.max(1, heroAtk * 0.9 - monDef);
@@ -3212,17 +3212,15 @@ function runSimulation() {
   var partySize = tanks + dps + healers;
   if (partySize < 1) { document.getElementById('sim-result').textContent = 'Need at least 1 hero'; return; }
 
-  // Gear stats per hero at reference floor with this rarity
-  var weapBase = cfg.WEAPON_BASE_ATK || 700;
-  var weapPerB = cfg.WEAPON_ATK_PER_BRACKET || 300;
-  var armorBase = cfg.ARMOR_BASE_DEF || 700;
-  var armorPerB = cfg.ARMOR_DEF_PER_BRACKET || 300;
-  var accBase = cfg.ACC_BASE_HP || 700;
-  var accPerB = cfg.ACC_HP_PER_BRACKET || 300;
+  // Gear stats — exponential scaling matching monster growth
+  var weapBase = cfg.WEAPON_BASE_ATK || 500;
+  var armorBase = cfg.ARMOR_BASE_DEF || 50;
+  var accBase = cfg.ACC_BASE_HP || 200;
   var simGearLv = Math.ceil(refFloor / 10) * 10;
-  var baseAtk = weapBase + ((simGearLv - 10) / 10) * weapPerB + rarityBonus;
-  var baseDef = armorBase + ((simGearLv - 10) / 10) * armorPerB + rarityBonus;
-  var baseHp = accBase + ((simGearLv - 10) / 10) * accPerB + rarityBonus;
+  var gearPower = Math.pow(Math.max(1, simGearLv / 10), fse);
+  var baseAtk = Math.round(weapBase * gearPower + rarityBonus);
+  var baseDef = Math.round(armorBase * gearPower + rarityBonus);
+  var baseHp = Math.round(accBase * gearPower + rarityBonus);
 
   // Monster stats at reference floor
   var monBaseHp = cfg.MONSTER_BASE_HP || 1500;

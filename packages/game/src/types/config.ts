@@ -85,21 +85,18 @@ const BASE_CONFIG = {
   } as Record<Rarity, number>,
 
   /**
-   * Equipment stat = BASE + (level/10) × PER_BRACKET + RARITY_BONUS[rarity].
+   * Equipment stat = BASE x max(1, level/10)^FLOOR_SCALE_EXPONENT + RARITY_BONUS[rarity].
    *
-   * Gear drops every 10 floors (level 10, 20, 30…), so per-bracket is the
-   * natural unit.  Internally we divide by 10 to get per-level.
+   * Uses the same exponential scaling as monster stats so the ATK/DEF ratio
+   * stays consistent across all floor brackets. Base values are at level 10.
    *
    * Example with current values:
-   *   Bracket 1 (Lv10) common weapon: 700 + 10/10×300 + 0 = 1,000 ATK
-   *   Bracket 2 (Lv20) rare weapon:   700 + 20/10×300 + 200 = 1,500 ATK
+   *   Level 10 common: 500 × 1^0.55 + 0 = 500 ATK
+   *   Level 50 common: 500 × 5^0.55 + 0 ≈ 1200 ATK
    */
-  WEAPON_BASE_ATK: 700,
-  ARMOR_BASE_DEF: 700,
-  ACC_BASE_HP: 700,
-  WEAPON_ATK_PER_BRACKET: 300,
-  ARMOR_DEF_PER_BRACKET: 300,
-  ACC_HP_PER_BRACKET: 300,
+  WEAPON_BASE_ATK: 500,
+  ARMOR_BASE_DEF: 50,
+  ACC_BASE_HP: 200,
 
   /**
    * Hero-level stat multiplier.
