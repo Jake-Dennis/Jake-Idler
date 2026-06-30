@@ -3284,9 +3284,12 @@ function updateAbFromTime() {
   var targetMonAtk = Math.round(desiredDmgPerMonster + heroDef);
   var newBaseAtk = Math.round(targetMonAtk / bracketMul);
   if (newBaseAtk < 1) newBaseAtk = 1;
-  window._abComputed = { baseHp: newBaseHp, baseAtk: newBaseAtk, trashCount: trashCount, bossCount: bossCount, totalRounds: totalRounds, targetSec: targetSec };
-  var el = document.getElementById('ab-result-text');
-  if (el) el.innerHTML = 'Target: <b style="color:#9a949a">' + targetSec + 's</b> &middot; ~' + totalRounds + ' rounds &middot; ' + totalMonsters + ' monsters (' + trashCount + ' trash + ' + bossCount + ' boss)' + '<br>Required: <b style="color:#fbbf24">MONSTER_BASE_HP = ' + newBaseHp + '</b> &middot; <b style="color:#fbbf24">MONSTER_BASE_ATK = ' + newBaseAtk + '</b>';
+  // Calculate MONSTER_BASE_DEF: reduce hero damage by ~10%
+  var targetMonDef = Math.round(heroAtk * 0.1);
+  var newBaseDef = Math.round(targetMonDef / bracketMul);
+  if (newBaseDef < 1) newBaseDef = 1;
+  window._abComputed = { baseHp: newBaseHp, baseAtk: newBaseAtk, baseDef: newBaseDef, trashCount: trashCount, bossCount: bossCount, totalRounds: totalRounds, targetSec: targetSec };
+  if (el) el.innerHTML = 'Target: <b style="color:#9a949a">' + targetSec + 's</b> &middot; ~' + totalRounds + ' rounds &middot; ' + totalMonsters + ' monsters (' + trashCount + ' trash + ' + bossCount + ' boss)' + '<br>Required: <b style="color:#fbbf24">MONSTER_BASE_HP = ' + newBaseHp + '</b> &middot; <b style="color:#fbbf24">MONSTER_BASE_ATK = ' + newBaseAtk + '</b> &middot; <b style="color:#fbbf24">MONSTER_BASE_DEF = ' + newBaseDef + '</b>';
 }
 
 function autoBalanceFromTime() {
@@ -3312,6 +3315,15 @@ function autoBalanceFromTime() {
       method: 'PUT',
       headers: { 'Authorization': 'Bearer ' + tok, 'Content-Type': 'application/json' },
       body: JSON.stringify({ key: 'MONSTER_BASE_ATK', value: comp.baseAtk })
+    }).then(function(r) { return r.json(); });
+  })
+  .then(function(resp) {
+    if (resp.error) throw new Error(resp.error);
+    // Also save MONSTER_BASE_DEF
+    return fetch('/api/admin/balancing', {
+      method: 'PUT',
+      headers: { 'Authorization': 'Bearer ' + tok, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ key: 'MONSTER_BASE_DEF', value: comp.baseDef })
     }).then(function(r) { return r.json(); });
   })
   .then(function(r) { return r.json(); })
