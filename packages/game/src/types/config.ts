@@ -120,6 +120,55 @@ const BASE_CONFIG = {
    * Bracket bosses (floor 10, 20, 30...) use the max chance.
    */
   KEY_DROP_CHANCE_MAX: 0.25,
+
+  // ──────────────────────────────────────────────────────────
+  //  Monster stat formula constants
+  // ──────────────────────────────────────────────────────────
+
+  /**
+   * Base monster stats at floor 1 (before floor scaling).
+   * Monster stat = MONSTER_BASE_xxx × floor^FLOOR_SCALE_EXPONENT × (boss multiplier)
+   */
+  MONSTER_BASE_ATK: 50,
+  MONSTER_BASE_DEF: 5,
+  MONSTER_BASE_HP: 1500,
+
+  /**
+   * Boss stat multipliers relative to a regular monster on the same floor.
+   */
+  BOSS_ATK_MULTIPLIER: 2,
+  BOSS_DEF_MULTIPLIER: 2,
+  BOSS_HP_MULTIPLIER: 2,
+
+  /**
+   * Bracket boss (floor 10, 20, 30…) additional HP multiplier
+   * on top of the boss multiplier.
+   */
+  BRACKET_BOSS_HP_MULTIPLIER: 2.5,
+
+  // ──────────────────────────────────────────────────────────
+  //  Crit formula constants
+  // ──────────────────────────────────────────────────────────
+
+  /** Flat critical strike chance (0–1). */
+  CRIT_CHANCE: 0.1,
+  /** Critical strike damage multiplier. */
+  CRIT_MULTIPLIER: 1.5,
+
+  // ──────────────────────────────────────────────────────────
+  //  XP / Gold reward constants
+  // ──────────────────────────────────────────────────────────
+
+  /** Base XP from a regular monster before floor scaling. */
+  MONSTER_XP_BASE: 20,
+  /** Base gold from a regular monster before floor scaling. */
+  MONSTER_GOLD_BASE: 10,
+  /** Boss XP/gold multiplier vs regular monster. */
+  BOSS_XP_MULTIPLIER: 3,
+  BOSS_GOLD_MULTIPLIER: 3,
+  /** Base XP/gold for bracket bosses (already accounting for boss mul). */
+  BRACKET_BOSS_XP_BASE: 50,
+  BRACKET_BOSS_GOLD_BASE: 30,
 } as const;
 
 /** Runtime-mutable version of GameConfig. Starts as a copy of the base config. */

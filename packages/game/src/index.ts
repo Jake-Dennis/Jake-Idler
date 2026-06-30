@@ -17,7 +17,6 @@ export {
   generateMonster,
   generateBracketBoss,
   CRIT_MULTIPLIER,
-  BASE_MONSTER_STATS,
 } from "./combat-engine.js";
 export type { CombatRound, CombatResult } from "./combat-engine.js";
 
