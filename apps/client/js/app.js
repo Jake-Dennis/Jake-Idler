@@ -2778,7 +2778,9 @@ function renderAdminConfig(config) {
   var monBaseDef = config.MONSTER_BASE_DEF != null ? config.MONSTER_BASE_DEF : 5;
   var refFloorInput = document.getElementById('ab-ref-floor');
   var refFloor = refFloorInput ? parseInt(refFloorInput.value) : 50;
-  var refRarity = 'rare';
+  // Expected rarity from floor bracket
+  var refPos = ((refFloor - 1) % 10) + 1;
+  var refRarity = refPos <= 2 ? 'common' : refPos <= 5 ? 'uncommon' : 'rare';
   var refRb = rarityBonus[refRarity] != null ? rarityBonus[refRarity] : 200;
   var refGearLv = Math.ceil(refFloor / 10) * 10;
   // Compute hero ATK from the floor's expected gear mix (same logic as difficulty curve)
