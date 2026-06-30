@@ -3336,7 +3336,6 @@ function autoBalanceFromTime() {
       body: JSON.stringify({ key: 'MONSTER_BASE_DEF', value: comp.baseDef })
     }).then(function(r) { return r.json(); });
   })
-  .then(function(r) { return r.json(); })
   .then(function(resp) {
     if (resp.error) throw new Error(resp.error);
     if (status) { status.textContent = 'MONSTER_BASE_HP set to ' + comp.baseHp + ' for ~' + comp.targetSec + 's floor time'; status.style.color = '#4ade80'; }
