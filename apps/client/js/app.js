@@ -3241,56 +3241,29 @@ function updateAbDisplay() {
 function updateAbFromTime() {
   if (!ADMIN_CONFIG_CACHE) return;
   var cfg = ADMIN_CONFIG_CACHE;
-  var refFloor = parseFloat(document.getElementById('ab-ref-floor').value) || 50;
   var targetSec = parseFloat(document.getElementById('ab-target-time').value) || 60;
   var failRate = (parseFloat(document.getElementById('ab-fail-rate').value) || 15) / 100;
   var anim = cfg.ANIMATION || {};
   var msPerRound = (anim.projectileMs || 350) + (anim.phaseGapMs || 200) * 2 + (anim.roundGapMs || 200) + 200;
-  var totalMs = targetSec * 1000;
-  var combatMs = totalMs * 0.8;
+  var combatMs = targetSec * 1000 * 0.8;
   var totalRounds = Math.round(combatMs / msPerRound);
   var weapBase = cfg.WEAPON_BASE_ATK || 500;
   var armorBase = cfg.ARMOR_BASE_DEF || 50;
   var accBase = cfg.ACC_BASE_HP || 200;
   var survivalFactor = 3 - 2.65 * failRate;
-  var baseHpVal = null, baseAtkVal = null, baseDefVal = null;
+  var floorList = [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,25,30,35,40,45,50];
+  var rarities = ['common','uncommon','rare'];
 
-  // Compute base values from the reference floor bracket
-  var refBi = Math.ceil(refFloor / 10);
-  var refPos = ((refFloor - 1) % 10) + 1;
-  var refRarity = refPos <= 2 ? 'common' : refPos <= 5 ? 'uncommon' : 'rare';
-  var refRarityBonus = (cfg.RARITY_BONUS && cfg.RARITY_BONUS[refRarity]) || 0;
-  var refPower = Math.max(0, (refBi * 10 - 10) / 10);
-  var refHeroAtk = Math.round(weapBase + refPower * 300 + refRarityBonus) * 2;
-  var refHeroDef = Math.round(armorBase + refPower * 300 + refRarityBonus) * 5;
-  var refHeroHp = Math.round(accBase + refPower * 300 + refRarityBonus) * 5;
-  var refTrash = (cfg.TRASH_BASE || 1) + (refFloor % 2);
-  var refBoss = (cfg.BOSSES_BASE || 1);
-  var refMobs = refTrash + refBoss;
-  var refDmgPerHit = Math.max(1, refHeroAtk * 0.9);
-  var refRoundsPerMonster = Math.round(totalRounds / refMobs / 2);
-  baseHpVal = Math.round(refRoundsPerMonster * refDmgPerHit / refBi);
-  // ATK from failure rate
-  var refDmgPerRound = refHeroHp / (totalRounds * survivalFactor);
-  var refPerMon = Math.max(1.2, Math.min(10.9, refDmgPerRound / Math.min(3, refMobs)));
-  var k = (refPerMon - 1.1) / 9.9;
-  var refMonAtk = Math.round(refHeroDef * k / (1 - k));
-  if (!isFinite(refMonAtk) || refMonAtk < 1) refMonAtk = 1;
-  baseAtkVal = Math.round(refMonAtk / refBi);
-  baseDefVal = Math.max(1, Math.round(refHeroAtk * 0.05 / refBi));
-
-  window._abComputed = { baseHp: baseHpVal, baseAtk: baseAtkVal, baseDef: baseDefVal };
-  var el = document.getElementById('ab-estimate');
-  if (!el) return;
-
-  // Preview: what the difficulty curve will look like with these base values at each floor
-  var floorList = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 25, 30, 35, 40, 45, 50];
-  var rarities = ['common', 'uncommon', 'rare'];
+  // Per-floor: compute gear mix → hero stats → needed monster stats → implied base values
+  var floorData = [];
+  var baseHpSamples = [], baseAtkSamples = [], baseDefSamples = [];
   var prevHtml = '';
-  var matchCount = 0, totalCount = floorList.length;
   for (var fi = 0; fi < floorList.length; fi++) {
     var fl = floorList[fi];
+    var bi = Math.ceil(fl / 10);
     var pos = ((fl - 1) % 10) + 1;
+
+    // Gear mix at this floor (same logic as difficulty curve)
     var mix = { common: 0, uncommon: 0, rare: 0 };
     mix.common = Math.max(0, 14 - pos * 2);
     if (pos <= 5) { mix.uncommon = (pos - 1) * 2; }
@@ -3299,7 +3272,7 @@ function updateAbFromTime() {
     else if (pos === 8) { mix.uncommon = 6; mix.rare = 6; }
     else if (pos === 9) { mix.uncommon = 3; mix.rare = 9; }
     else { mix.rare = 12; }
-    var bi = Math.ceil(fl / 10);
+
     var bracketLv = bi * 10;
     var power = Math.max(0, (bracketLv - 10) / 10);
     var totalAtk = 0, totalDef = 0, totalHp = 0;
@@ -3316,51 +3289,102 @@ function updateAbFromTime() {
     var hAtk = Math.round(totalAtk / 12) * 2;
     var hDef = Math.round(totalDef / 12) * 5;
     var hHp = Math.round(totalHp / 12) * 5;
-    var mHp = baseHpVal * bi;
-    var mAtk = baseAtkVal * bi;
-    var mDef = baseDefVal * bi;
-    // Predicted clear: rounds = mHp / max(1, hAtk - mDef) per monster, times monsters
-    var dmgPerHit = Math.max(1, hAtk * 0.9 - mDef);
+
+    // Monsters at this floor
     var trash = (cfg.TRASH_BASE || 1) + (fl % 2);
     var boss = (cfg.BOSSES_BASE || 1);
     var totalMobs = trash + boss;
-    var hitsToKill = Math.ceil(mHp / dmgPerHit);
-    var totalHits = hitsToKill * totalMobs;
-    var clearRounds = Math.ceil(totalHits / 1); // solo DPS hits once per round
+
+    // ── Solve monster HP for target time ──
+    // Each hero hit deals hAtk * 0.9 damage (the 0.9 accounts for the ±2 variance's floor-ish effect)
+    var dmgPerHit = Math.max(1, hAtk * 0.9);
+    // Round-robin: total monsters, hero does ~1 hit per round solo. Total hits available = totalRounds
+    var hitsPerMonster = totalRounds / totalMobs;
+    var neededMonHp = Math.round(hitsPerMonster * dmgPerHit);
+    var impliedBaseHp = Math.round(neededMonHp / bi);
+    if (impliedBaseHp < 1) impliedBaseHp = 1;
+
+    // ── Solve monster ATK for failure rate ──
+    // Monster damage formula: E[dmg] = (1 + 9.9 * atk/(atk+def)) per monster hit
+    // All alive monsters swarm the same target, up to 3 hit per round
+    var desiredDmgPerRound = hHp / (totalRounds * survivalFactor);
+    var monHitsPerRound = Math.min(3, totalMobs);
+    var desiredPerMon = desiredDmgPerRound / monHitsPerRound;
+    desiredPerMon = Math.max(1.2, Math.min(10.9, desiredPerMon));
+    var k = (desiredPerMon - 1.1) / 9.9;
+    var neededMonAtk = Math.round(hDef * k / (1 - k));
+    if (!isFinite(neededMonAtk) || neededMonAtk < 1) neededMonAtk = 1;
+    var impliedBaseAtk = Math.round(neededMonAtk / bi);
+    if (impliedBaseAtk < 1) impliedBaseAtk = 1;
+
+    // ── Monster DEF: reduce hero damage by ~5% ──
+    var impliedBaseDef = Math.max(1, Math.round(hAtk * 0.05 / bi));
+
+    baseHpSamples.push(impliedBaseHp);
+    baseAtkSamples.push(impliedBaseAtk);
+    baseDefSamples.push(impliedBaseDef);
+
+    // Preview row
+    var mHp = neededMonHp;
+    var mAtk = neededMonAtk;
+    var mDef = Math.round(impliedBaseDef * bi);
+    var clearRounds = Math.ceil(totalMobs * Math.ceil(mHp / dmgPerHit));
     var clearTimeSec = Math.round(clearRounds * msPerRound / 1000);
-    // Predicted survive: monster swarm damage vs hero HP
     var ratio = mAtk / (mAtk + hDef);
-    var baseMonDmg = 1 + ratio * 9;
-    var expectedMonDmg = baseMonDmg * 1.1; // 10% crit ×2
-    var swarmDmgPerRound = Math.min(3, totalMobs) * expectedMonDmg;
+    var swarmDmgPerRound = monHitsPerRound * ((1 + ratio * 9) * 1.1);
     var roundsToDie = Math.ceil(hHp / swarmDmgPerRound);
     var survives = roundsToDie > clearRounds;
+    var pct = Math.round(roundsToDie / clearRounds * 100);
     var color = survives ? '#4ade80' : '#f87171';
-    var outcome = survives ? '✓' : '✗';
+
     prevHtml += '<tr' + (fi % 2 === 1 ? ' style="background:#0a080a"' : '') + '>';
     prevHtml += '<td style="padding:1px 4px;color:#5a555a">' + fl + '</td>';
     prevHtml += '<td style="text-align:right;padding:1px 4px">' + clearTimeSec + 's</td>';
-    prevHtml += '<td style="text-align:right;padding:1px 4px">' + clearRounds + '</td>';
+    prevHtml += '<td style="text-align:right;padding:1px 4px;color:#fbbf24">' + mHp.toLocaleString() + '</td>';
+    prevHtml += '<td style="text-align:right;padding:1px 4px;color:#f87171">' + mAtk.toLocaleString() + '</td>';
+    prevHtml += '<td style="text-align:right;padding:1px 4px;color:#60a5fa">' + mDef.toLocaleString() + '</td>';
     prevHtml += '<td style="text-align:right;padding:1px 4px">' + roundsToDie + '</td>';
-    prevHtml += '<td style="text-align:right;padding:1px 4px;color:' + color + ';font-weight:700">' + outcome + '</td>';
+    prevHtml += '<td style="text-align:right;padding:1px 4px;color:' + color + ';font-weight:700">' + pct + '%</td>';
     prevHtml += '</tr>';
-    if (survives === (failRate < 0.5)) matchCount++;
+
+    floorData.push({ floor: fl, hAtk: hAtk, hDef: hDef, hHp: hHp, mHp: mHp, mAtk: mAtk, mDef: mDef, survives: survives });
   }
 
-  var summaryColor = matchCount / totalCount >= 0.7 ? '#4ade80' : matchCount / totalCount >= 0.4 ? '#fbbf24' : '#f87171';
-  var html = '<div style="margin-bottom:6px;font-size:.75rem;color:#5a555a;line-height:1.6">';
-  html += '<b style="color:#fbbf24">MONSTER_BASE_HP = ' + baseHpVal + '</b> &middot; <b style="color:#f87171">MONSTER_BASE_ATK = ' + baseAtkVal + '</b> &middot; <b style="color:#60a5fa">MONSTER_BASE_DEF = ' + baseDefVal + '</b>';
-  html += '<br>Fail rate: <b>' + Math.round(failRate * 100) + '%</b> &middot; Survival factor: <b>' + survivalFactor.toFixed(2) + '×</b>';
-  html += ' &middot; Curve match: <b style="color:' + summaryColor + '">' + Math.round(matchCount / totalCount * 100) + '%</b></div>';
+  // Determine final base values: use median across all floors to balance the curve
+  function median(arr) {
+    var s = arr.slice().sort(function(a,b){return a-b;});
+    return s[Math.round(s.length / 2) - 1];
+  }
+  var finalBaseHp = median(baseHpSamples);
+  var finalBaseAtk = median(baseAtkSamples);
+  var finalBaseDef = median(baseDefSamples);
 
-  html += '<div style="max-height:200px;overflow-y:auto;border:1px solid #1a1518;border-radius:4px">';
+  window._abComputed = { baseHp: finalBaseHp, baseAtk: finalBaseAtk, baseDef: finalBaseDef };
+
+  var el = document.getElementById('ab-estimate');
+  if (!el) return;
+
+  var wins = floorData.filter(function(d){ return d.survives; }).length;
+  var winRate = Math.round(wins / floorData.length * 100);
+
+  var html = '<div style="margin-bottom:6px;font-size:.75rem;color:#5a555a;line-height:1.6">';
+  html += 'Target: <b>' + targetSec + 's</b> per floor &middot; Fail: <b>' + Math.round(failRate * 100) + '%</b> &middot; ';
+  html += 'Rounds: <b>' + totalRounds + '</b> &middot; Survival factor: <b>' + survivalFactor.toFixed(2) + '×</b>';
+  html += '<br>Median base: <b style="color:#fbbf24">MONSTER_BASE_HP = ' + finalBaseHp + '</b> &middot; ';
+  html += '<b style="color:#f87171">MONSTER_BASE_ATK = ' + finalBaseAtk + '</b> &middot; ';
+  html += '<b style="color:#60a5fa">MONSTER_BASE_DEF = ' + finalBaseDef + '</b>';
+  html += ' &middot; Preview win rate: <b style="color:' + (winRate >= 50 ? '#4ade80' : '#f87171') + '">' + winRate + '%</b></div>';
+
+  html += '<div style="max-height:220px;overflow-y:auto;border:1px solid #1a1518;border-radius:4px">';
   html += '<table style="width:100%;border-collapse:collapse;font-size:.65rem">';
   html += '<thead><tr style="color:#5a555a;border-bottom:1px solid #2a2020;position:sticky;top:0;background:#080608">';
   html += '<th style="text-align:left;padding:2px 4px">Fl</th>';
   html += '<th style="text-align:right;padding:2px 4px">Clear</th>';
-  html += '<th style="text-align:right;padding:2px 4px">Rnd</th>';
-  html += '<th style="text-align:right;padding:2px 4px">Die</th>';
-  html += '<th style="text-align:right;padding:2px 4px">?</th>';
+  html += '<th style="text-align:right;padding:2px 4px;color:#fbbf24">Mon HP</th>';
+  html += '<th style="text-align:right;padding:2px 4px;color:#f87171">Mon ATK</th>';
+  html += '<th style="text-align:right;padding:2px 4px;color:#60a5fa">Mon DEF</th>';
+  html += '<th style="text-align:right;padding:2px 4px">Die@</th>';
+  html += '<th style="text-align:right;padding:2px 4px">Life%</th>';
   html += '</tr></thead><tbody>' + prevHtml + '</tbody></table></div>';
   el.innerHTML = html;
 }
