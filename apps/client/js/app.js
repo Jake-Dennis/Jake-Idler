@@ -2868,8 +2868,9 @@ function renderAdminConfig(config) {
       mix.rare = slots;
     }
 
-    // Weighted average ATK from gear mix
-    var gearLevel = fl < 10 ? 10 : fl;
+    // Weighted average ATK from gear mix — gear level is bracket × 10
+    var gearBracket = Math.ceil(fl / 10);
+    var gearLevel = gearBracket * 10;
     var totalAtk = 0;
     var totalPieces = 0;
     var mixDisplay = [];
