@@ -2816,8 +2816,8 @@ function renderAdminConfig(config) {
 
   // Current hero/monster stats
   html += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;margin-bottom:12px;padding:8px;background:#060406;border-radius:4px">';
-  html += '<div><span style="font-size:.75rem;color:#5a555a">Hero ATK (Lv' + refFloor + ' ' + refRarity + ')</span><br><span style="font-size:1.1rem;font-weight:700;color:#9a949a">' + Math.round(heroAtk) + '</span></div>';
-  html += '<div><span style="font-size:.75rem;color:#5a555a">Monster DEF (Lv' + refFloor + ')</span><br><span style="font-size:1.1rem;font-weight:700;color:#9a949a">' + Math.round(monDef) + '</span></div>';
+  html += '<div><span style="font-size:.75rem;color:#5a555a">Hero ATK (Lv' + refFloor + ' ' + refRarity + ')</span><br><span id="ab-hero-atk" style="font-size:1.1rem;font-weight:700;color:#9a949a">' + Math.round(heroAtk) + '</span></div>';
+  html += '<div><span style="font-size:.75rem;color:#5a555a">Monster DEF (Lv' + refFloor + ')</span><br><span id="ab-mon-def" style="font-size:1.1rem;font-weight:700;color:#9a949a">' + Math.round(monDef) + '</span></div>';
   html += '<div><span style="font-size:.75rem;color:#5a555a">Monster HP (Lv' + refFloor + ')</span><br><span style="font-size:1.1rem;font-weight:700;color:#fbbf24" id="ab-current-hp">' + Math.round(monBaseHp * Math.pow(refFloor, fse)) + '</span></div>';
   html += '<div><span style="font-size:.75rem;color:#5a555a">Sim estimate</span><br><span style="font-size:.8rem;color:#9a949a" id="ab-sim-preview">' + simHtml + '</span></div>';
   html += '</div>';
@@ -3142,45 +3142,40 @@ function updateAbDisplay() {
   var monBaseHp = cfg.MONSTER_BASE_HP || 1500;
   var monBaseDef = cfg.MONSTER_BASE_DEF || 5;
   var slots = cfg.GEAR_SLOTS || 7;
+  var rb = cfg.RARITY_BONUS || {};
 
-  // Gear mix at this floor
   var pos = ((floor - 1) % 10) + 1;
   var c = 0, u = 0, r = 0;
   if (pos <= 5) { c = slots - (pos - 1); u = pos - 1; }
   else if (pos < 10) { u = slots - (pos - 5); r = pos - 5; }
   else { r = slots; }
   var rarityLabel = pos <= 2 ? 'common' : pos <= 5 ? 'uncommon' : 'rare';
-  var rb = cfg.RARITY_BONUS || {};
   var gearLv = Math.ceil(floor / 10) * 10;
   var power = Math.pow(Math.max(1, gearLv / 10), fse);
   var avgAtk = Math.round((c * Math.round(weapBase * power + (rb.common||0)) + u * Math.round(weapBase * power + (rb.uncommon||0)) + r * Math.round(weapBase * power + (rb.rare||0))) / slots);
   var monDef = Math.round(monBaseDef * Math.pow(floor, fse));
   var monHp = Math.round(monBaseHp * Math.pow(floor, fse));
 
-  // Update display elements
-  var label = document.querySelector('.arena-heroes'); // find parent
-  document.getElementById('ab-ref-floor').parentElement.parentElement.parentElement; // skip
-  // Hero ATK label
-  var atkEl = document.getElementById('ab-current-hp');
-  var cells = document.querySelectorAll('#ab-estimate, #ab-result-text');
-  // Update the stat cards at top of balance card
-  if (atkEl) atkEl.textContent = monHp;
-  // Find the sibling stat displays by walking the DOM
-  var statDivs = document.querySelectorAll('#ab-ref-floor');
-  if (statDivs.length > 0) {
-    var card = statDivs[0].closest('div').parentElement;
-    if (card) {
-      var items = card.querySelectorAll('div > div > span');
-      if (items.length >= 3) {
-        // Hero ATK
-        items[0].innerHTML = 'Hero ATK (Lv' + floor + ' ' + rarityLabel + ')<br><span style="font-size:1.1rem;font-weight:700;color:#9a949a">' + avgAtk + '</span>';
-        // Monster DEF
-        items[1].innerHTML = 'Monster DEF (Lv' + floor + ')<br><span style="font-size:1.1rem;font-weight:700;color:#9a949a">' + monDef + '</span>';
-        // Monster HP
-        items[2].innerHTML = 'Monster HP (Lv' + floor + ')<br><span style="font-size:1.1rem;font-weight:700;color:#fbbf24">' + monHp + '</span>';
-      }
+  var atkEl = document.getElementById('ab-hero-atk');
+  var defEl = document.getElementById('ab-mon-def');
+  var hpEl = document.getElementById('ab-current-hp');
+  var simEl = document.getElementById('sim-result');
+
+  // Update label text (the <span> before <br> in each stat div)
+  var parentDivs = document.querySelectorAll('#ab-hero-atk, #ab-mon-def, #ab-current-hp');
+  parentDivs.forEach(function(el) {
+    var label = el.previousElementSibling;
+    if (label) {
+      var txt = label.textContent;
+      if (txt.indexOf('Hero ATK') === 0) label.textContent = 'Hero ATK (Lv' + floor + ' ' + rarityLabel + ')';
+      else if (txt.indexOf('Monster DEF') === 0) label.textContent = 'Monster DEF (Lv' + floor + ')';
+      else if (txt.indexOf('Monster HP') === 0) label.textContent = 'Monster HP (Lv' + floor + ')';
     }
-  }
+  });
+  if (atkEl) atkEl.textContent = avgAtk;
+  if (defEl) defEl.textContent = monDef;
+  if (hpEl) hpEl.textContent = monHp;
+  if (simEl) simEl.innerHTML = '';
 }
 
 function updateAbFromTime() {
