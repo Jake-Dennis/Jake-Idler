@@ -2757,7 +2757,7 @@ function renderAdminConfig(config) {
       html += '<div style="font-size:.75rem;color:#5a555a"><b>B' + (sl+1) + '</b> Lv' + lv + ': ';
       for (var ri = 0; ri < rarities.length; ri++) {
         var rb = rarityBonus[rarities[ri]] != null ? rarityBonus[rarities[ri]] : 0;
-        var stat = baseVal + (lv / 10) * perVal + rb;
+        var stat = baseVal + ((lv - 10) / 10) * perVal + rb;
         html += '<span style="color:' + (ri === 2 ? '#fbbf24' : '#9a949a') + '">' + rarities[ri].substring(0, 3) + ' ' + stat + '</span>';
         if (ri < rarities.length - 1) html += ' &middot; ';
       }
@@ -2792,7 +2792,7 @@ function renderAdminConfig(config) {
   var refFloor = 50;
   var refRarity = 'rare';
   var refRb = rarityBonus[refRarity] != null ? rarityBonus[refRarity] : 200;
-  var heroAtk = weapBase + (refFloor / 10) * weapPer + refRb;
+  var heroAtk = weapBase + ((refFloor - 10) / 10) * weapPer + refRb;
   var monDef = monBaseDef * Math.pow(refFloor, fse);
   var effDmg = Math.max(1, heroAtk - monDef);
   var currentHits = Math.ceil(monBaseHp * Math.pow(refFloor, fse) / effDmg);
@@ -3086,7 +3086,7 @@ function updateAbFromTime() {
   var roundsPerMonster = Math.round(totalRounds / totalMonsters * effectiveDPS / 2);
   var weapBase = cfg.WEAPON_BASE_ATK || 700;
   var weapPerB = cfg.WEAPON_ATK_PER_BRACKET || 300;
-  var heroAtk = weapBase + (refFloor / 10) * weapPerB + rarityBonus;
+  var heroAtk = weapBase + ((refFloor - 10) / 10) * weapPerB + rarityBonus;
   var monBaseDef = cfg.MONSTER_BASE_DEF || 5;
   var monDef = monBaseDef * Math.pow(refFloor, fse);
   var dmgPerRound = Math.max(1, heroAtk * 0.9 - monDef);
@@ -3149,7 +3149,7 @@ function runSimulation() {
   var armorPerB = cfg.ARMOR_DEF_PER_BRACKET || 300;
   var accBase = cfg.ACC_BASE_HP || 700;
   var accPerB = cfg.ACC_HP_PER_BRACKET || 300;
-  var baseAtk = weapBase + (refFloor / 10) * weapPerB + rarityBonus;
+  var baseAtk = weapBase + ((refFloor - 10) / 10) * weapPerB + rarityBonus;
   var baseDef = armorBase + (refFloor / 10) * armorPerB + rarityBonus;
   var baseHp = accBase + (refFloor / 10) * accPerB + rarityBonus;
 
@@ -3323,7 +3323,7 @@ function refreshGearPreview() {
       var txt = 'B' + (sl+1) + ' Lv' + lv + ': ';
       for (var ri = 0; ri < rarities.length; ri++) {
         var r = rarities[ri];
-        var stat = baseVal + (lv / 10) * perVal + (rb[r] || 0);
+        var stat = baseVal + ((lv - 10) / 10) * perVal + (rb[r] || 0);
         txt += (ri === 2 ? 'rar ' : r.substring(0, 3) + ' ') + stat;
         if (ri < rarities.length - 1) txt += ' · ';
       }

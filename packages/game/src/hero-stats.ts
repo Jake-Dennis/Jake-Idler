@@ -65,19 +65,20 @@ export function computeEquipmentStats(
   switch (category) {
     case "weapon":
       return {
-        atk: GameConfig.WEAPON_BASE_ATK + (level / 10) * GameConfig.WEAPON_ATK_PER_BRACKET + rarityFlat,
+        // Base = stat at level 10 (first bracket). Higher levels add per-bracket on top.
+        atk: GameConfig.WEAPON_BASE_ATK + ((level - 10) / 10) * GameConfig.WEAPON_ATK_PER_BRACKET + rarityFlat,
         def: 0, hp: 0,
       };
     case "armor":
       return {
         atk: 0,
-        def: GameConfig.ARMOR_BASE_DEF + (level / 10) * GameConfig.ARMOR_DEF_PER_BRACKET + rarityFlat,
+        def: GameConfig.ARMOR_BASE_DEF + ((level - 10) / 10) * GameConfig.ARMOR_DEF_PER_BRACKET + rarityFlat,
         hp: 0,
       };
     case "accessory":
       return {
         atk: 0, def: 0,
-        hp: GameConfig.ACC_BASE_HP + (level / 10) * GameConfig.ACC_HP_PER_BRACKET + rarityFlat,
+        hp: GameConfig.ACC_BASE_HP + ((level - 10) / 10) * GameConfig.ACC_HP_PER_BRACKET + rarityFlat,
       };
   }
 }
