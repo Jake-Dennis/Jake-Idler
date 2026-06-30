@@ -60,19 +60,25 @@ export function computeEquipmentStats(
   rarity: Rarity,
 ): StatBlock {
   const category = getSlotCategory(slot);
-  const rarityTier = Object.values(Rarity).indexOf(rarity);
-  const rarityFlat = rarityTier * 10;
+  const rarityFlat = GameConfig.RARITY_BONUS[rarity] ?? 0;
 
   switch (category) {
     case "weapon":
-      // Common=40+level, Uncommon=50+level, Rare=60+level, Epic=70+level, Legendary=80+level
-      return { atk: 40 + level + rarityFlat, def: 0, hp: 0 };
+      return {
+        atk: GameConfig.WEAPON_BASE_ATK + level * GameConfig.WEAPON_ATK_PER_LEVEL + rarityFlat,
+        def: 0, hp: 0,
+      };
     case "armor":
-      // Common=10+level, Uncommon=20+level, Rare=30+level, Epic=40+level, Legendary=50+level
-      return { atk: 0, def: 10 + level + rarityFlat, hp: 0 };
+      return {
+        atk: 0,
+        def: GameConfig.ARMOR_BASE_DEF + level * GameConfig.ARMOR_DEF_PER_LEVEL + rarityFlat,
+        hp: 0,
+      };
     case "accessory":
-      // Common=10+level, Uncommon=20+level, Rare=30+level, Epic=40+level, Legendary=50+level
-      return { atk: 0, def: 0, hp: 10 + level + rarityFlat };
+      return {
+        atk: 0, def: 0,
+        hp: GameConfig.ACC_BASE_HP + level * GameConfig.ACC_HP_PER_LEVEL + rarityFlat,
+      };
   }
 }
 

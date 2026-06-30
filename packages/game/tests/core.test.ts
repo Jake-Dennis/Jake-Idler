@@ -70,19 +70,19 @@ describe("computeHeroStats", () => {
 
 describe("computeEquipmentStats", () => {
   it("generates correct stats for weapon slot", () => {
-    // level 1 common → 40 + 1 + 0 = 41 ATK
+    // level 1 common → 40 + 1*1 + 10 = 51 ATK
     const stats = computeEquipmentStats("rightHandWeapon", 1, Rarity.Common);
-    expect(stats.atk).toBe(41);
+    expect(stats.atk).toBe(51);
     expect(stats.def).toBe(0);
     expect(stats.hp).toBe(0);
   });
 
   it("generates correct stats for accessory slot", () => {
-    // level 1 common → 10 + 1 + 0 = 11 HP
+    // level 1 common → 10 + 1*1 + 10 = 21 HP
     const stats = computeEquipmentStats("necklace", 1, Rarity.Common);
     expect(stats.atk).toBe(0);
     expect(stats.def).toBe(0);
-    expect(stats.hp).toBe(11);
+    expect(stats.hp).toBe(21);
   });
 });
 

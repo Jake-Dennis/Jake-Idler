@@ -56,7 +56,18 @@ const BASE_CONFIG = {
   /**
    * Equipment stat = level + RARITY_BONUS[rarity].
    * No multipliers or scale factors — purely linear.
+   * 
+   * Base stat at level 1 for each equipment category.
+   * Weapon: ATK = WEAPON_BASE_ATK + level * WEAPON_ATK_PER_LEVEL + RARITY_BONUS[rarity]
+   * Armor:  DEF = ARMOR_BASE_DEF  + level * ARMOR_DEF_PER_LEVEL  + RARITY_BONUS[rarity]
+   * Acc:    HP  = ACC_BASE_HP     + level * ACC_HP_PER_LEVEL     + RARITY_BONUS[rarity]
    */
+  WEAPON_BASE_ATK: 40,
+  ARMOR_BASE_DEF: 10,
+  ACC_BASE_HP: 10,
+  WEAPON_ATK_PER_LEVEL: 1,
+  ARMOR_DEF_PER_LEVEL: 1,
+  ACC_HP_PER_LEVEL: 1,
 
   /**
    * Hero-level stat multiplier.
