@@ -2898,18 +2898,41 @@ function renderAdminConfig(config) {
         totalHp += cnt * pieceHp;
       });
       var avgHp = totalPieces > 0 ? Math.round(totalHp / totalPieces) : 0;
-      var eDef = monBaseDef * bracketMul;
-      var eHp = monBaseHp * bracketMul;
-    var eDmg = Math.max(1, avgAtk - Math.round(eDef));
-    var hits = Math.ceil(eHp / eDmg);
-    var perPlayer = Math.max(0, 0);
-    var flTrash = (config.TRASH_BASE || 1) + (fl % 2) + perPlayer * (config.TRASH_PER_PLAYER || 1);
-    var flBoss = (config.BOSSES_BASE || 1) + perPlayer * (config.BOSSES_PER_PLAYER || 0);
-    var totalEnemies = flTrash + flBoss;
-    var totalRounds = hits * totalEnemies;
-    var estSec = Math.round(totalRounds * 1.2 / 60);
-    var resultColor = hits <= 10 ? '#4ade80' : hits <= 20 ? '#fbbf24' : '#ef4444';
-    var estColor = estSec <= 3 ? '#4ade80' : estSec <= 6 ? '#fbbf24' : '#ef4444';
+      // Compute hero DEF from gear mix (same formula)
+      var armorBase = config.ARMOR_BASE_DEF || 100;
+      var totalDef = 0;
+      rarities.forEach(function(r) {
+        var cnt = mix[r] || 0;
+        if (cnt === 0) return;
+        var rb = rarityBonus[r] != null ? rarityBonus[r] : 0;
+        var pieceDef = Math.round(armorBase + ((gearLevel - 10) / 10) * 300 + rb);
+        totalDef += cnt * pieceDef;
+      });
+      var avgDef = totalPieces > 0 ? Math.round(totalDef / totalPieces) : 0;
+      // Monster stats
+      var monAtk = (config.MONSTER_BASE_ATK || 150) * bracketMul;
+      var monDef = monBaseDef * bracketMul;
+      var monHp = monBaseHp * bracketMul;
+      // Rounds per monster
+      var dmgPerHit = Math.max(1, avgAtk - Math.round(monDef));
+      var roundsPerMon = Math.ceil(monHp / dmgPerHit);
+      // Damage per round from monsters (3 monsters swarm)
+      var monDmgPerHit = Math.max(1, monAtk - Math.round(avgDef));
+      var dmgPerRound = Math.min(monDmgPerHit * 3, monDmgPerHit * totalEnemies);
+      // Can hero survive? Rounds to kill all vs rounds to die
+      var totalRoundsNeeded = roundsPerMon * totalEnemies;
+      var roundsCanSurvive = dmgPerRound > 0 ? Math.ceil(avgHp / dmgPerRound) : 999;
+      var survives = roundsCanSurvive > totalRoundsNeeded;
+      var perPlayer = Math.max(0, 0);
+      var flTrash = (config.TRASH_BASE || 1) + (fl % 2) + perPlayer * (config.TRASH_PER_PLAYER || 1);
+      var flBoss = (config.BOSSES_BASE || 1) + perPlayer * (config.BOSSES_PER_PLAYER || 0);
+      var totalEnemies = flTrash + flBoss;
+      // Recalc with actual enemy count
+      var roundsNeeded = roundsPerMon * totalEnemies;
+      var estSec = Math.round(roundsNeeded * 1.2 / 60);
+      var resultText = survives ? roundsPerMon + 'h' : 'dies';
+      var resultColor = survives ? (roundsPerMon <= 10 ? '#4ade80' : roundsPerMon <= 20 ? '#fbbf24' : '#ef4444') : '#ef4444';
+      var estColor = survives ? (estSec <= 3 ? '#4ade80' : estSec <= 6 ? '#fbbf24' : '#ef4444') : '#ef4444';
     tableRows += '<tr id="dc-' + fl + '" style="border-bottom:1px solid #0a080a">' +
       '<td style="padding:3px 6px;font-weight:600">' + fl + '</td>' +
       '<td style="padding:3px 6px;font-size:.7rem" id="dc-gear-' + fl + '">' + mixDisplay.join('<br>') + '</td>' +
