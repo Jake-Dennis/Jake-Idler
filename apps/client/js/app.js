@@ -2850,9 +2850,11 @@ function renderAdminConfig(config) {
   var tableRows = '';
   for (var fi = 0; fi < floorList.length; fi++) {
     var fl = floorList[fi];
-    var expectedRarity = fl <= 2 ? 'common' : fl <= 5 ? 'uncommon' : fl <= 8 ? 'rare' : fl <= 10 ? 'epic' : 'legendary';
+    var expectedRarity = fl <= 2 ? 'common' : fl <= 5 ? 'uncommon' : fl <= 10 ? 'rare' : fl <= 20 ? 'epic' : 'legendary';
     var erb = rarityBonus[expectedRarity] != null ? rarityBonus[expectedRarity] : 0;
-    var eAtk = fl >= 10 ? Math.round(weapBase + ((fl - 10) / 10) * weapPer + erb) : Math.round(weapBase * 0.5 + erb);
+    // All gear is at bracket level 10 minimum. Floors 1-9 drop Lv10 gear.
+    var gearLevel = fl < 10 ? 10 : fl;
+    var eAtk = Math.round(weapBase + ((gearLevel - 10) / 10) * weapPer + erb);
     var eDef = monBaseDef * Math.pow(fl, fse);
     var eHp = monBaseHp * Math.pow(fl, fse);
     var eDmg = Math.max(1, eAtk - eDef);
