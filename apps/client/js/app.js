@@ -2821,38 +2821,107 @@ function renderAdminConfig(config) {
   html += '</div>';
   html += '<div id="ab-estimate" style="margin-top:8px;font-size:.75rem;color:#5a555a">~' + Math.round(Math.max(3, currentHits) * msPerHit / 1000) + 's per trash mob · ~' + Math.round(Math.max(3, currentHits) * 5 * 1.5 * msPerHit / 1000) + 's per full floor (5 trash + boss)</div></div>';
 
-  // ── Other config keys (exclude gear keys already rendered) ──
-  var gearKeys = ['WEAPON_BASE_ATK','WEAPON_ATK_PER_BRACKET','ARMOR_BASE_DEF','ARMOR_DEF_PER_BRACKET','ACC_BASE_HP','ACC_HP_PER_BRACKET','RARITY_BONUS'];
-  var keys = Object.keys(config).sort();
-  for (var ki = 0; ki < keys.length; ki++) {
-    var key = keys[ki];
-    if (gearKeys.indexOf(key) !== -1) continue;
-    var val = config[key];
-    if (val && typeof val === 'object' && !Array.isArray(val)) {
-      var subKeys = Object.keys(val).sort();
-      html += '<div style="margin-bottom:16px;border:1px solid #1a1518;border-radius:4px;padding:12px;background:#080608">';
-      html += '<h3 style="font-size:1rem;font-weight:700;color:#6a623a;margin-bottom:8px;letter-spacing:1px">' + key + '</h3>';
-      html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">';
-      for (var si = 0; si < subKeys.length; si++) {
-        var sk = subKeys[si];
-        var sv = val[sk];
-        var step = (typeof sv === 'number' && sv < 1) ? 'step="0.01"' : '';
-        var min = (typeof sv === 'number' && sv >= 0 && sv <= 1) ? 'min="0" max="1"' : '';
-        html += '<div style="display:flex;flex-direction:column;gap:2px">';
-        html += '<label style="font-size:.75rem;color:#5a555a;font-weight:600">' + sk + '</label>';
-        html += '<input type="number" id="admin-' + key + '-' + sk + '" value="' + sv + '" ' + step + ' ' + min + ' oninput="updateAbEstimate()" style="padding:4px 8px;background:#0a080a;border:1px solid #2a2020;border-radius:4px;color:#9a949a;font-size:.85rem;outline:none">';
-        html += '</div>';
-      }
-      html += '</div></div>';
-    } else {
-      var step = (typeof val === 'number' && val < 1) ? 'step="0.01"' : (typeof val === 'number' ? 'step="1"' : '');
-      var min = (typeof val === 'number' && val >= 0 && val <= 1) ? 'min="0" max="1"' : '';
-      html += '<div style="margin-bottom:8px;display:flex;align-items:center;gap:12px">';
-      html += '<label style="min-width:180px;font-size:.85rem;color:#9a949a;font-weight:600">' + key + '</label>';
-      html += '<input type="number" id="admin-' + key + '" value="' + val + '" ' + step + ' ' + min + ' oninput="updateAbEstimate()" style="flex:1;padding:4px 8px;background:#0a080a;border:1px solid #2a2020;border-radius:4px;color:#9a949a;font-size:.85rem;outline:none">';
+  // ── Grouped config sections ──
+  var groups = [
+    {
+      label: 'Monster Stats',
+      keys: ['MONSTER_BASE_ATK','MONSTER_BASE_DEF','MONSTER_BASE_HP',
+             'BOSS_ATK_MULTIPLIER','BOSS_DEF_MULTIPLIER','BOSS_HP_MULTIPLIER',
+             'BRACKET_BOSS_HP_MULTIPLIER']
+    },
+    {
+      label: 'Combat Formulas',
+      keys: ['CRIT_CHANCE','CRIT_MULTIPLIER']
+    },
+    {
+      label: 'Rewards',
+      keys: ['MONSTER_XP_BASE','MONSTER_GOLD_BASE',
+             'BOSS_XP_MULTIPLIER','BOSS_GOLD_MULTIPLIER',
+             'BRACKET_BOSS_XP_BASE','BRACKET_BOSS_GOLD_BASE']
+    },
+    {
+      label: 'Encounter Scaling',
+      keys: ['TRASH_BASE','TRASH_PER_PLAYER','BOSSES_BASE','BOSSES_PER_PLAYER']
+    },
+    {
+      label: 'Floor & Economy',
+      keys: ['FLOORS_PER_BRACKET','MONSTERS_PER_FLOOR',
+             'FLOOR_SCALE_EXPONENT','FLOOR_SCALE_FACTOR','GOLD_SCALE_FACTOR',
+             'HERO_STAT_MULTIPLIER','KEY_DROP_CHANCE_MAX',
+             'COMBAT_COOLDOWN_MS','STALE_TIMEOUT_MS','GUILD_MAX_MEMBERS',
+             'MAX_INVENTORY','PARTY_MAX_SIZE']
+    },
+  ];
+  var rendered = ['WEAPON_BASE_ATK','WEAPON_ATK_PER_BRACKET','ARMOR_BASE_DEF','ARMOR_DEF_PER_BRACKET','ACC_BASE_HP','ACC_HP_PER_BRACKET','RARITY_BONUS'];
+  for (var gi = 0; gi < groups.length; gi++) {
+    var grp = groups[gi];
+    var grpKeys = [];
+    for (var gi2 = 0; gi2 < grp.keys.length; gi2++) {
+      var k = grp.keys[gi2];
+      if (config[k] !== undefined) { grpKeys.push(k); rendered.push(k); }
+    }
+    if (grpKeys.length === 0) continue;
+    html += '<div style="margin-bottom:16px;border:1px solid #1a1518;border-radius:4px;padding:12px;background:#080608">';
+    html += '<h3 style="font-size:1rem;font-weight:700;color:#6a623a;margin-bottom:10px;letter-spacing:1px;border-bottom:1px solid #1a1518;padding-bottom:6px">' + grp.label + '</h3>';
+    html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">';
+    for (var gi2 = 0; gi2 < grpKeys.length; gi2++) {
+      var k = grpKeys[gi2];
+      var v = config[k];
+      var step = (typeof v === 'number' && v < 1) ? 'step="0.01"' : (typeof v === 'number' ? 'step="1"' : '');
+      var min = (typeof v === 'number' && v >= 0 && v <= 1) ? 'min="0" max="1"' : (typeof v === 'number' ? 'min="0"' : '');
+      html += '<div style="display:flex;flex-direction:column;gap:2px">';
+      html += '<label style="font-size:.75rem;color:#5a555a;font-weight:600">' + k + '</label>';
+      html += '<input type="number" id="admin-' + k + '" value="' + v + '" ' + step + ' ' + min + ' oninput="updateAbEstimate()" style="padding:4px 8px;background:#0a080a;border:1px solid #2a2020;border-radius:4px;color:#9a949a;font-size:.85rem;outline:none;width:100%">';
       html += '</div>';
     }
+    html += '</div></div>';
   }
+
+  // ── Nested keys (ANIMATION, BASE_DROP_RATES, etc.) ──
+  var nestedKeys = Object.keys(config).sort();
+  for (var ki = 0; ki < nestedKeys.length; ki++) {
+    var key = nestedKeys[ki];
+    if (rendered.indexOf(key) !== -1) continue;
+    var val = config[key];
+    if (!val || typeof val !== 'object' || Array.isArray(val)) continue;
+    var subKeys = Object.keys(val).sort();
+    html += '<div style="margin-bottom:16px;border:1px solid #1a1518;border-radius:4px;padding:12px;background:#080608">';
+    html += '<h3 style="font-size:1rem;font-weight:700;color:#6a623a;margin-bottom:10px;letter-spacing:1px;border-bottom:1px solid #1a1518;padding-bottom:6px">' + key + '</h3>';
+    html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">';
+    for (var si = 0; si < subKeys.length; si++) {
+      var sk = subKeys[si];
+      var sv = val[sk];
+      var step = (typeof sv === 'number' && sv < 1) ? 'step="0.01"' : '';
+      var min = (typeof sv === 'number' && sv >= 0 && sv <= 1) ? 'min="0" max="1"' : '';
+      html += '<div style="display:flex;flex-direction:column;gap:2px">';
+      html += '<label style="font-size:.75rem;color:#5a555a;font-weight:600">' + sk + '</label>';
+      html += '<input type="number" id="admin-' + key + '-' + sk + '" value="' + sv + '" ' + step + ' ' + min + ' oninput="updateAbEstimate()" style="padding:4px 8px;background:#0a080a;border:1px solid #2a2020;border-radius:4px;color:#9a949a;font-size:.85rem;outline:none;width:100%">';
+      html += '</div>';
+    }
+    html += '</div></div>';
+  }
+
+  // ── Orphan flat keys (not in any group or nested) ──
+  var flatKeys = Object.keys(config).sort();
+  var orphanHtml = '';
+  for (var ki = 0; ki < flatKeys.length; ki++) {
+    var key = flatKeys[ki];
+    if (rendered.indexOf(key) !== -1) continue;
+    var val = config[key];
+    if (val && typeof val === 'object') continue;
+    var step = (typeof val === 'number' && val < 1) ? 'step="0.01"' : (typeof val === 'number' ? 'step="1"' : '');
+    var min = (typeof val === 'number' && val >= 0 && val <= 1) ? 'min="0" max="1"' : '';
+    orphanHtml += '<div style="margin-bottom:8px;display:flex;align-items:center;gap:12px">';
+    orphanHtml += '<label style="min-width:180px;font-size:.85rem;color:#9a949a;font-weight:600">' + key + '</label>';
+    orphanHtml += '<input type="number" id="admin-' + key + '" value="' + val + '" ' + step + ' ' + min + ' oninput="updateAbEstimate()" style="flex:1;padding:4px 8px;background:#0a080a;border:1px solid #2a2020;border-radius:4px;color:#9a949a;font-size:.85rem;outline:none">';
+    orphanHtml += '</div>';
+  }
+  if (orphanHtml) {
+    html += '<div style="margin-bottom:16px;border:1px solid #1a1518;border-radius:4px;padding:12px;background:#080608">';
+    html += '<h3 style="font-size:1rem;font-weight:700;color:#6a623a;margin-bottom:10px;letter-spacing:1px;border-bottom:1px solid #1a1518;padding-bottom:6px">Other</h3>';
+    html += orphanHtml + '</div>';
+  }
+
   container.innerHTML = html;
 }
 
