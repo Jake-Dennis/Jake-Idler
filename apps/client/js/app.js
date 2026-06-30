@@ -2713,15 +2713,14 @@ function renderAdminConfig(config) {
   // ── Gear Stats: grouped by category ──
   var rarities = ['common', 'uncommon', 'rare', 'epic', 'legendary'];
   var gearCats = [
-    { label: 'Weapons',    baseKey: 'WEAPON_BASE_ATK', perKey: 'WEAPON_ATK_PER_BRACKET', stat: 'ATK' },
-    { label: 'Armor',      baseKey: 'ARMOR_BASE_DEF',  perKey: 'ARMOR_DEF_PER_BRACKET',  stat: 'DEF' },
-    { label: 'Accessories', baseKey: 'ACC_BASE_HP',     perKey: 'ACC_HP_PER_BRACKET',     stat: 'HP'  },
+    { label: 'Weapons',    baseKey: 'WEAPON_BASE_ATK', stat: 'ATK' },
+    { label: 'Armor',      baseKey: 'ARMOR_BASE_DEF',  stat: 'DEF' },
+    { label: 'Accessories', baseKey: 'ACC_BASE_HP',     stat: 'HP'  },
   ];
   var rarityBonus = (config.RARITY_BONUS || {});
   for (var ci = 0; ci < gearCats.length; ci++) {
     var cat = gearCats[ci];
     var baseVal = config[cat.baseKey] != null ? config[cat.baseKey] : 700;
-    var perVal = config[cat.perKey] != null ? config[cat.perKey] : 30;
     html += '<div style="margin-bottom:16px;border:1px solid #1a1518;border-radius:4px;padding:12px;background:#080608">';
     html += '<h3 style="font-size:1rem;font-weight:700;color:#6a623a;margin-bottom:8px;letter-spacing:1px">' + cat.label + ' (' + cat.stat + ')</h3>';
 
@@ -2739,17 +2738,8 @@ function renderAdminConfig(config) {
     }
     html += '</div>';
 
-    // Per-level inputs (same for all rarities)
-    html += '<div style="margin-bottom:6px"><label style="font-size:.8rem;color:#5a555a;font-weight:600">Bracket Offset (per bracket)</label></div>';
-    html += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr 1fr;gap:6px;margin-bottom:8px">';
-    for (var ri = 0; ri < rarities.length; ri++) {
-      html += '<div style="display:flex;flex-direction:column;align-items:center;gap:2px;padding:4px;background:#0a080a;border-radius:4px">';
-      html += '<label style="font-size:.7rem;color:#5a555a">' + rarities[ri] + '</label>';
-      html += '<span style="font-size:.9rem;font-weight:700;color:#9a949a">' + perVal + '</span>';
-    }
-    html += '</div></div>';
-
-    // Computed examples at key brackets
+    // Computed examples at key brackets (exponential scaling)
+    var exFse = config.FLOOR_SCALE_EXPONENT || 0.55;
     html += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr 1fr;gap:8px;margin-top:4px;padding:6px;background:#060406;border-radius:4px">';
     var bracketLevels = [10, 20, 30, 40, 50];
     for (var sl = 0; sl < bracketLevels.length; sl++) {
@@ -2757,7 +2747,7 @@ function renderAdminConfig(config) {
       html += '<div style="font-size:.75rem;color:#5a555a"><b>B' + (sl+1) + '</b> Lv' + lv + ': ';
       for (var ri = 0; ri < rarities.length; ri++) {
         var rb = rarityBonus[rarities[ri]] != null ? rarityBonus[rarities[ri]] : 0;
-        var stat = baseVal + ((lv - 10) / 10) * perVal + rb;
+        var stat = Math.round(baseVal * Math.pow(Math.max(1, lv / 10), exFse) + rb);
         html += '<span style="color:' + (ri === 2 ? '#fbbf24' : '#9a949a') + '">' + rarities[ri].substring(0, 3) + ' ' + stat + '</span>';
         if (ri < rarities.length - 1) html += ' &middot; ';
       }
@@ -2769,8 +2759,6 @@ function renderAdminConfig(config) {
     html += '<div style="display:flex;gap:12px;margin-top:8px;padding-top:8px;border-top:1px solid #1a1518">';
     html += '<div style="display:flex;align-items:center;gap:6px"><label style="font-size:.75rem;color:#5a555a">Base</label>';
     html += '<input type="number" id="admin-' + cat.baseKey + '" value="' + baseVal + '" step="10" min="0" oninput="refreshGearPreview()" style="width:80px;padding:3px 6px;background:#0a080a;border:1px solid #2a2020;border-radius:4px;color:#9a949a;font-size:.8rem"></div>';
-    html += '<div style="display:flex;align-items:center;gap:6px"><label style="font-size:.75rem;color:#5a555a">Per Lv</label>';
-    html += '<input type="number" id="admin-' + cat.perKey + '" value="' + perVal + '" step="5" min="0" oninput="refreshGearPreview()" style="width:80px;padding:3px 6px;background:#0a080a;border:1px solid #2a2020;border-radius:4px;color:#9a949a;font-size:.8rem"></div>';
     // Rarity bonus inline
     html += '<span style="width:1px;height:24px;background:#1a1518;margin:0 4px"></span>';
     for (var ri = 0; ri < rarities.length; ri++) {
@@ -2785,8 +2773,7 @@ function renderAdminConfig(config) {
 
   // ── Auto-Balance ──
   var fse = config.FLOOR_SCALE_EXPONENT != null ? config.FLOOR_SCALE_EXPONENT : 0.55;
-  var weapBase = config.WEAPON_BASE_ATK != null ? config.WEAPON_BASE_ATK : 700;
-  var weapPer = config.WEAPON_ATK_PER_BRACKET != null ? config.WEAPON_ATK_PER_BRACKET : 300;
+  var weapBase = config.WEAPON_BASE_ATK != null ? config.WEAPON_BASE_ATK : 500;
   var monBaseHp = config.MONSTER_BASE_HP != null ? config.MONSTER_BASE_HP : 1500;
   var monBaseDef = config.MONSTER_BASE_DEF != null ? config.MONSTER_BASE_DEF : 5;
   var refFloor = 50;
@@ -2941,7 +2928,7 @@ function renderAdminConfig(config) {
              'MAX_INVENTORY','PARTY_MAX_SIZE']
     },
   ];
-  var rendered = ['WEAPON_BASE_ATK','WEAPON_ATK_PER_BRACKET','ARMOR_BASE_DEF','ARMOR_DEF_PER_BRACKET','ACC_BASE_HP','ACC_HP_PER_BRACKET','RARITY_BONUS'];
+  var rendered = ['WEAPON_BASE_ATK','ARMOR_BASE_DEF','ACC_BASE_HP','RARITY_BONUS'];
   for (var gi = 0; gi < groups.length; gi++) {
     var grp = groups[gi];
     var grpKeys = [];
@@ -3150,8 +3137,7 @@ function updateAbFromTime() {
   var totalMonsters = trashCount + bossCount;
   var effectiveDPS = Math.max(1, dps + tanks);
   var roundsPerMonster = Math.round(totalRounds / totalMonsters * effectiveDPS / 2);
-  var weapBase = cfg.WEAPON_BASE_ATK || 700;
-  var weapPerB = cfg.WEAPON_ATK_PER_BRACKET || 300;
+  var weapBase = cfg.WEAPON_BASE_ATK || 500;
   var gearLv = Math.ceil(refFloor / 10) * 10;
   var heroAtk = Math.round(weapBase * Math.pow(Math.max(1, gearLv / 10), fse) + rarityBonus);
   var monBaseDef = cfg.MONSTER_BASE_DEF || 5;
@@ -3395,9 +3381,9 @@ function triggerAutoBalance() {
 
 function refreshGearPreview() {
   var gearCats = [
-    { baseId: 'admin-WEAPON_BASE_ATK', perId: 'admin-WEAPON_ATK_PER_BRACKET' },
-    { baseId: 'admin-ARMOR_BASE_DEF',  perId: 'admin-ARMOR_DEF_PER_BRACKET'  },
-    { baseId: 'admin-ACC_BASE_HP',     perId: 'admin-ACC_HP_PER_BRACKET'     },
+    { baseId: 'admin-WEAPON_BASE_ATK' },
+    { baseId: 'admin-ARMOR_BASE_DEF'  },
+    { baseId: 'admin-ACC_BASE_HP'     },
   ];
   var rarities = ['common', 'uncommon', 'rare', 'epic', 'legendary'];
   var bracketLevels = [10, 20, 30, 40, 50];
@@ -3409,11 +3395,12 @@ function refreshGearPreview() {
     rb[rarities[ri]] = el ? (parseFloat(el.value) || 0) : 0;
   }
 
+  // Read floor exponent from admin cache
+  var fse = (ADMIN_CONFIG_CACHE && ADMIN_CONFIG_CACHE.FLOOR_SCALE_EXPONENT) || 0.55;
+
   for (var ci = 0; ci < gearCats.length; ci++) {
     var baseEl = document.getElementById(gearCats[ci].baseId);
-    var perEl = document.getElementById(gearCats[ci].perId);
     var baseVal = baseEl ? (parseFloat(baseEl.value) || 0) : 0;
-    var perVal = perEl ? (parseFloat(perEl.value) || 0) : 0;
 
     // Update base stat previews
     for (var ri = 0; ri < rarities.length; ri++) {
@@ -3429,7 +3416,7 @@ function refreshGearPreview() {
       var txt = 'B' + (sl+1) + ' Lv' + lv + ': ';
       for (var ri = 0; ri < rarities.length; ri++) {
         var r = rarities[ri];
-        var stat = baseVal + ((lv - 10) / 10) * perVal + (rb[r] || 0);
+        var stat = Math.round(baseVal * Math.pow(Math.max(1, lv / 10), fse) + (rb[r] || 0));
         txt += (ri === 2 ? 'rar ' : r.substring(0, 3) + ' ') + stat;
         if (ri < rarities.length - 1) txt += ' · ';
       }
