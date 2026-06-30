@@ -3239,15 +3239,8 @@ function updateAbDisplay() {
 function updateAbFromTime() {
   if (!ADMIN_CONFIG_CACHE) return;
   var cfg = ADMIN_CONFIG_CACHE;
-  var fse = cfg.FLOOR_SCALE_EXPONENT || 0.55;
   var refFloor = parseFloat(document.getElementById('ab-ref-floor').value) || 50;
   var targetSec = parseFloat(document.getElementById('ab-target-time').value) || 60;
-  // Compute expected rarity from floor's gear mix
-  var rarity = 'common';
-  var refPos = ((refFloor - 1) % 10) + 1;
-  if (refPos >= 6) rarity = 'rare';
-  else if (refPos >= 1) rarity = refPos <= 2 ? 'common' : 'uncommon';
-  var rarityBonus = (cfg.RARITY_BONUS && cfg.RARITY_BONUS[rarity]) || 0;
   var tanks = parseInt(document.getElementById('sim-tanks').value) || 0;
   var dps = parseInt(document.getElementById('sim-dps').value) || 1;
   var healers = parseInt(document.getElementById('sim-healers').value) || 0;
@@ -3258,38 +3251,86 @@ function updateAbFromTime() {
   var combatMs = totalMs * 0.8;
   var totalRounds = Math.round(combatMs / msPerRound);
   var perPlayer = Math.max(0, partySize - 1);
-  var trashCount = (cfg.TRASH_BASE || 1) + (refFloor % 2) + perPlayer * (cfg.TRASH_PER_PLAYER || 1);
-  var bossCount = (cfg.BOSSES_BASE || 1) + perPlayer * (cfg.BOSSES_PER_PLAYER || 0);
-  var totalMonsters = trashCount + bossCount;
-  var effectiveDPS = Math.max(1, dps + tanks);
-  var roundsPerMonster = Math.round(totalRounds / totalMonsters * effectiveDPS / 2);
   var weapBase = cfg.WEAPON_BASE_ATK || 500;
   var armorBase = cfg.ARMOR_BASE_DEF || 100;
   var accBase = cfg.ACC_BASE_HP || 500;
-  var gearLv = Math.ceil(refFloor / 10) * 10;
-  var bracketMul = Math.max(1, Math.ceil(refFloor / 10));
-  var bracketPower = Math.max(0, (gearLv - 10) / 10);
-  var heroAtk = Math.round(weapBase + bracketPower * 300 + rarityBonus) * 2;
-  var heroDef = Math.round(armorBase + bracketPower * 300 + rarityBonus) * 5;
-  var heroHp = Math.round(accBase + bracketPower * 300 + rarityBonus) * 5;
-  var monBaseDef = cfg.MONSTER_BASE_DEF || 5;
-  var monDef = monBaseDef * bracketMul;
-  var dmgPerRound = Math.max(1, heroAtk * 0.9 - monDef);
-  var targetMonHp = roundsPerMonster * dmgPerRound;
-  var newBaseHp = Math.round(targetMonHp / bracketMul);
-  if (newBaseHp < 1) newBaseHp = 1;
-  // Calculate MONSTER_BASE_ATK: hero should take enough damage to die in ~1.5× target rounds
-  var desiredDmgPerRound = heroHp / (totalRounds * 1.5);
-  var desiredDmgPerMonster = Math.max(0, desiredDmgPerRound / Math.min(3, totalMonsters));
-  var targetMonAtk = Math.round(desiredDmgPerMonster + heroDef);
-  var newBaseAtk = Math.round(targetMonAtk / bracketMul);
-  if (newBaseAtk < 1) newBaseAtk = 1;
-  // Calculate MONSTER_BASE_DEF: reduce hero damage by ~10%
-  var targetMonDef = Math.round(heroAtk * 0.1);
-  var newBaseDef = Math.round(targetMonDef / bracketMul);
-  if (newBaseDef < 1) newBaseDef = 1;
-  window._abComputed = { baseHp: newBaseHp, baseAtk: newBaseAtk, baseDef: newBaseDef, trashCount: trashCount, bossCount: bossCount, totalRounds: totalRounds, targetSec: targetSec };
-  if (el) el.innerHTML = 'Target: <b style="color:#9a949a">' + targetSec + 's</b> &middot; ~' + totalRounds + ' rounds &middot; ' + totalMonsters + ' monsters (' + trashCount + ' trash + ' + bossCount + ' boss)' + '<br>Required: <b style="color:#fbbf24">MONSTER_BASE_HP = ' + newBaseHp + '</b> &middot; <b style="color:#fbbf24">MONSTER_BASE_ATK = ' + newBaseAtk + '</b> &middot; <b style="color:#fbbf24">MONSTER_BASE_DEF = ' + newBaseDef + '</b>';
+  var baseHpVal = null, baseAtkVal = null, baseDefVal = null;
+  var brackets = [];
+  for (var bi = 1; bi <= 5; bi++) {
+    var bracketFloor = bi * 10;
+    var pos = bracketFloor % 10 || 10;
+    // Expected rarity at this floor
+    var rarity = 'common';
+    if (pos >= 6) rarity = 'rare';
+    else if (pos >= 1) rarity = pos <= 2 ? 'common' : 'uncommon';
+    var rarityBonus = (cfg.RARITY_BONUS && cfg.RARITY_BONUS[rarity]) || 0;
+    var gearLv = bi * 10;
+    var bracketPower = Math.max(0, (gearLv - 10) / 10);
+    var heroAtk = Math.round(weapBase + bracketPower * 300 + rarityBonus) * 2;
+    var heroDef = Math.round(armorBase + bracketPower * 300 + rarityBonus) * 5;
+    var heroHp = Math.round(accBase + bracketPower * 300 + rarityBonus) * 5;
+    var trashCount = (cfg.TRASH_BASE || 1) + (bracketFloor % 2) + perPlayer * (cfg.TRASH_PER_PLAYER || 1);
+    var bossCount = (cfg.BOSSES_BASE || 1) + perPlayer * (cfg.BOSSES_PER_PLAYER || 0);
+    var totalMonsters = trashCount + bossCount;
+    var effectiveDPS = Math.max(1, dps + tanks);
+    var roundsPerMonster = Math.round(totalRounds / totalMonsters * effectiveDPS / 2);
+    var monBaseDef = cfg.MONSTER_BASE_DEF || 5;
+    var monDef = monBaseDef * bi;
+    var dmgPerRound = Math.max(1, heroAtk * 0.9 - monDef);
+    var targetMonHp = roundsPerMonster * dmgPerRound;
+    var newBaseHp = Math.round(targetMonHp / bi);
+    if (baseHpVal === null) baseHpVal = newBaseHp;
+    var desiredDmgPerRound = heroHp / (totalRounds * 1.5);
+    var desiredDmgPerMonster = Math.max(0, desiredDmgPerRound / Math.min(3, totalMonsters));
+    var targetMonAtk = Math.round(desiredDmgPerMonster + heroDef);
+    var newBaseAtk = Math.round(targetMonAtk / bi);
+    if (baseAtkVal === null) baseAtkVal = newBaseAtk;
+    var targetMonDef = Math.round(heroAtk * 0.1);
+    var newBaseDef = Math.round(targetMonDef / bi);
+    if (baseDefVal === null) baseDefVal = newBaseDef;
+    brackets.push({
+      bracket: bi, floorRange: ((bi-1)*10+1) + '-' + (bi*10),
+      heroAtk: heroAtk, heroDef: heroDef, heroHp: heroHp,
+      monHp: newBaseHp * bi, monAtk: newBaseAtk * bi, monDef: newBaseDef * bi,
+      rarity: rarity,
+      trashCount: trashCount, bossCount: bossCount, totalMonsters: totalMonsters
+    });
+  }
+  window._abComputed = { baseHp: baseHpVal, baseAtk: baseAtkVal, baseDef: baseDefVal };
+  var el = document.getElementById('ab-estimate');
+  if (!el) return;
+  var html = '<table style="width:100%;border-collapse:collapse;font-size:.7rem;color:#9a949a;margin-top:4px">';
+  html += '<thead><tr style="color:#5a555a;border-bottom:1px solid #2a2020">';
+  html += '<th style="text-align:left;padding:2px 4px">Floor</th>';
+  html += '<th style="text-align:left;padding:2px 4px">Rarity</th>';
+  html += '<th style="text-align:right;padding:2px 4px">Hero ATK</th>';
+  html += '<th style="text-align:right;padding:2px 4px">Hero DEF</th>';
+  html += '<th style="text-align:right;padding:2px 4px">Hero HP</th>';
+  html += '<th style="text-align:right;padding:2px 4px;color:#f87171">Mon ATK</th>';
+  html += '<th style="text-align:right;padding:2px 4px;color:#60a5fa">Mon DEF</th>';
+  html += '<th style="text-align:right;padding:2px 4px;color:#fbbf24">Mon HP</th>';
+  html += '<th style="text-align:right;padding:2px 4px">Target s</th>';
+  html += '<th style="text-align:right;padding:2px 4px">Rounds</th>';
+  html += '</tr></thead><tbody>';
+  for (var i = 0; i < brackets.length; i++) {
+    var b = brackets[i];
+    var bTargetSec = Math.round(totalRounds * msPerRound / 1000 * (1 + (0.2 * (5 - b.bracket))));
+    html += '<tr' + (i % 2 === 1 ? ' style="background:#0a080a"' : '') + '>';
+    html += '<td style="padding:2px 4px">' + b.floorRange + '</td>';
+    html += '<td style="padding:2px 4px">' + b.rarity + '</td>';
+    html += '<td style="text-align:right;padding:2px 4px">' + b.heroAtk.toLocaleString() + '</td>';
+    html += '<td style="text-align:right;padding:2px 4px">' + b.heroDef.toLocaleString() + '</td>';
+    html += '<td style="text-align:right;padding:2px 4px">' + b.heroHp.toLocaleString() + '</td>';
+    html += '<td style="text-align:right;padding:2px 4px;color:#f87171">' + b.monAtk.toLocaleString() + '</td>';
+    html += '<td style="text-align:right;padding:2px 4px;color:#60a5fa">' + b.monDef.toLocaleString() + '</td>';
+    html += '<td style="text-align:right;padding:2px 4px;color:#fbbf24">' + b.monHp.toLocaleString() + '</td>';
+    html += '<td style="text-align:right;padding:2px 4px">' + bTargetSec + 's</td>';
+    html += '<td style="text-align:right;padding:2px 4px">' + totalRounds + '</td>';
+    html += '</tr>';
+  }
+  html += '</tbody></table>';
+  html += '<div style="margin-top:4px;font-size:.7rem;color:#5a555a">Base values: <b style="color:#fbbf24">MONSTER_BASE_HP = ' + baseHpVal + '</b> &middot; <b style="color:#f87171">MONSTER_BASE_ATK = ' + baseAtkVal + '</b> &middot; <b style="color:#60a5fa">MONSTER_BASE_DEF = ' + baseDefVal + '</b></div>';
+  el.innerHTML = html;
 }
 
 function autoBalanceFromTime() {
