@@ -3264,18 +3264,29 @@ function updateAbFromTime() {
   var effectiveDPS = Math.max(1, dps + tanks);
   var roundsPerMonster = Math.round(totalRounds / totalMonsters * effectiveDPS / 2);
   var weapBase = cfg.WEAPON_BASE_ATK || 500;
+  var armorBase = cfg.ARMOR_BASE_DEF || 100;
+  var accBase = cfg.ACC_BASE_HP || 500;
   var gearLv = Math.ceil(refFloor / 10) * 10;
   var bracketMul = Math.max(1, Math.ceil(refFloor / 10));
-  var heroAtk = Math.round(weapBase + ((gearLv - 10) / 10) * 300 + rarityBonus) * 2;
+  var bracketPower = Math.max(0, (gearLv - 10) / 10);
+  var heroAtk = Math.round(weapBase + bracketPower * 300 + rarityBonus) * 2;
+  var heroDef = Math.round(armorBase + bracketPower * 300 + rarityBonus) * 5;
+  var heroHp = Math.round(accBase + bracketPower * 300 + rarityBonus) * 5;
   var monBaseDef = cfg.MONSTER_BASE_DEF || 5;
   var monDef = monBaseDef * bracketMul;
   var dmgPerRound = Math.max(1, heroAtk * 0.9 - monDef);
   var targetMonHp = roundsPerMonster * dmgPerRound;
   var newBaseHp = Math.round(targetMonHp / bracketMul);
   if (newBaseHp < 1) newBaseHp = 1;
-  window._abComputed = { baseHp: newBaseHp, trashCount: trashCount, bossCount: bossCount, totalRounds: totalRounds, targetSec: targetSec };
+  // Calculate MONSTER_BASE_ATK: hero should take enough damage to die in ~1.5× target rounds
+  var desiredDmgPerRound = heroHp / (totalRounds * 1.5);
+  var desiredDmgPerMonster = Math.max(0, desiredDmgPerRound / Math.min(3, totalMonsters));
+  var targetMonAtk = Math.round(desiredDmgPerMonster + heroDef);
+  var newBaseAtk = Math.round(targetMonAtk / bracketMul);
+  if (newBaseAtk < 1) newBaseAtk = 1;
+  window._abComputed = { baseHp: newBaseHp, baseAtk: newBaseAtk, trashCount: trashCount, bossCount: bossCount, totalRounds: totalRounds, targetSec: targetSec };
   var el = document.getElementById('ab-result-text');
-  if (el) el.innerHTML = 'Target: <b style="color:#9a949a">' + targetSec + 's</b> &middot; ~' + totalRounds + ' rounds &middot; ' + totalMonsters + ' monsters (' + trashCount + ' trash + ' + bossCount + ' boss)' + '<br>Required: <b style="color:#fbbf24">MONSTER_BASE_HP = ' + newBaseHp + '</b> &middot; monster HP at Lv' + refFloor + ': ~' + Math.round(targetMonHp);
+  if (el) el.innerHTML = 'Target: <b style="color:#9a949a">' + targetSec + 's</b> &middot; ~' + totalRounds + ' rounds &middot; ' + totalMonsters + ' monsters (' + trashCount + ' trash + ' + bossCount + ' boss)' + '<br>Required: <b style="color:#fbbf24">MONSTER_BASE_HP = ' + newBaseHp + '</b> &middot; <b style="color:#fbbf24">MONSTER_BASE_ATK = ' + newBaseAtk + '</b>';
 }
 
 function autoBalanceFromTime() {
@@ -3292,6 +3303,16 @@ function autoBalanceFromTime() {
     method: 'PUT',
     headers: { 'Authorization': 'Bearer ' + tok, 'Content-Type': 'application/json' },
     body: JSON.stringify({ key: 'MONSTER_BASE_HP', value: comp.baseHp })
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(resp) {
+    if (resp.error) throw new Error(resp.error);
+    // Also save MONSTER_BASE_ATK
+    return fetch('/api/admin/balancing', {
+      method: 'PUT',
+      headers: { 'Authorization': 'Bearer ' + tok, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ key: 'MONSTER_BASE_ATK', value: comp.baseAtk })
+    }).then(function(r) { return r.json(); });
   })
   .then(function(r) { return r.json(); })
   .then(function(resp) {

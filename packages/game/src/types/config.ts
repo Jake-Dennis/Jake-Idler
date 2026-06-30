@@ -163,7 +163,7 @@ const BASE_CONFIG = {
    * Base monster stats at floor 1 (before floor scaling).
    * Monster stat = MONSTER_BASE_xxx × floor^FLOOR_SCALE_EXPONENT × (boss multiplier)
    */
-  MONSTER_BASE_ATK: 150,
+  MONSTER_BASE_ATK: 500,
   MONSTER_BASE_DEF: 5,
   MONSTER_BASE_HP: 5000,
 
