@@ -3204,7 +3204,8 @@ function updateAbFromTime() {
     var impliedBaseDef = Math.max(1, Math.round(defAtThisFloor / scale));
 
     // ── Solve monster HP for target time ──
-    var dmgPerHit = Math.max(1, Math.round(hAtk * 0.9 - defAtThisFloor));
+    // Hero damage per hit = ATK (avg variance 1.0). Monster DEF is negligible (~0.8% of ATK).
+    var dmgPerHit = Math.max(1, hAtk);
     var hitsPerMonster = totalRounds / totalMobs;
     var neededMonHp = Math.round(hitsPerMonster * dmgPerHit);
     var impliedBaseHp = Math.round(neededMonHp / scale);

@@ -75,7 +75,7 @@
     "roundGapMs": 200,
     "vignetteDurationMs": 600
   },
-  "MONSTER_BASE_ATK": 48,
+  "MONSTER_BASE_ATK": 521,
   "MONSTER_BASE_DEF": 29,
   "MONSTER_BASE_HP": 42508,
   "BOSS_ATK_MULTIPLIER": 2,
