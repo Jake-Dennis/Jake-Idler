@@ -2782,20 +2782,17 @@ function renderAdminConfig(config) {
   var refGearLv = Math.ceil(refFloor / 10) * 10;
   // Compute hero ATK from the floor's expected gear mix (same logic as difficulty curve)
   var refPos = ((refFloor - 1) % 10) + 1;
-  var refMix = { common: 0, uncommon: 0, rare: 0 };
-  if (refPos <= 5) { refMix.common = slots - (refPos - 1); refMix.uncommon = refPos - 1; }
-  else if (refPos < 10) { refMix.uncommon = slots - (refPos - 5); refMix.rare = refPos - 5; }
-  else { refMix.rare = slots; }
-  var refTotalAtk = 0, refPieces = 0;
-  rarities.forEach(function(r) {
-    var cnt = refMix[r] || 0;
-    if (!cnt) return;
-    var rb = rarityBonus[r] != null ? rarityBonus[r] : 0;
-    refTotalAtk += cnt * Math.round(weapBase * Math.pow(Math.max(1, refGearLv / 10), fse) + rb);
-    refPieces += cnt;
-  });
-  var refAvgAtk = refPieces > 0 ? Math.round(refTotalAtk / refPieces) : 0;
-  var heroAtk = refAvgAtk;
+  // Compute hero ATK from the floor's expected gear mix (same logic as difficulty curve)
+  var refCommon = 0, refUncommon = 0, refRare = 0;
+  if (refPos <= 5) { refCommon = 7 - (refPos - 1); refUncommon = refPos - 1; }
+  else if (refPos < 10) { refUncommon = 7 - (refPos - 5); refRare = refPos - 5; }
+  else { refRare = 7; }
+  var refPower = Math.pow(Math.max(1, refGearLv / 10), fse);
+  var refRbC = rarityBonus['common'] != null ? rarityBonus['common'] : 0;
+  var refRbU = rarityBonus['uncommon'] != null ? rarityBonus['uncommon'] : 0;
+  var refRbR = rarityBonus['rare'] != null ? rarityBonus['rare'] : 0;
+  var refAtkTotal = refCommon * Math.round(weapBase * refPower + refRbC) + refUncommon * Math.round(weapBase * refPower + refRbU) + refRare * Math.round(weapBase * refPower + refRbR);
+  var heroAtk = Math.round(refAtkTotal / 7);
   var monDef = monBaseDef * Math.pow(refFloor, fse);
   var effDmg = Math.max(1, heroAtk - monDef);
   var currentHits = Math.ceil(monBaseHp * Math.pow(refFloor, fse) / effDmg);
