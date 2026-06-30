@@ -2708,9 +2708,9 @@ function renderAdminConfig(config) {
   // ── Gear Stats: grouped by category ──
   var rarities = ['common', 'uncommon', 'rare', 'epic', 'legendary'];
   var gearCats = [
-    { label: 'Weapons',    baseKey: 'WEAPON_BASE_ATK', perKey: 'WEAPON_ATK_PER_LEVEL', stat: 'ATK' },
-    { label: 'Armor',      baseKey: 'ARMOR_BASE_DEF',  perKey: 'ARMOR_DEF_PER_LEVEL',  stat: 'DEF' },
-    { label: 'Accessories', baseKey: 'ACC_BASE_HP',     perKey: 'ACC_HP_PER_LEVEL',     stat: 'HP'  },
+    { label: 'Weapons',    baseKey: 'WEAPON_BASE_ATK', perKey: 'WEAPON_ATK_PER_BRACKET', stat: 'ATK' },
+    { label: 'Armor',      baseKey: 'ARMOR_BASE_DEF',  perKey: 'ARMOR_DEF_PER_BRACKET',  stat: 'DEF' },
+    { label: 'Accessories', baseKey: 'ACC_BASE_HP',     perKey: 'ACC_HP_PER_BRACKET',     stat: 'HP'  },
   ];
   var rarityBonus = (config.RARITY_BONUS || {});
   for (var ci = 0; ci < gearCats.length; ci++) {
@@ -2735,7 +2735,7 @@ function renderAdminConfig(config) {
     html += '</div>';
 
     // Per-level inputs (same for all rarities)
-    html += '<div style="margin-bottom:6px"><label style="font-size:.8rem;color:#5a555a;font-weight:600">Bracket Offset (per level)</label></div>';
+    html += '<div style="margin-bottom:6px"><label style="font-size:.8rem;color:#5a555a;font-weight:600">Bracket Offset (per bracket)</label></div>';
     html += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr 1fr;gap:6px;margin-bottom:8px">';
     for (var ri = 0; ri < rarities.length; ri++) {
       html += '<div style="display:flex;flex-direction:column;align-items:center;gap:2px;padding:4px;background:#0a080a;border-radius:4px">';
@@ -2744,15 +2744,15 @@ function renderAdminConfig(config) {
     }
     html += '</div></div>';
 
-    // Computed examples at key levels
-    html += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:4px;padding:6px;background:#060406;border-radius:4px">';
-    var sampleLevels = [10, 20, 50];
-    for (var sl = 0; sl < sampleLevels.length; sl++) {
-      var lv = sampleLevels[sl];
-      html += '<div id="gp-ex-' + ci + '-' + lv + '" style="font-size:.75rem;color:#5a555a">Lv' + lv + ': ';
+    // Computed examples at key brackets
+    html += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr 1fr;gap:8px;margin-top:4px;padding:6px;background:#060406;border-radius:4px">';
+    var bracketLevels = [10, 20, 30, 40, 50];
+    for (var sl = 0; sl < bracketLevels.length; sl++) {
+      var lv = bracketLevels[sl];
+      html += '<div style="font-size:.75rem;color:#5a555a"><b>B' + (sl+1) + '</b> Lv' + lv + ': ';
       for (var ri = 0; ri < rarities.length; ri++) {
         var rb = rarityBonus[rarities[ri]] != null ? rarityBonus[rarities[ri]] : 0;
-        var stat = baseVal + lv * perVal + rb;
+        var stat = baseVal + (lv / 10) * perVal + rb;
         html += '<span style="color:' + (ri === 2 ? '#fbbf24' : '#9a949a') + '">' + rarities[ri].substring(0, 3) + ' ' + stat + '</span>';
         if (ri < rarities.length - 1) html += ' &middot; ';
       }
@@ -2760,12 +2760,12 @@ function renderAdminConfig(config) {
     }
     html += '</div>';
 
-    // Editable raw value for the base and per-level
+    // Editable raw values
     html += '<div style="display:flex;gap:12px;margin-top:8px;padding-top:8px;border-top:1px solid #1a1518">';
     html += '<div style="display:flex;align-items:center;gap:6px"><label style="font-size:.75rem;color:#5a555a">Base</label>';
     html += '<input type="number" id="admin-' + cat.baseKey + '" value="' + baseVal + '" step="10" min="0" oninput="refreshGearPreview()" style="width:80px;padding:3px 6px;background:#0a080a;border:1px solid #2a2020;border-radius:4px;color:#9a949a;font-size:.8rem"></div>';
-    html += '<div style="display:flex;align-items:center;gap:6px"><label style="font-size:.75rem;color:#5a555a">Per Lv</label>';
-    html += '<input type="number" id="admin-' + cat.perKey + '" value="' + perVal + '" step="5" min="0" oninput="refreshGearPreview()" style="width:80px;padding:3px 6px;background:#0a080a;border:1px solid #2a2020;border-radius:4px;color:#9a949a;font-size:.8rem"></div>';
+    html += '<div style="display:flex;align-items:center;gap:6px"><label style="font-size:.75rem;color:#5a555a">Per bracket</label>';
+    html += '<input type="number" id="admin-' + cat.perKey + '" value="' + perVal + '" step="50" min="0" oninput="refreshGearPreview()" style="width:80px;padding:3px 6px;background:#0a080a;border:1px solid #2a2020;border-radius:4px;color:#9a949a;font-size:.8rem"></div>';
     // Rarity bonus inline
     html += '<span style="width:1px;height:24px;background:#1a1518;margin:0 4px"></span>';
     for (var ri = 0; ri < rarities.length; ri++) {
@@ -2781,7 +2781,7 @@ function renderAdminConfig(config) {
   // ── Auto-Balance ──
   var fse = config.FLOOR_SCALE_EXPONENT != null ? config.FLOOR_SCALE_EXPONENT : 0.55;
   var weapBase = config.WEAPON_BASE_ATK != null ? config.WEAPON_BASE_ATK : 700;
-  var weapPer = config.WEAPON_ATK_PER_LEVEL != null ? config.WEAPON_ATK_PER_LEVEL : 30;
+  var weapPer = config.WEAPON_ATK_PER_BRACKET != null ? config.WEAPON_ATK_PER_BRACKET : 300;
   var monBaseHp = config.MONSTER_BASE_HP != null ? config.MONSTER_BASE_HP : 1500;
   var monBaseDef = config.MONSTER_BASE_DEF != null ? config.MONSTER_BASE_DEF : 5;
   var refFloor = 50;
@@ -2817,7 +2817,7 @@ function renderAdminConfig(config) {
   html += '</div></div>';
 
   // ── Other config keys (exclude gear keys already rendered) ──
-  var gearKeys = ['WEAPON_BASE_ATK','WEAPON_ATK_PER_LEVEL','ARMOR_BASE_DEF','ARMOR_DEF_PER_LEVEL','ACC_BASE_HP','ACC_HP_PER_LEVEL','RARITY_BONUS'];
+  var gearKeys = ['WEAPON_BASE_ATK','WEAPON_ATK_PER_BRACKET','ARMOR_BASE_DEF','ARMOR_DEF_PER_BRACKET','ACC_BASE_HP','ACC_HP_PER_BRACKET','RARITY_BONUS'];
   var keys = Object.keys(config).sort();
   for (var ki = 0; ki < keys.length; ki++) {
     var key = keys[ki];
@@ -2911,12 +2911,12 @@ function saveAdminConfig() {
 
 function refreshGearPreview() {
   var gearCats = [
-    { baseId: 'admin-WEAPON_BASE_ATK', perId: 'admin-WEAPON_ATK_PER_LEVEL' },
-    { baseId: 'admin-ARMOR_BASE_DEF',  perId: 'admin-ARMOR_DEF_PER_LEVEL'  },
-    { baseId: 'admin-ACC_BASE_HP',     perId: 'admin-ACC_HP_PER_LEVEL'     },
+    { baseId: 'admin-WEAPON_BASE_ATK', perId: 'admin-WEAPON_ATK_PER_BRACKET' },
+    { baseId: 'admin-ARMOR_BASE_DEF',  perId: 'admin-ARMOR_DEF_PER_BRACKET'  },
+    { baseId: 'admin-ACC_BASE_HP',     perId: 'admin-ACC_HP_PER_BRACKET'     },
   ];
   var rarities = ['common', 'uncommon', 'rare', 'epic', 'legendary'];
-  var sampleLevels = [10, 20, 50];
+  var bracketLevels = [10, 20, 30, 40, 50];
 
   // Read rarity bonus values
   var rb = {};
@@ -2938,14 +2938,14 @@ function refreshGearPreview() {
     }
 
     // Update example level previews
-    for (var sl = 0; sl < sampleLevels.length; sl++) {
-      var lv = sampleLevels[sl];
+    for (var sl = 0; sl < bracketLevels.length; sl++) {
+      var lv = bracketLevels[sl];
       var div = document.getElementById('gp-ex-' + ci + '-' + lv);
       if (!div) continue;
-      var txt = 'Lv' + lv + ': ';
+      var txt = 'B' + (sl+1) + ' Lv' + lv + ': ';
       for (var ri = 0; ri < rarities.length; ri++) {
         var r = rarities[ri];
-        var stat = baseVal + lv * perVal + (rb[r] || 0);
+        var stat = baseVal + (lv / 10) * perVal + (rb[r] || 0);
         txt += (ri === 2 ? 'rar ' : r.substring(0, 3) + ' ') + stat;
         if (ri < rarities.length - 1) txt += ' · ';
       }
@@ -2983,11 +2983,11 @@ function autoBalanceMonsters() {
   var cfg = ADMIN_CONFIG_CACHE;
   var fse = cfg.FLOOR_SCALE_EXPONENT || 0.55;
   var weapBase = cfg.WEAPON_BASE_ATK || 700;
-  var weapPer = cfg.WEAPON_ATK_PER_LEVEL || 30;
+  var weapPerBracket = cfg.WEAPON_ATK_PER_BRACKET || 300;
   var bonus = (cfg.RARITY_BONUS && cfg.RARITY_BONUS[rarity]) || 0;
   var monBaseDef = cfg.MONSTER_BASE_DEF || 5;
 
-  var heroAtk = weapBase + refFloor * weapPer + bonus;
+  var heroAtk = weapBase + (refFloor / 10) * weapPerBracket + bonus;
   var monDef = monBaseDef * Math.pow(refFloor, fse);
   var effDmg = Math.max(1, heroAtk - monDef);
 
