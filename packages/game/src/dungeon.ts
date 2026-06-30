@@ -37,7 +37,7 @@ export function generateFloor(floorNumber: number): Floor {
  * Returns the floor number directly for smooth per-floor stat progression.
  */
 export function getBracketEquipmentLevel(floorNumber: number): number {
-  return Math.max(1, floorNumber);
+  return Math.max(10, floorNumber);
 }
 
 /**
