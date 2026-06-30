@@ -422,10 +422,7 @@ class CombatService {
         atk = rawAtk;
       }
 
-      // Solo heroes get passive self-heal so they can survive longer fights
-      if (partySize === 1 && pm.role !== "healer") {
-        healing = rawAtk * 0.015;
-      }
+      // Solo heroes don't get passive self-heal — it's a DPS race
 
       const weaponType =
         pm.equipped?.rightHandWeapon?.type
