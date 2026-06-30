@@ -2836,6 +2836,7 @@ function renderAdminConfig(config) {
   html += '<label style="font-size:.75rem;color:#5a555a;display:flex;align-items:center;gap:4px"><input type="checkbox" id="ab-auto" style="accent-color:#6a623a" onchange="toggleAutoBalance()"> Auto-apply on gear change</label>';
   html += '<button class="btn btn-ghost btn-sm" style="padding:4px 10px;font-size:.75rem" onclick="runSimulation()">▶ Simulate</button>';
   html += '</div>';
+  html += '<div id="sim-result" style="margin-top:8px;font-size:.78rem;color:#5a555a;line-height:1.6">Set party above and click Simulate</div>';
 
   // Estimate display
   html += '<div id="ab-estimate" style="margin-top:8px;font-size:.78rem;color:#5a555a;line-height:1.6">';
