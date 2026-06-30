@@ -2927,22 +2927,21 @@ function renderAdminConfig(config) {
       var monAtk = (config.MONSTER_BASE_ATK || 150) * bracketMul;
       var monDef = monBaseDef * bracketMul;
       var monHp = monBaseHp * bracketMul;
-      // Rounds per monster
-      var dmgPerHit = Math.max(1, heroTotalAtk - Math.round(monDef));
-      var roundsPerMon = Math.ceil(monHp / dmgPerHit);
-      // Damage per round from monsters (3 monsters swarm)
-      var monDmgPerHit = Math.max(1, monAtk - Math.round(heroTotalDef));
-      var dmgPerRound = Math.min(monDmgPerHit * 3, monDmgPerHit * totalEnemies);
-      // Can hero survive? Rounds to kill all vs rounds to die
-      var totalRoundsNeeded = roundsPerMon * totalEnemies;
-      var roundsCanSurvive = dmgPerRound > 0 ? Math.ceil(heroTotalHp / dmgPerRound) : 999;
-      var survives = roundsCanSurvive > totalRoundsNeeded;
+      // Floor enemy count
       var perPlayer = Math.max(0, 0);
       var flTrash = (config.TRASH_BASE || 1) + (fl % 2) + perPlayer * (config.TRASH_PER_PLAYER || 1);
       var flBoss = (config.BOSSES_BASE || 1) + perPlayer * (config.BOSSES_PER_PLAYER || 0);
       var totalEnemies = flTrash + flBoss;
-      // Recalc with actual enemy count
+      // Rounds per monster
+      var dmgPerHit = Math.max(1, heroTotalAtk - Math.round(monDef));
+      var roundsPerMon = Math.ceil(monHp / dmgPerHit);
+      // Damage per round from monsters (all swarm)
+      var monDmgPerHit = Math.max(1, monAtk - Math.round(heroTotalDef));
+      var dmgPerRound = Math.min(monDmgPerHit * 3, monDmgPerHit * totalEnemies);
+      // Can hero survive? Rounds to kill all vs rounds to die
       var roundsNeeded = roundsPerMon * totalEnemies;
+      var roundsCanSurvive = dmgPerRound > 0 ? Math.ceil(heroTotalHp / dmgPerRound) : 999;
+      var survives = roundsCanSurvive > roundsNeeded;
       var estSec = Math.round(roundsNeeded * 1.2 / 60);
       var resultText = survives ? roundsPerMon + 'h' : 'dies';
       var resultColor = survives ? (roundsPerMon <= 10 ? '#4ade80' : roundsPerMon <= 20 ? '#fbbf24' : '#ef4444') : '#ef4444';
