@@ -3165,10 +3165,12 @@ function updateAbDisplay() {
   var hpEl = document.getElementById('ab-current-hp');
   var simEl = document.getElementById('sim-result');
 
-  // Update label text (the <span> before <br> in each stat div)
-  var parentDivs = document.querySelectorAll('#ab-hero-atk, #ab-mon-def, #ab-current-hp');
-  parentDivs.forEach(function(el) {
+  // Update label text (skip <br> between label and value)
+  var labels = document.querySelectorAll('#ab-hero-atk, #ab-mon-def, #ab-current-hp');
+  labels.forEach(function(el) {
     var label = el.previousElementSibling;
+    // Skip <br> element to get the actual label span
+    if (label && label.tagName === 'BR') label = label.previousElementSibling;
     if (label) {
       var txt = label.textContent;
       if (txt.indexOf('Hero ATK') === 0) label.textContent = 'Hero ATK (Lv' + floor + ' ' + rarityLabel + ')';
