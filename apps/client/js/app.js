@@ -3090,6 +3090,7 @@ function renderAdminConfig(config) {
   html += '</div></details>';
 
   container.innerHTML = html;
+}
 
 function saveAdminConfig() {
   if (!ADMIN_CONFIG_CACHE) return;
