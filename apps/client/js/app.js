@@ -2953,7 +2953,7 @@ function renderAdminConfig(config) {
       '<td style="padding:3px 6px;text-align:right" id="dc-atk-' + fl + '">' + heroTotalAtk + '</td>' +
       '<td style="padding:3px 6px;text-align:right;color:#5a555a" id="dc-hero-hp-' + fl + '">' + heroTotalHp + '</td>' +
       '<td style="padding:3px 6px;text-align:right" id="dc-mon-hp-' + fl + '">' + Math.round(monHp) + '</td>' +
-      '<td style="padding:3px 6px;text-align:right;font-weight:700;color:' + resultColor + '" id="dc-result-' + fl + '">' + hits + '</td>' +
+      '<td style="padding:3px 6px;text-align:right;font-weight:700;color:' + resultColor + '" id="dc-result-' + fl + '">' + resultText + '</td>' +
       '<td style="padding:3px 6px;text-align:right;color:' + estColor + '" id="dc-time-' + fl + '">~' + estSec + 'm</td>' +
       '</tr>';
   }
