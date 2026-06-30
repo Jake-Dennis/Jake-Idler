@@ -3266,7 +3266,7 @@ function updateAbFromTime() {
   var weapBase = cfg.WEAPON_BASE_ATK || 500;
   var gearLv = Math.ceil(refFloor / 10) * 10;
   var bracketMul = Math.max(1, Math.ceil(refFloor / 10));
-  var heroAtk = Math.round(weapBase + ((gearLv - 10) / 10) * 300 + rarityBonus);
+  var heroAtk = Math.round(weapBase + ((gearLv - 10) / 10) * 300 + rarityBonus) * 2;
   var monBaseDef = cfg.MONSTER_BASE_DEF || 5;
   var monDef = monBaseDef * bracketMul;
   var dmgPerRound = Math.max(1, heroAtk * 0.9 - monDef);
