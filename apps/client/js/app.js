@@ -3333,15 +3333,15 @@ function runSimulation() {
       var mon = monsters[currentMonsterIdx];
       rounds++;
 
-      // 1. Healers heal (party healer: 50% ATK to lowest HP% ally; solo: 12% ATK self-heal)
+      // 1. Healers heal (party healer: 50% ATK to lowest HP% ally; solo: 3% ATK self-heal)
       var isSolo = heroes.length === 1;
       for (var hi = 0; hi < heroes.length; hi++) {
         var h = heroes[hi];
         if (!h.alive) continue;
         if (isSolo) {
-          // Solo hero self-heals (non-healer 12%, healer 50%)
+          // Solo hero self-heals (non-healer 3%, healer 50%)
           if (h.hp < h.maxHp) {
-            var soloHealRate = h.role === 'healer' ? 0.5 : 0.12;
+            var soloHealRate = h.role === 'healer' ? 0.5 : 0.015;
             var variance = 0.8 + Math.random() * 0.4;
             h.hp = Math.min(h.maxHp, h.hp + Math.round(h.atk * soloHealRate * variance));
           }
