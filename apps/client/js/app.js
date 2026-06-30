@@ -2680,6 +2680,8 @@ document.getElementById('hero-photo-input').addEventListener('change', function(
   })();
 }
 
+var ADMIN_CONFIG_CACHE = null;
+
 function loadAdminConfig() {
   var container = document.getElementById('admin-config');
   if (!container) return;
