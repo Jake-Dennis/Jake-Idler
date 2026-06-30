@@ -3263,7 +3263,6 @@ function updateAbFromTime() {
   // Per-floor: compute gear mix → hero stats → needed monster stats → implied base values
   var floorData = [];
   var baseHpSamples = [], baseAtkSamples = [], baseDefSamples = [];
-  var prevHtml = '';
   for (var fi = 0; fi < floorList.length; fi++) {
     var fl = floorList[fi];
     var scale = Math.pow(fl, expo);
@@ -3307,7 +3306,6 @@ function updateAbFromTime() {
     var impliedBaseDef = Math.max(1, Math.round(defAtThisFloor / scale));
 
     // ── Solve monster HP for target time ──
-    // Each hero hit deals hAtk * 0.9 minus monster DEF (the 0.9 accounts for variance)
     var dmgPerHit = Math.max(1, Math.round(hAtk * 0.9 - defAtThisFloor));
     var hitsPerMonster = totalRounds / totalMobs;
     var neededMonHp = Math.round(hitsPerMonster * dmgPerHit);
@@ -3315,8 +3313,6 @@ function updateAbFromTime() {
     if (impliedBaseHp < 1) impliedBaseHp = 1;
 
     // ── Solve monster ATK for failure rate ──
-    // Monster damage: max(1, ATK - DEF) × 1.1 (10% crit ×2), but monsters die one by one
-    // so the average number of attackers over the fight = (totalMobs + 1) / 2
     var desiredDmgPerRound = hHp / (totalRounds * survivalFactor);
     var effectiveMonHits = (totalMobs + 1) / 2;
     var desiredPerMon = desiredDmgPerRound / effectiveMonHits;
@@ -3329,31 +3325,7 @@ function updateAbFromTime() {
     baseAtkSamples.push(impliedBaseAtk);
     baseDefSamples.push(impliedBaseDef);
 
-    // Preview row
-    var mHp = neededMonHp;
-    var mAtk = neededMonAtk;
-    var mDef = Math.round(impliedBaseDef * scale);
-    var clearRounds = Math.ceil(totalMobs * Math.ceil(mHp / dmgPerHit));
-    var clearTimeSec = Math.round(clearRounds * msPerRound / 1000);
-    var dmgPerMonHit = Math.max(1, mAtk - hDef);
-    var effectiveMonHits = (totalMobs + 1) / 2;
-    var swarmDmgPerRound = effectiveMonHits * dmgPerMonHit * 1.1;
-    var roundsToDie = Math.ceil(hHp / swarmDmgPerRound);
-    var survives = roundsToDie > clearRounds;
-    var pct = Math.round(roundsToDie / clearRounds * 100);
-    var color = survives ? '#4ade80' : '#f87171';
-
-    prevHtml += '<tr' + (fi % 2 === 1 ? ' style="background:#0a080a"' : '') + '>';
-    prevHtml += '<td style="padding:1px 4px;color:#5a555a">' + fl + '</td>';
-    prevHtml += '<td style="text-align:right;padding:1px 4px">' + clearTimeSec + 's</td>';
-    prevHtml += '<td style="text-align:right;padding:1px 4px;color:#fbbf24">' + mHp.toLocaleString() + '</td>';
-    prevHtml += '<td style="text-align:right;padding:1px 4px;color:#f87171">' + mAtk.toLocaleString() + '</td>';
-    prevHtml += '<td style="text-align:right;padding:1px 4px;color:#60a5fa">' + mDef.toLocaleString() + '</td>';
-    prevHtml += '<td style="text-align:right;padding:1px 4px">' + roundsToDie + '</td>';
-    prevHtml += '<td style="text-align:right;padding:1px 4px;color:' + color + ';font-weight:700">' + pct + '%</td>';
-    prevHtml += '</tr>';
-
-    floorData.push({ floor: fl, hAtk: hAtk, hDef: hDef, hHp: hHp, mHp: mHp, mAtk: mAtk, mDef: mDef, survives: survives });
+    floorData.push({ floor: fl, hAtk: hAtk, hDef: hDef, hHp: hHp, totalMobs: totalMobs, dmgPerHit: dmgPerHit, scale: scale, defAtThisFloor: defAtThisFloor });
   }
 
   // Determine final base values: use median across all floors to balance the curve
@@ -3370,7 +3342,35 @@ function updateAbFromTime() {
   var el = document.getElementById('ab-estimate');
   if (!el) return;
 
-  var wins = floorData.filter(function(d){ return d.survives; }).length;
+  // Second pass: render preview using median base values (what you actually get after Apply)
+  var prevHtml = '';
+  var wins = 0;
+  for (var fi = 0; fi < floorData.length; fi++) {
+    var d = floorData[fi];
+    var mHp = Math.round(finalBaseHp * d.scale);
+    var mAtk = Math.round(finalBaseAtk * d.scale);
+    var mDef = Math.round(finalBaseDef * d.scale);
+    var clearRounds = Math.ceil(d.totalMobs * Math.ceil(mHp / d.dmgPerHit));
+    var clearTimeSec = Math.round(clearRounds * msPerRound / 1000);
+    var dmgPerMonHit = Math.max(1, mAtk - d.hDef);
+    var effectiveMonHits = (d.totalMobs + 1) / 2;
+    var swarmDmgPerRound = effectiveMonHits * dmgPerMonHit * 1.1;
+    var roundsToDie = Math.ceil(d.hHp / swarmDmgPerRound);
+    var survives = roundsToDie > clearRounds;
+    if (survives) wins++;
+    var pct = Math.round(roundsToDie / clearRounds * 100);
+    var color = survives ? '#4ade80' : '#f87171';
+
+    prevHtml += '<tr' + (fi % 2 === 1 ? ' style="background:#0a080a"' : '') + '>';
+    prevHtml += '<td style="padding:1px 4px;color:#5a555a">' + d.floor + '</td>';
+    prevHtml += '<td style="text-align:right;padding:1px 4px">' + clearTimeSec + 's</td>';
+    prevHtml += '<td style="text-align:right;padding:1px 4px;color:#fbbf24">' + mHp.toLocaleString() + '</td>';
+    prevHtml += '<td style="text-align:right;padding:1px 4px;color:#f87171">' + mAtk.toLocaleString() + '</td>';
+    prevHtml += '<td style="text-align:right;padding:1px 4px;color:#60a5fa">' + mDef.toLocaleString() + '</td>';
+    prevHtml += '<td style="text-align:right;padding:1px 4px">' + roundsToDie + '</td>';
+    prevHtml += '<td style="text-align:right;padding:1px 4px;color:' + color + ';font-weight:700">' + pct + '%</td>';
+    prevHtml += '</tr>';
+  }
   var winRate = Math.round(wins / floorData.length * 100);
 
   var html = '<div style="margin-bottom:6px;font-size:.75rem;color:#5a555a;line-height:1.6">';
