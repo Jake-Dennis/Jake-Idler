@@ -3185,9 +3185,9 @@ function updateAbFromTime() {
       var mult = (cfg.RARITY_MULTIPLIER && cfg.RARITY_MULTIPLIER[r]) || 1.0;
       var rCount = mix[r] || 0;
       if (rCount > 0) {
-        totalAtk += rCount * Math.round(weapBase * Math.pow(fl, expo) * mult);
-        totalDef += rCount * Math.round(armorBase * Math.pow(fl, expo) * mult);
-        totalHp += rCount * Math.round(accBase * Math.pow(fl, expo) * mult);
+      totalAtk += rCount * Math.round(weapBase * Math.pow(Math.max(10, fl), expo) * mult);
+      totalDef += rCount * Math.round(armorBase * Math.pow(Math.max(10, fl), expo) * mult);
+      totalHp += rCount * Math.round(accBase * Math.pow(Math.max(10, fl), expo) * mult);
       }
     }
     var hAtk = Math.round(totalAtk / 12) * 2;
@@ -3613,9 +3613,9 @@ function renderPreview() {
       var cnt = mix[r] || 0; if (cnt === 0) continue;
       var mult = rarityMult[r] != null ? rarityMult[r] : (r === 'common' ? 1.0 : r === 'rare' ? 1.15 : 1.05);
       totalPieces += cnt;
-      totalAtk += cnt * Math.round(weapBase * Math.pow(fl, c.FLOOR_SCALE_EXPONENT || 0.85) * mult);
-      totalDef += cnt * Math.round(armorBase * Math.pow(fl, c.FLOOR_SCALE_EXPONENT || 0.85) * mult);
-      totalHp += cnt * Math.round(accBase * Math.pow(fl, c.FLOOR_SCALE_EXPONENT || 0.85) * mult);
+      totalAtk += cnt * Math.round(weapBase * Math.pow(Math.max(10, fl), c.FLOOR_SCALE_EXPONENT || 0.85) * mult);
+      totalDef += cnt * Math.round(armorBase * Math.pow(Math.max(10, fl), c.FLOOR_SCALE_EXPONENT || 0.85) * mult);
+      totalHp += cnt * Math.round(accBase * Math.pow(Math.max(10, fl), c.FLOOR_SCALE_EXPONENT || 0.85) * mult);
     }
     var hAtk = totalPieces > 0 ? Math.round(totalAtk / totalPieces) * 2 : 0;
     var hDef = totalPieces > 0 ? Math.round(totalDef / totalPieces) * 5 : 0;
@@ -3726,9 +3726,9 @@ function selectFloor(fl) {
     var cnt = mix[r] || 0; if (cnt === 0) continue;
     var mult = rarityMult[r] != null ? rarityMult[r] : (r === 'common' ? 1.0 : r === 'rare' ? 1.15 : 1.05);
     totalPieces += cnt;
-    totalAtk += cnt * Math.round(weapBase * Math.pow(fl, c.FLOOR_SCALE_EXPONENT || 0.85) * mult);
-    totalDef += cnt * Math.round(armorBase * Math.pow(fl, c.FLOOR_SCALE_EXPONENT || 0.85) * mult);
-    totalHp += cnt * Math.round(accBase * Math.pow(fl, c.FLOOR_SCALE_EXPONENT || 0.85) * mult);
+      totalAtk += cnt * Math.round(weapBase * Math.pow(Math.max(10, fl), c.FLOOR_SCALE_EXPONENT || 0.85) * mult);
+      totalDef += cnt * Math.round(armorBase * Math.pow(Math.max(10, fl), c.FLOOR_SCALE_EXPONENT || 0.85) * mult);
+      totalHp += cnt * Math.round(accBase * Math.pow(Math.max(10, fl), c.FLOOR_SCALE_EXPONENT || 0.85) * mult);
   }
   var hAtk = totalPieces > 0 ? Math.round(totalAtk / totalPieces) * 2 : 0;
   var hDef = totalPieces > 0 ? Math.round(totalDef / totalPieces) * 5 : 0;
