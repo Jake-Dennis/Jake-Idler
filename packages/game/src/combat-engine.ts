@@ -146,14 +146,14 @@ function getBaseMonsterStats(): BigNumberStatBlock {
  */
 export function generateMonster(floor: number, isBoss: boolean = false): Monster {
   const base = getBaseMonsterStats();
-  const scale = Math.pow(floor, GameConfig.FLOOR_SCALE_EXPONENT);
+  const bracket = Math.max(1, Math.ceil(floor / 10)); // per-bracket scaling (matches gear)
   const bossAtkMul = isBoss ? GameConfig.BOSS_ATK_MULTIPLIER : 1;
   const bossDefMul = isBoss ? GameConfig.BOSS_DEF_MULTIPLIER : 1;
   const bossHpMul = isBoss ? GameConfig.BOSS_HP_MULTIPLIER : 1;
 
-  const baseAtk = base.atk.toNumber() * scale * bossAtkMul;
-  const baseDef = base.def.toNumber() * scale * bossDefMul;
-  const baseHp = base.hp.toNumber() * scale * bossHpMul;
+  const baseAtk = base.atk.toNumber() * bracket * bossAtkMul;
+  const baseDef = base.def.toNumber() * bracket * bossDefMul;
+  const baseHp = base.hp.toNumber() * bracket * bossHpMul;
 
   const xpMul = isBoss ? GameConfig.BOSS_XP_MULTIPLIER : 1;
   const goldMul = isBoss ? GameConfig.BOSS_GOLD_MULTIPLIER : 1;
@@ -180,8 +180,8 @@ export function generateMonster(floor: number, isBoss: boolean = false): Monster
       hp: new BigNumber(Math.round(baseHp)),
       spd: new BigNumber(0),
     },
-    xpReward: new BigNumber(Math.round(GameConfig.MONSTER_XP_BASE * scale * xpMul)),
-    goldReward: new BigNumber(Math.round(GameConfig.MONSTER_GOLD_BASE * scale * goldMul)),
+    xpReward: new BigNumber(Math.round(GameConfig.MONSTER_XP_BASE * bracket * xpMul)),
+    goldReward: new BigNumber(Math.round(GameConfig.MONSTER_GOLD_BASE * bracket * goldMul)),
   };
 }
 
@@ -191,11 +191,11 @@ export function generateMonster(floor: number, isBoss: boolean = false): Monster
 export function generateBracketBoss(bracketNumber: number): Monster {
   const base = getBaseMonsterStats();
   const floor = bracketNumber * 10;
-  const scale = Math.pow(floor, GameConfig.FLOOR_SCALE_EXPONENT);
+  const bracket = Math.max(1, bracketNumber); // per-bracket scaling
 
-  const baseAtk = base.atk.toNumber() * scale;
-  const baseDef = base.def.toNumber() * scale;
-  const baseHp = base.hp.toNumber() * scale * GameConfig.BRACKET_BOSS_HP_MULTIPLIER;
+  const baseAtk = base.atk.toNumber() * bracket;
+  const baseDef = base.def.toNumber() * bracket;
+  const baseHp = base.hp.toNumber() * bracket * GameConfig.BRACKET_BOSS_HP_MULTIPLIER;
 
   const names = [
     "Demon Lord", "Ancient Wyrm", "Lich King", " Titan", "Void Walker",
@@ -213,7 +213,7 @@ export function generateBracketBoss(bracketNumber: number): Monster {
       hp: new BigNumber(Math.round(baseHp)),
       spd: new BigNumber(0),
     },
-    xpReward: new BigNumber(Math.round(GameConfig.BRACKET_BOSS_XP_BASE * scale)),
-    goldReward: new BigNumber(Math.round(GameConfig.BRACKET_BOSS_GOLD_BASE * scale)),
+    xpReward: new BigNumber(Math.round(GameConfig.BRACKET_BOSS_XP_BASE * bracket)),
+    goldReward: new BigNumber(Math.round(GameConfig.BRACKET_BOSS_GOLD_BASE * bracket)),
   };
 }

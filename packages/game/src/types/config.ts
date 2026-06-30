@@ -85,18 +85,19 @@ const BASE_CONFIG = {
   } as Record<Rarity, number>,
 
   /**
-   * Equipment stat = BASE x max(1, level/10)^FLOOR_SCALE_EXPONENT + RARITY_BONUS[rarity].
+   * Equipment stat = BASE + ((level - 10) / 10) × PER_BRACKET + RARITY_BONUS[rarity].
    *
-   * Uses the same exponential scaling as monster stats so the ATK/DEF ratio
-   * stays consistent across all floor brackets. Base values are at level 10.
-   *
-   * Example with current values:
-   *   Level 10 common: 500 × 1^0.55 + 0 = 500 ATK
-   *   Level 50 common: 500 × 5^0.55 + 0 ≈ 1200 ATK
+   * Linear per-bracket growth. Default +300 per bracket:
+   *   B1 Lv10: 500 + 0 + 0 = 500 ATK
+   *   B2 Lv20: 500 + 1×300 + 0 = 800 ATK
+   *   B5 Lv50: 500 + 4×300 + 0 = 1,700 ATK
    */
   WEAPON_BASE_ATK: 500,
-  ARMOR_BASE_DEF: 50,
-  ACC_BASE_HP: 200,
+  WEAPON_ATK_PER_BRACKET: 300,
+  ARMOR_BASE_DEF: 100,
+  ARMOR_DEF_PER_BRACKET: 300,
+  ACC_BASE_HP: 500,
+  ACC_HP_PER_BRACKET: 300,
 
   /**
    * Hero-level stat multiplier.
@@ -164,9 +165,9 @@ const BASE_CONFIG = {
    * Base monster stats at floor 1 (before floor scaling).
    * Monster stat = MONSTER_BASE_xxx × floor^FLOOR_SCALE_EXPONENT × (boss multiplier)
    */
-  MONSTER_BASE_ATK: 50,
+  MONSTER_BASE_ATK: 150,
   MONSTER_BASE_DEF: 5,
-  MONSTER_BASE_HP: 1500,
+  MONSTER_BASE_HP: 5000,
 
   /**
    * Boss stat multipliers relative to a regular monster on the same floor.

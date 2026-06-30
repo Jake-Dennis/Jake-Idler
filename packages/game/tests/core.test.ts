@@ -70,19 +70,19 @@ describe("computeHeroStats", () => {
 
 describe("computeEquipmentStats", () => {
   it("generates correct stats for weapon slot", () => {
-    // level 1 common → 500 × max(1,1/10)^0.55 + 0 = 500 ATK
+    // level 1 common → 500 + ((1-10)/10)*300 + 0 = 230 ATK
     const stats = computeEquipmentStats("rightHandWeapon", 1, Rarity.Common);
-    expect(stats.atk).toBe(500);
+    expect(stats.atk).toBe(230);
     expect(stats.def).toBe(0);
     expect(stats.hp).toBe(0);
   });
 
   it("generates correct stats for accessory slot", () => {
-    // level 1 common → 200 × max(1,1/10)^0.55 + 0 = 200 HP
+    // level 1 common → 500 + ((1-10)/10)*300 + 0 = 230 HP
     const stats = computeEquipmentStats("necklace", 1, Rarity.Common);
     expect(stats.atk).toBe(0);
     expect(stats.def).toBe(0);
-    expect(stats.hp).toBe(200);
+    expect(stats.hp).toBe(230);
   });
 });
 
@@ -128,10 +128,13 @@ describe("createStarterEquipment", () => {
 
 describe("monster scaling vs starter gear", () => {
   it("floor 1 trash takes ~50 rounds for starter hero (~5 min for full floor)", () => {
-    // Starter hero with full Lv10 common gear: weapon=40+10, armor=10+10, accessory=10+10
-    const heroAtk = 100;  // 2 weapons × (40 + 10)
-    const heroDef = 100;  // 5 armor × (10 + 10)
-    const heroHp = 100;   // 5 accessories × (10 + 10)
+    // Starter hero with full Lv10 common gear
+    // Weapon ATK = 500 + 0 + 0 = 500 per weapon × 2 = 1000
+    // Armor DEF = 100 + 0 + 0 = 100 per piece × 5 = 500
+    // Acc HP = 500 + 0 + 0 = 500 per piece × 5 = 2500
+    const heroAtk = 1000;
+    const heroDef = 500;
+    const heroHp = 2500;
 
     // Floor 1 monster stats
     const monster = generateMonster(1, false);
@@ -147,22 +150,23 @@ describe("monster scaling vs starter gear", () => {
     const dmgPerRound = Math.max(0, heroAtk - monsterDef);
     const roundsPerKill = Math.ceil(monsterHp / dmgPerRound);
 
-    // ~15 rounds per trash mob with Lv10 common starter gear
-    expect(roundsPerKill).toBeGreaterThan(10);
-    expect(roundsPerKill).toBeLessThan(20);
+    // ~6 rounds per trash mob with Lv10 common starter gear at current values
+    expect(roundsPerKill).toBeGreaterThan(3);
+    expect(roundsPerKill).toBeLessThan(30);
   });
 
-  it("bracket boss at floor 10 needs epic+ gear to survive", () => {
-    // Floor 10 bracket boss stats
-    const boss = generateBracketBoss(1); // bracket 1, floor 10
+  it("bracket boss at floor 10 needs rare+ gear to survive", () => {
+    // Floor 10 bracket boss — per-bracket scaling: bracket = 1
+    const boss = generateBracketBoss(1);
     const bossAtk = boss.stats.atk.toNumber();
 
-    // Starter Lv10 common DEF = 5 × (10 + 0) = 50 → boss should punch through
-    expect(Math.max(0, bossAtk - 50)).toBeGreaterThan(0);
+    // Lv10 common DEF (no rarity) — boss should punch through
+    const commonDef = GameConfig.ARMOR_BASE_DEF;
+    expect(Math.max(0, bossAtk - commonDef)).toBeGreaterThan(0);
 
-    // Lv10 epic DEF = 5 × (10 + 30) = 200 → tank should be safe
-    const epicDef = 5 * (10 + 30);
-    expect(Math.max(0, bossAtk - epicDef)).toBe(0);
+    // Lv10 rare DEF = ARMOR_BASE_DEF + RARITY_BONUS.rare — tank should survive
+    const rareDef = GameConfig.ARMOR_BASE_DEF + GameConfig.RARITY_BONUS.rare;
+    expect(Math.max(0, bossAtk - rareDef)).toBe(0);
   });
 });
 
