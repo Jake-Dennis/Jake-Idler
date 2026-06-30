@@ -2776,7 +2776,8 @@ function renderAdminConfig(config) {
   var weapBase = config.WEAPON_BASE_ATK != null ? config.WEAPON_BASE_ATK : 500;
   var monBaseHp = config.MONSTER_BASE_HP != null ? config.MONSTER_BASE_HP : 1500;
   var monBaseDef = config.MONSTER_BASE_DEF != null ? config.MONSTER_BASE_DEF : 5;
-  var refFloor = 50;
+  var refFloorInput = document.getElementById('ab-ref-floor');
+  var refFloor = refFloorInput ? parseInt(refFloorInput.value) : 50;
   var refRarity = 'rare';
   var refRb = rarityBonus[refRarity] != null ? rarityBonus[refRarity] : 200;
   var refGearLv = Math.ceil(refFloor / 10) * 10;
