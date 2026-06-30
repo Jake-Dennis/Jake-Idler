@@ -2898,6 +2898,10 @@ function renderAdminConfig(config) {
         totalHp += cnt * pieceHp;
       });
       var avgHp = totalPieces > 0 ? Math.round(totalHp / totalPieces) : 0;
+      // Multiply by actual equipment slot counts:
+      // ATK: 2 weapon slots, DEF: 5 armor slots, HP: 5 accessory slots
+      var heroTotalAtk = avgAtk * 2;
+      var heroTotalDef = Math.round(avgDef * 5);
       // Compute hero DEF from gear mix (same formula)
       var armorBase = config.ARMOR_BASE_DEF || 100;
       var totalDef = 0;
@@ -2909,19 +2913,24 @@ function renderAdminConfig(config) {
         totalDef += cnt * pieceDef;
       });
       var avgDef = totalPieces > 0 ? Math.round(totalDef / totalPieces) : 0;
+      // Multiply by actual equipment slot counts:
+      // ATK: 2 weapon slots, DEF: 5 armor slots, HP: 5 accessory slots
+      var heroTotalAtk = avgAtk * 2;
+      var heroTotalDef = Math.round(avgDef * 5);
+      var heroTotalHp = avgHp * 5;
       // Monster stats
       var monAtk = (config.MONSTER_BASE_ATK || 150) * bracketMul;
       var monDef = monBaseDef * bracketMul;
       var monHp = monBaseHp * bracketMul;
       // Rounds per monster
-      var dmgPerHit = Math.max(1, avgAtk - Math.round(monDef));
+      var dmgPerHit = Math.max(1, heroTotalAtk - Math.round(monDef));
       var roundsPerMon = Math.ceil(monHp / dmgPerHit);
       // Damage per round from monsters (3 monsters swarm)
-      var monDmgPerHit = Math.max(1, monAtk - Math.round(avgDef));
+      var monDmgPerHit = Math.max(1, monAtk - Math.round(heroTotalDef));
       var dmgPerRound = Math.min(monDmgPerHit * 3, monDmgPerHit * totalEnemies);
       // Can hero survive? Rounds to kill all vs rounds to die
       var totalRoundsNeeded = roundsPerMon * totalEnemies;
-      var roundsCanSurvive = dmgPerRound > 0 ? Math.ceil(avgHp / dmgPerRound) : 999;
+      var roundsCanSurvive = dmgPerRound > 0 ? Math.ceil(heroTotalHp / dmgPerRound) : 999;
       var survives = roundsCanSurvive > totalRoundsNeeded;
       var perPlayer = Math.max(0, 0);
       var flTrash = (config.TRASH_BASE || 1) + (fl % 2) + perPlayer * (config.TRASH_PER_PLAYER || 1);
@@ -2936,8 +2945,8 @@ function renderAdminConfig(config) {
     tableRows += '<tr id="dc-' + fl + '" style="border-bottom:1px solid #0a080a">' +
       '<td style="padding:3px 6px;font-weight:600">' + fl + '</td>' +
       '<td style="padding:3px 6px;font-size:.7rem" id="dc-gear-' + fl + '">' + mixDisplay.join('<br>') + '</td>' +
-      '<td style="padding:3px 6px;text-align:right" id="dc-atk-' + fl + '">' + avgAtk + '</td>' +
-      '<td style="padding:3px 6px;text-align:right;color:#5a555a" id="dc-hero-hp-' + fl + '">' + avgHp + '</td>' +
+      '<td style="padding:3px 6px;text-align:right" id="dc-atk-' + fl + '">' + heroTotalAtk + '</td>' +
+      '<td style="padding:3px 6px;text-align:right;color:#5a555a" id="dc-hero-hp-' + fl + '">' + heroTotalHp + '</td>' +
       '<td style="padding:3px 6px;text-align:right" id="dc-mon-hp-' + fl + '">' + Math.round(eHp) + '</td>' +
       '<td style="padding:3px 6px;text-align:right;font-weight:700;color:' + resultColor + '" id="dc-result-' + fl + '">' + hits + '</td>' +
       '<td style="padding:3px 6px;text-align:right;color:' + estColor + '" id="dc-time-' + fl + '">~' + estSec + 'm</td>' +
