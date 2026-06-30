@@ -17,9 +17,11 @@ function requireAdmin(req: any, res: any, next: any) {
   next();
 }
 
-// GET /api/admin/balancing — full config
+// GET /api/admin/balancing — full config (always reads fresh from disk)
 router.get("/balancing", requireAuth, requireAdmin, (_req, res) => {
-  const config = balancingService.load();
+  // reset() re-reads balancing.json from disk so the admin panel always
+  // sees the latest file contents, even after a rename or manual edit.
+  const config = balancingService.reset();
   res.json(config);
 });
 
