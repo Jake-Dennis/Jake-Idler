@@ -2843,7 +2843,39 @@ function renderAdminConfig(config) {
   // Estimate display
   html += '<div id="ab-estimate" style="margin-top:8px;font-size:.78rem;color:#5a555a;line-height:1.6">';
   html += '<span id="ab-result-text">Set target time and click Apply Balance</span>';
-  html += '</div></div>';
+  html += '</div>';
+
+  // ── Difficulty curve table ──
+  var floorList = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 20, 30, 40, 50];
+  var tableRows = '';
+  for (var fi = 0; fi < floorList.length; fi++) {
+    var fl = floorList[fi];
+    var expectedRarity = fl <= 2 ? 'common' : fl <= 5 ? 'uncommon' : fl <= 8 ? 'rare' : fl <= 10 ? 'epic' : 'legendary';
+    var erb = rarityBonus[expectedRarity] != null ? rarityBonus[expectedRarity] : 0;
+    var eAtk = fl >= 10 ? Math.round(weapBase + ((fl - 10) / 10) * weapPer + erb) : Math.round(weapBase * 0.5 + erb);
+    var eDef = monBaseDef * Math.pow(fl, fse);
+    var eHp = monBaseHp * Math.pow(fl, fse);
+    var eDmg = Math.max(1, eAtk - eDef);
+    var hits = Math.ceil(eHp / eDmg);
+    var statusColor = hits <= 15 ? '#4ade80' : hits <= 25 ? '#fbbf24' : '#ef4444';
+    var rarityColor = ['#9a949a','#9a949a','#fbbf24','#a78bfa','#f97316'][rarities.indexOf(expectedRarity)];
+    tableRows += '<tr style="border-bottom:1px solid #0a080a">' +
+      '<td style="padding:3px 6px">' + fl + '</td>' +
+      '<td style="padding:3px 6px;color:' + rarityColor + '">' + expectedRarity + '</td>' +
+      '<td style="padding:3px 6px;text-align:right">' + Math.round(eAtk) + '</td>' +
+      '<td style="padding:3px 6px;text-align:right">' + Math.round(eHp) + '</td>' +
+      '<td style="padding:3px 6px;text-align:right;font-weight:700;color:' + statusColor + '">' + hits + '</td>' +
+      '</tr>';
+  }
+  html += '<div style="margin-bottom:16px;border:1px solid #1a1518;border-radius:4px;padding:12px;background:#080608">';
+  html += '<h3 style="font-size:1rem;font-weight:700;color:#6a623a;margin-bottom:8px;letter-spacing:1px">📈 Difficulty Curve</h3>';
+  html += '<p style="font-size:.78rem;color:#5a555a;margin-bottom:8px">Expected gear per floor bracket. Green ≤15 hits, Yellow 16-25, Red ≥26.</p>';
+  html += '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:.75rem">';
+  html += '<tr style="color:#5a555a;border-bottom:1px solid #1a1518"><th style="padding:4px 6px;text-align:left">Floor</th><th style="padding:4px 6px;text-align:left">Gear</th><th style="padding:4px 6px;text-align:right">ATK</th><th style="padding:4px 6px;text-align:right">Mon HP</th><th style="padding:4px 6px;text-align:right">Hits</th></tr>';
+  html += tableRows;
+  html += '</table></div></div>';
+
+  html += '</div>';
 
   // ── Grouped config sections ──
   var groups = [
