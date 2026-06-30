@@ -2800,7 +2800,7 @@ function renderAdminConfig(config) {
   var refRbU = rarityBonus['uncommon'] != null ? rarityBonus['uncommon'] : 0;
   var refRbR = rarityBonus['rare'] != null ? rarityBonus['rare'] : 0;
   var refAtkTotal = refCommon * Math.round(weapBase + refPower * 300 + refRbC) + refUncommon * Math.round(weapBase + refPower * 300 + refRbU) + refRare * Math.round(weapBase + refPower * 300 + refRbR);
-  var heroAtk = Math.round(refAtkTotal / 12);
+  var heroAtk = Math.round(refAtkTotal / 12) * 2;
   var monDef = monBaseDef * bracketScale;
   var effDmg = Math.max(1, heroAtk - monDef);
   var currentHits = Math.ceil(monBaseHp * bracketScale / effDmg);
@@ -3208,7 +3208,7 @@ function updateAbDisplay() {
   var rarityLabel = pos <= 2 ? 'common' : pos <= 5 ? 'uncommon' : 'rare';
   var gearLv = Math.ceil(floor / 10) * 10;
   var bracket = Math.max(1, Math.ceil(floor / 10));
-  var avgAtk = Math.round((c * Math.round(weapBase + ((gearLv - 10) / 10) * 300 + (rb.common||0)) + u * Math.round(weapBase + ((gearLv - 10) / 10) * 300 + (rb.uncommon||0)) + r * Math.round(weapBase + ((gearLv - 10) / 10) * 300 + (rb.rare||0))) / slots);
+  var avgAtk = Math.round((c * Math.round(weapBase + ((gearLv - 10) / 10) * 300 + (rb.common||0)) + u * Math.round(weapBase + ((gearLv - 10) / 10) * 300 + (rb.uncommon||0)) + r * Math.round(weapBase + ((gearLv - 10) / 10) * 300 + (rb.rare||0))) / slots) * 2;
   var monDef = Math.round(monBaseDef * bracket);
   var monHp = Math.round(monBaseHp * bracket);
 
